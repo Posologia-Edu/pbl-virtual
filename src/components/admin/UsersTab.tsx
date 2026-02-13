@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2 } from "lucide-react";
+import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2, EyeOff, Eye } from "lucide-react";
 
 interface Props {
   profiles: any[];
@@ -108,6 +108,16 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Usuário removido do curso!" });
+      onRefresh();
+    }
+  };
+
+  const toggleHidden = async (userId: string, currentlyHidden: boolean) => {
+    const { error } = await supabase.from("profiles").update({ is_hidden: !currentlyHidden }).eq("user_id", userId);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: !currentlyHidden ? "Usuário ocultado!" : "Usuário reativado!" });
       onRefresh();
     }
   };
@@ -219,7 +229,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
                         const primaryRole = p.user_roles?.[0]?.role || "unknown";
                         const isAdmin = p.user_roles?.some((r: any) => r.role === "admin");
                         return (
-                          <div key={p.id} className="group relative rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                          <div key={p.id} className={`group relative rounded-xl border p-4 shadow-sm transition-all hover:shadow-md ${p.is_hidden ? "border-destructive/30 bg-destructive/5 opacity-60" : "border-border bg-card hover:border-primary/30"}`}>
                             <div className="flex items-start gap-3">
                               <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                                 primaryRole === "professor" ? "bg-primary/10 text-primary" :
@@ -229,7 +239,10 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
                                 <RoleIcon role={primaryRole} />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-foreground">{p.full_name}</p>
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {p.full_name}
+                                  {p.is_hidden && <span className="ml-1.5 text-[10px] text-destructive font-semibold">(Oculto)</span>}
+                                </p>
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   {p.user_roles?.map((r: any, i: number) => (
                                     <span key={i} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleColor(r.role)}`}>
@@ -240,6 +253,11 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
                               </div>
                               {!isAdmin && (
                                 <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button variant="ghost" size="icon" className={`h-7 w-7 ${p.is_hidden ? "text-destructive" : "text-muted-foreground hover:text-amber-600"}`}
+                                    title={p.is_hidden ? "Reativar usuário" : "Ocultar usuário"}
+                                    onClick={() => toggleHidden(p.user_id, p.is_hidden)}>
+                                    {p.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                  </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary"
                                     onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditEmail(""); setEditRole(primaryRole); }}>
                                     <Pencil className="h-3.5 w-3.5" />
