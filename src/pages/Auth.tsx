@@ -1,46 +1,104 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { GraduationCap, Mail, Lock, User } from "lucide-react";
+import { GraduationCap, Mail, Lock, User, BookOpen, ShieldCheck } from "lucide-react";
+
+const DEFAULT_STUDENT_PASSWORD = "medpbl-student-2026";
+const DEFAULT_PROFESSOR_PASSWORD = "medpbl-professor-2026";
 
 export default function Auth() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [regName, setRegName] = useState("");
+  // Student fields
+  const [studentName, setStudentName] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Professor fields
+  const [professorName, setProfessorName] = useState("");
+  const [professorEmail, setProfessorEmail] = useState("");
+
+  // Admin fields
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+
+  const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    } else {
-      navigate("/dashboard");
+    try {
+      const { error } = await signIn(studentEmail, DEFAULT_STUDENT_PASSWORD);
+      if (error) {
+        toast({ title: "Acesso negado", description: "Email não encontrado. Verifique com o administrador se você foi cadastrado.", variant: "destructive" });
+      } else {
+        // Find the student's room and redirect
+        const { data: membership } = await supabase
+          .from("group_members")
+          .select("group_id")
+          .eq("student_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+          .limit(1)
+          .single();
+
+        if (membership) {
+          const { data: room } = await supabase
+            .from("rooms")
+            .select("id")
+            .eq("group_id", membership.group_id)
+            .eq("status", "active")
+            .limit(1)
+            .single();
+
+          if (room) {
+            navigate(`/session/${room.id}`);
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          navigate("/dashboard");
+        }
+      }
+    } catch {
+      toast({ title: "Erro", description: "Erro inesperado ao entrar.", variant: "destructive" });
     }
+    setLoading(false);
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleProfessorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signUp(regEmail, regPassword, regName);
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao registrar", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Conta criada!", description: "Verifique seu email para confirmar o cadastro." });
+    try {
+      const { error } = await signIn(professorEmail, DEFAULT_PROFESSOR_PASSWORD);
+      if (error) {
+        toast({ title: "Acesso negado", description: "Email não encontrado. Verifique com o administrador se você foi cadastrado.", variant: "destructive" });
+      } else {
+        navigate("/rooms");
+      }
+    } catch {
+      toast({ title: "Erro", description: "Erro inesperado ao entrar.", variant: "destructive" });
     }
+    setLoading(false);
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await signIn(adminEmail, adminPassword);
+      if (error) {
+        toast({ title: "Erro ao entrar", description: "Credenciais inválidas.", variant: "destructive" });
+      } else {
+        navigate("/admin");
+      }
+    } catch {
+      toast({ title: "Erro", description: "Erro inesperado ao entrar.", variant: "destructive" });
+    }
+    setLoading(false);
   };
 
   return (
@@ -57,64 +115,102 @@ export default function Auth() {
         </div>
 
         <div className="clinical-card-elevated p-6">
-          <Tabs defaultValue="login">
-            <TabsList className="mb-6 grid w-full grid-cols-2">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Registrar</TabsTrigger>
+          <Tabs defaultValue="student">
+            <TabsList className="mb-6 grid w-full grid-cols-3">
+              <TabsTrigger value="student" className="text-xs sm:text-sm">
+                <BookOpen className="mr-1.5 h-3.5 w-3.5 hidden sm:inline-block" />
+                Estudante
+              </TabsTrigger>
+              <TabsTrigger value="professor" className="text-xs sm:text-sm">
+                <User className="mr-1.5 h-3.5 w-3.5 hidden sm:inline-block" />
+                Professor
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="text-xs sm:text-sm">
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 hidden sm:inline-block" />
+                Admin
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
+            {/* Student Tab */}
+            <TabsContent value="student">
+              <form onSubmit={handleStudentLogin} className="space-y-4">
+                <p className="text-xs text-muted-foreground text-center mb-2">
+                  Insira seu nome e email cadastrados pelo administrador.
+                </p>
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="student-name">Nome Completo</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="login-email" type="email" placeholder="seu@email.com" className="pl-10"
-                      value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
+                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="student-name" placeholder="Seu nome completo" className="pl-10"
+                      value={studentName} onChange={(e) => setStudentName(e.target.value)} required />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <Label htmlFor="student-email">Email</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="login-password" type="password" placeholder="••••••••" className="pl-10"
-                      value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="student-email" type="email" placeholder="seu@email.com" className="pl-10"
+                      value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} required />
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Entrando..." : "Entrar"}
+                  {loading ? "Entrando..." : "Entrar na Sala"}
                 </Button>
               </form>
             </TabsContent>
 
-            <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
+            {/* Professor Tab */}
+            <TabsContent value="professor">
+              <form onSubmit={handleProfessorLogin} className="space-y-4">
+                <p className="text-xs text-muted-foreground text-center mb-2">
+                  Insira seu nome e email cadastrados pelo administrador.
+                </p>
                 <div className="space-y-2">
-                  <Label htmlFor="reg-name">Nome Completo</Label>
+                  <Label htmlFor="prof-name">Nome Completo</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="reg-name" placeholder="Dr. João Silva" className="pl-10"
-                      value={regName} onChange={(e) => setRegName(e.target.value)} required />
+                    <Input id="prof-name" placeholder="Prof. João Silva" className="pl-10"
+                      value={professorName} onChange={(e) => setProfessorName(e.target.value)} required />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="reg-email">Email</Label>
+                  <Label htmlFor="prof-email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="reg-email" type="email" placeholder="seu@email.com" className="pl-10"
-                      value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-password">Senha</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="reg-password" type="password" placeholder="Mínimo 6 caracteres" className="pl-10"
-                      value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required minLength={6} />
+                    <Input id="prof-email" type="email" placeholder="professor@email.com" className="pl-10"
+                      value={professorEmail} onChange={(e) => setProfessorEmail(e.target.value)} required />
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Registrando..." : "Criar Conta"}
+                  {loading ? "Entrando..." : "Acessar Sessão"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            {/* Admin Tab */}
+            <TabsContent value="admin">
+              <form onSubmit={handleAdminLogin} className="space-y-4">
+                <p className="text-xs text-muted-foreground text-center mb-2">
+                  Acesso restrito ao administrador do sistema.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-email">Login</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="admin-email" type="email" placeholder="admin@medpbl.com" className="pl-10"
+                      value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password">Senha</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="admin-password" type="password" placeholder="••••••••" className="pl-10"
+                      value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} required />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Entrando..." : "Entrar como Admin"}
                 </Button>
               </form>
             </TabsContent>
