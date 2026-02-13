@@ -7,32 +7,39 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User, Pencil } from "lucide-react";
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, any[]>>({});
 
-  // Create user
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Group creation
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupProfessor, setNewGroupProfessor] = useState("");
 
-  // Expanded group for managing students
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [addStudentUserId, setAddStudentUserId] = useState("");
 
-  // Change password
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Edit user dialog
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Edit group dialog
+  const [editingGroup, setEditingGroup] = useState<any | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editGroupProfessor, setEditGroupProfessor] = useState("");
 
   useEffect(() => {
     fetchAll();
@@ -77,26 +84,52 @@ export default function AdminPanel() {
     setCreating(true);
     try {
       const res = await supabase.functions.invoke("manage-users", {
-        body: {
-          action: "create_user",
-          email: newUserEmail,
-          full_name: newUserName,
-          role: newUserRole,
-        },
+        body: { action: "create_user", email: newUserEmail, full_name: newUserName, role: newUserRole },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
       } else {
         toast({ title: "Usuário criado!", description: `${newUserName} cadastrado como ${newUserRole}.` });
-        setNewUserName("");
-        setNewUserEmail("");
-        setNewUserRole("");
+        setNewUserName(""); setNewUserEmail(""); setNewUserRole("");
         fetchAll();
       }
     } catch {
       toast({ title: "Erro", description: "Falha ao criar usuário.", variant: "destructive" });
     }
     setCreating(false);
+  };
+
+  const updateUser = async () => {
+    if (!editingUser) return;
+    setSaving(true);
+    try {
+      const res = await supabase.functions.invoke("manage-users", {
+        body: { action: "update_user", user_id: editingUser.user_id, full_name: editName, role: editRole },
+      });
+      if (res.error || res.data?.error) {
+        toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
+      } else {
+        toast({ title: "Usuário atualizado!" });
+        setEditingUser(null);
+        fetchAll();
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao atualizar.", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  const deleteUser = async (userId: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir "${name}"? Esta ação não pode ser desfeita.`)) return;
+    const res = await supabase.functions.invoke("manage-users", {
+      body: { action: "delete_user", user_id: userId },
+    });
+    if (res.error || res.data?.error) {
+      toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
+    } else {
+      toast({ title: "Usuário excluído!" });
+      fetchAll();
+    }
   };
 
   const changePassword = async () => {
@@ -117,8 +150,7 @@ export default function AdminPanel() {
         toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
       } else {
         toast({ title: "Senha alterada com sucesso!" });
-        setNewPassword("");
-        setConfirmPassword("");
+        setNewPassword(""); setConfirmPassword("");
       }
     } catch {
       toast({ title: "Erro", description: "Falha ao alterar senha.", variant: "destructive" });
@@ -128,26 +160,50 @@ export default function AdminPanel() {
 
   const createGroup = async () => {
     if (!newGroupName || !newGroupProfessor) return;
-    const { error } = await supabase.from("groups").insert({
-      name: newGroupName,
-      professor_id: newGroupProfessor,
-    });
+    const { error } = await supabase.from("groups").insert({ name: newGroupName, professor_id: newGroupProfessor });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Turma criada!" });
-      setNewGroupName("");
-      setNewGroupProfessor("");
+      setNewGroupName(""); setNewGroupProfessor("");
+      fetchAll();
+    }
+  };
+
+  const updateGroup = async () => {
+    if (!editingGroup) return;
+    setSaving(true);
+    const { error } = await supabase.from("groups").update({
+      name: editGroupName,
+      professor_id: editGroupProfessor,
+    }).eq("id", editingGroup.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Turma atualizada!" });
+      setEditingGroup(null);
+      fetchAll();
+    }
+    setSaving(false);
+  };
+
+  const deleteGroup = async (groupId: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a turma "${name}"? Todos os vínculos de alunos serão removidos.`)) return;
+    // Delete members first, then group
+    await supabase.from("group_members").delete().eq("group_id", groupId);
+    const { error } = await supabase.from("groups").delete().eq("id", groupId);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Turma excluída!" });
+      if (expandedGroupId === groupId) setExpandedGroupId(null);
       fetchAll();
     }
   };
 
   const addStudentToGroup = async (groupId: string) => {
     if (!addStudentUserId) return;
-    const { error } = await supabase.from("group_members").insert({
-      group_id: groupId,
-      student_id: addStudentUserId,
-    });
+    const { error } = await supabase.from("group_members").insert({ group_id: groupId, student_id: addStudentUserId });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
@@ -162,22 +218,12 @@ export default function AdminPanel() {
     if (!error) fetchAll();
   };
 
-  const professors = profiles.filter((p) =>
-    p.user_roles?.some((r: any) => r.role === "professor")
-  );
-  const students = profiles.filter((p) =>
-    p.user_roles?.some((r: any) => r.role === "student")
-  );
+  const professors = profiles.filter((p) => p.user_roles?.some((r: any) => r.role === "professor"));
+  const students = profiles.filter((p) => p.user_roles?.some((r: any) => r.role === "student"));
 
   const roleLabel = (role: string) => {
-    switch (role) {
-      case "admin": return "Administrador";
-      case "professor": return "Professor";
-      case "student": return "Aluno";
-      default: return role;
-    }
+    switch (role) { case "admin": return "Administrador"; case "professor": return "Professor"; case "student": return "Aluno"; default: return role; }
   };
-
   const roleColor = (role: string) => {
     switch (role) {
       case "admin": return "bg-destructive/10 text-destructive border-destructive/20";
@@ -186,13 +232,8 @@ export default function AdminPanel() {
       default: return "bg-muted text-muted-foreground";
     }
   };
-
   const RoleIcon = ({ role }: { role: string }) => {
-    switch (role) {
-      case "professor": return <GraduationCap className="h-4 w-4" />;
-      case "student": return <BookOpen className="h-4 w-4" />;
-      default: return <User className="h-4 w-4" />;
-    }
+    switch (role) { case "professor": return <GraduationCap className="h-4 w-4" />; case "student": return <BookOpen className="h-4 w-4" />; default: return <User className="h-4 w-4" />; }
   };
 
   return (
@@ -205,24 +246,16 @@ export default function AdminPanel() {
 
         <Tabs defaultValue="users" className="animate-fade-in">
           <TabsList className="mb-6">
-            <TabsTrigger value="users">
-              <UserPlus className="mr-2 h-4 w-4" /> Cadastrar
-            </TabsTrigger>
-            <TabsTrigger value="groups">
-              <Users className="mr-2 h-4 w-4" /> Turmas
-            </TabsTrigger>
-            <TabsTrigger value="security">
-              <KeyRound className="mr-2 h-4 w-4" /> Segurança
-            </TabsTrigger>
+            <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> Cadastrar</TabsTrigger>
+            <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> Turmas</TabsTrigger>
+            <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> Segurança</TabsTrigger>
           </TabsList>
 
-          {/* ═══════════════ CADASTRAR TAB ═══════════════ */}
+          {/* ═══════ CADASTRAR ═══════ */}
           <TabsContent value="users">
             <div className="clinical-card p-6 max-w-lg mb-8">
               <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Novo Usuário</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Crie contas de alunos e professores. Eles acessarão usando email e senha padrão na tela de login.
-              </p>
+              <p className="text-xs text-muted-foreground mb-4">Crie contas de alunos e professores.</p>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Nome Completo</Label>
@@ -243,19 +276,16 @@ export default function AdminPanel() {
                   </Select>
                 </div>
                 <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {creating ? "Criando..." : "Cadastrar Usuário"}
+                  <UserPlus className="mr-2 h-4 w-4" />{creating ? "Criando..." : "Cadastrar Usuário"}
                 </Button>
               </div>
             </div>
 
-            {/* ── User cards grid ── */}
+            {/* User cards */}
             <div>
               <h3 className="mb-4 text-base font-semibold text-foreground">
-                Usuários Cadastrados
-                <span className="ml-2 text-xs font-normal text-muted-foreground">({profiles.length})</span>
+                Usuários Cadastrados <span className="ml-2 text-xs font-normal text-muted-foreground">({profiles.length})</span>
               </h3>
-
               {profiles.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
                   <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
@@ -265,11 +295,9 @@ export default function AdminPanel() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {profiles.map((p) => {
                     const primaryRole = p.user_roles?.[0]?.role || "unknown";
+                    const isAdmin = p.user_roles?.some((r: any) => r.role === "admin");
                     return (
-                      <div
-                        key={p.id}
-                        className="group relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30"
-                      >
+                      <div key={p.id} className="group relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <RoleIcon role={primaryRole} />
@@ -278,20 +306,29 @@ export default function AdminPanel() {
                             <p className="truncate text-sm font-semibold text-foreground">{p.full_name}</p>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {p.user_roles?.map((r: any, i: number) => (
-                                <span
-                                  key={i}
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleColor(r.role)}`}
-                                >
+                                <span key={i} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleColor(r.role)}`}>
                                   {roleLabel(r.role)}
                                 </span>
                               ))}
-                              {(!p.user_roles || p.user_roles.length === 0) && (
-                                <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                  Sem papel
-                                </span>
-                              )}
                             </div>
                           </div>
+                          {/* Edit / Delete buttons (hidden for admin) */}
+                          {!isAdmin && (
+                            <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditRole(primaryRole); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteUser(p.user_id, p.full_name)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -301,9 +338,8 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
-          {/* ═══════════════ TURMAS TAB ═══════════════ */}
+          {/* ═══════ TURMAS ═══════ */}
           <TabsContent value="groups">
-            {/* Create group form */}
             <div className="clinical-card p-6 max-w-lg mb-8">
               <h3 className="mb-4 text-base font-semibold text-foreground">Criar Turma</h3>
               <div className="space-y-4">
@@ -328,13 +364,10 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Group list */}
             <div>
               <h3 className="mb-4 text-base font-semibold text-foreground">
-                Turmas Criadas
-                <span className="ml-2 text-xs font-normal text-muted-foreground">({groups.length})</span>
+                Turmas Criadas <span className="ml-2 text-xs font-normal text-muted-foreground">({groups.length})</span>
               </h3>
-
               {groups.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
                   <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
@@ -349,16 +382,12 @@ export default function AdminPanel() {
                     const availableStudents = students.filter((s) => !memberIds.includes(s.user_id));
 
                     return (
-                      <div
-                        key={group.id}
-                        className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden transition-all"
-                      >
-                        {/* Group header — clickable */}
-                        <button
-                          onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
-                          className="flex w-full items-center justify-between p-5 text-left hover:bg-muted/40 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
+                      <div key={group.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden transition-all">
+                        <div className="flex items-center justify-between p-5">
+                          <button
+                            onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+                            className="flex flex-1 items-center gap-3 text-left hover:opacity-80 transition-opacity"
+                          >
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                               <Users className="h-5 w-5" />
                             </div>
@@ -368,31 +397,34 @@ export default function AdminPanel() {
                                 Prof. {(group.profiles as any)?.full_name || "—"} · {members.length} aluno{members.length !== 1 ? "s" : ""}
                               </p>
                             </div>
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => { setEditingGroup(group); setEditGroupName(group.name); setEditGroupProfessor(group.professor_id); }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => deleteGroup(group.id, group.name)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <button onClick={() => setExpandedGroupId(isExpanded ? null : group.id)} className="ml-1 p-1">
+                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                            </button>
                           </div>
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </button>
+                        </div>
 
-                        {/* Expanded panel */}
                         {isExpanded && (
                           <div className="border-t border-border bg-muted/20 p-5">
-                            {/* Add student */}
                             <div className="mb-4 flex gap-2">
-                              <Select
-                                value={addStudentUserId}
-                                onValueChange={setAddStudentUserId}
-                              >
-                                <SelectTrigger className="flex-1">
-                                  <SelectValue placeholder="Selecionar aluno para adicionar..." />
-                                </SelectTrigger>
+                              <Select value={addStudentUserId} onValueChange={setAddStudentUserId}>
+                                <SelectTrigger className="flex-1"><SelectValue placeholder="Selecionar aluno para adicionar..." /></SelectTrigger>
                                 <SelectContent>
                                   {availableStudents.length === 0 ? (
-                                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                                      Todos os alunos já estão nesta turma
-                                    </div>
+                                    <div className="px-3 py-2 text-xs text-muted-foreground">Todos os alunos já estão nesta turma</div>
                                   ) : (
                                     availableStudents.map((s) => (
                                       <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
@@ -400,39 +432,23 @@ export default function AdminPanel() {
                                   )}
                                 </SelectContent>
                               </Select>
-                              <Button
-                                size="sm"
-                                onClick={() => addStudentToGroup(group.id)}
-                                disabled={!addStudentUserId}
-                              >
+                              <Button size="sm" onClick={() => addStudentToGroup(group.id)} disabled={!addStudentUserId}>
                                 <Plus className="h-4 w-4" />
                               </Button>
                             </div>
-
-                            {/* Student list */}
                             {members.length === 0 ? (
-                              <p className="text-center py-4 text-xs text-muted-foreground">
-                                Nenhum aluno nesta turma. Adicione usando o campo acima.
-                              </p>
+                              <p className="text-center py-4 text-xs text-muted-foreground">Nenhum aluno nesta turma.</p>
                             ) : (
                               <div className="space-y-1.5">
                                 {members.map((m: any) => (
-                                  <div
-                                    key={m.id}
-                                    className="flex items-center justify-between rounded-xl bg-card border border-border px-4 py-2.5"
-                                  >
+                                  <div key={m.id} className="flex items-center justify-between rounded-xl bg-card border border-border px-4 py-2.5">
                                     <div className="flex items-center gap-2.5">
                                       <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[hsl(var(--clinical-success))]/10 text-[hsl(var(--clinical-success))]">
                                         <BookOpen className="h-3.5 w-3.5" />
                                       </div>
                                       <span className="text-sm text-foreground">{(m.profiles as any)?.full_name}</span>
                                     </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                      onClick={() => removeStudentFromGroup(m.id)}
-                                    >
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeStudentFromGroup(m.id)}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
@@ -449,7 +465,7 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
-          {/* ═══════════════ SECURITY TAB ═══════════════ */}
+          {/* ═══════ SEGURANÇA ═══════ */}
           <TabsContent value="security">
             <div className="clinical-card p-6 max-w-lg">
               <h3 className="mb-4 text-base font-semibold text-foreground">Alterar Senha do Administrador</h3>
@@ -463,13 +479,75 @@ export default function AdminPanel() {
                   <Input type="password" placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                 </div>
                 <Button onClick={changePassword} disabled={changingPassword || !newPassword || !confirmPassword}>
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  {changingPassword ? "Alterando..." : "Alterar Senha"}
+                  <KeyRound className="mr-2 h-4 w-4" />{changingPassword ? "Alterando..." : "Alterar Senha"}
                 </Button>
               </div>
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* ═══════ EDIT USER DIALOG ═══════ */}
+        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome Completo</Label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Papel</Label>
+                <Select value={editRole} onValueChange={setEditRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="professor">Professor</SelectItem>
+                    <SelectItem value="student">Aluno</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUser(null)}>Cancelar</Button>
+              <Button onClick={updateUser} disabled={saving || !editName || !editRole}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══════ EDIT GROUP DIALOG ═══════ */}
+        <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Turma</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome da Turma</Label>
+                <Input value={editGroupName} onChange={(e) => setEditGroupName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Professor Facilitador</Label>
+                <Select value={editGroupProfessor} onValueChange={setEditGroupProfessor}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {professors.map((p) => (
+                      <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingGroup(null)}>Cancelar</Button>
+              <Button onClick={updateGroup} disabled={saving || !editGroupName || !editGroupProfessor}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

@@ -140,6 +140,72 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ACTION: update_user
+    if (action === "update_user") {
+      const { user_id, full_name, role } = body;
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: "user_id required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (full_name) {
+        await adminClient.from("profiles").update({ full_name }).eq("user_id", user_id);
+        await adminClient.auth.admin.updateUserById(user_id, {
+          user_metadata: { full_name },
+        });
+      }
+
+      if (role) {
+        // Remove old roles and set new one
+        await adminClient.from("user_roles").delete().eq("user_id", user_id);
+        await adminClient.from("user_roles").insert({ user_id, role });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ACTION: delete_user
+    if (action === "delete_user") {
+      const { user_id } = body;
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: "user_id required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Prevent deleting yourself
+      if (user_id === caller.id) {
+        return new Response(JSON.stringify({ error: "Cannot delete your own account" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Delete group memberships, roles, profile, then auth user
+      await adminClient.from("group_members").delete().eq("student_id", user_id);
+      await adminClient.from("user_roles").delete().eq("user_id", user_id);
+      await adminClient.from("profiles").delete().eq("user_id", user_id);
+      const { error } = await adminClient.auth.admin.deleteUser(user_id);
+
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ACTION: change_password
     if (action === "change_password") {
       const { new_password } = body;
