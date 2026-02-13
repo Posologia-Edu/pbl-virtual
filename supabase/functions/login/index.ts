@@ -49,8 +49,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify the user actually has the claimed role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Verify the user actually has the claimed role
     const { data: roleCheck } = await adminClient
       .from("user_roles")
       .select("role")
@@ -60,6 +61,20 @@ Deno.serve(async (req) => {
 
     if (!roleCheck) {
       return new Response(JSON.stringify({ error: "Usuário não possui o papel solicitado." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check if user is effectively hidden (directly or via hierarchy)
+    const { data: hiddenCheck } = await adminClient.rpc("is_user_effectively_hidden", {
+      _user_id: data.user.id,
+    });
+
+    if (hiddenCheck === true) {
+      // Sign out the session we just created
+      await anonClient.auth.signOut();
+      return new Response(JSON.stringify({ error: "Sua conta está temporariamente desativada. Entre em contato com o administrador." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
