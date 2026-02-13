@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen } from "lucide-react";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionsTab from "@/components/admin/InstitutionsTab";
+import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
 import CoursesTab from "@/components/admin/CoursesTab";
 import UsersTab from "@/components/admin/UsersTab";
 import GroupsTab from "@/components/admin/GroupsTab";
@@ -93,7 +94,7 @@ export default function AdminPanel() {
           </TabsList>
 
           <TabsContent value="institutions">
-            <InstitutionsTab institutions={institutions} onRefresh={fetchAll} />
+            <InstitutionExplorer />
           </TabsContent>
 
           <TabsContent value="courses">
