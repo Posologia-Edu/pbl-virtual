@@ -41,7 +41,7 @@ export default function EvaluationPanel({ roomId }: Props) {
     // Get students
     const { data: members } = await supabase
       .from("group_members")
-      .select("student_id, profiles!group_members_student_id_fkey(full_name)")
+      .select("student_id, profiles!group_members_student_id_profiles_fkey(full_name)")
       .eq("group_id", room.group_id);
     if (members) setStudents(members);
 
