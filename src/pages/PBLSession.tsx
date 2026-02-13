@@ -185,7 +185,7 @@ export default function PBLSession() {
   const openingSteps = PBL_STEPS.filter((s) => s.block === "Abertura");
   const closingSteps = PBL_STEPS.filter((s) => s.block === "Fechamento");
 
-  const canViewScenario = isProfessor || room?.is_scenario_released;
+  const canViewScenario = isProfessor ? !!room?.is_scenario_visible_to_professor : !!room?.is_scenario_released;
   const currentStepInfo = PBL_STEPS.find((s) => s.id === activeStep);
   const isCoordinator = user?.id === room?.coordinator_id;
 

@@ -217,6 +217,7 @@ export type Database = {
           group_id: string
           id: string
           is_scenario_released: boolean | null
+          is_scenario_visible_to_professor: boolean
           name: string
           professor_id: string
           reporter_id: string | null
@@ -232,6 +233,7 @@ export type Database = {
           group_id: string
           id?: string
           is_scenario_released?: boolean | null
+          is_scenario_visible_to_professor?: boolean
           name: string
           professor_id: string
           reporter_id?: string | null
@@ -247,6 +249,7 @@ export type Database = {
           group_id?: string
           id?: string
           is_scenario_released?: boolean | null
+          is_scenario_visible_to_professor?: boolean
           name?: string
           professor_id?: string
           reporter_id?: string | null
