@@ -94,7 +94,7 @@ export default function AdminPanel() {
           </TabsList>
 
           <TabsContent value="institutions">
-            <InstitutionExplorer />
+            <InstitutionExplorer onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="courses">
