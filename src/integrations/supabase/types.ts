@@ -14,16 +14,310 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evaluation_criteria: {
+        Row: {
+          id: string
+          label: string
+          phase: string
+          room_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          id?: string
+          label: string
+          phase: string
+          room_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          id?: string
+          label?: string
+          phase?: string
+          room_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_criteria_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evaluations: {
+        Row: {
+          archived: boolean | null
+          created_at: string | null
+          criterion_id: string
+          grade: string | null
+          id: string
+          professor_id: string
+          room_id: string
+          student_id: string
+        }
+        Insert: {
+          archived?: boolean | null
+          created_at?: string | null
+          criterion_id: string
+          grade?: string | null
+          id?: string
+          professor_id: string
+          room_id: string
+          student_id: string
+        }
+        Update: {
+          archived?: boolean | null
+          created_at?: string | null
+          criterion_id?: string
+          grade?: string | null
+          id?: string
+          professor_id?: string
+          room_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          professor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          professor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          professor_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          coordinator_id: string | null
+          created_at: string | null
+          current_step: number | null
+          group_id: string
+          id: string
+          is_scenario_released: boolean | null
+          name: string
+          professor_id: string
+          reporter_id: string | null
+          scenario: string | null
+          status: string | null
+          tutor_glossary: Json | null
+          tutor_questions: Json | null
+        }
+        Insert: {
+          coordinator_id?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          group_id: string
+          id?: string
+          is_scenario_released?: boolean | null
+          name: string
+          professor_id: string
+          reporter_id?: string | null
+          scenario?: string | null
+          status?: string | null
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+        }
+        Update: {
+          coordinator_id?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          group_id?: string
+          id?: string
+          is_scenario_released?: boolean | null
+          name?: string
+          professor_id?: string
+          reporter_id?: string | null
+          scenario?: string | null
+          status?: string | null
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rooms_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      step_items: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string | null
+          id: string
+          room_id: string
+          step: number
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          room_id: string
+          step: number
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          room_id?: string
+          step?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "step_items_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "professor" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +444,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "professor", "student"],
+    },
   },
 } as const
