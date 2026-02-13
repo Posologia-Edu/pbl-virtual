@@ -9,6 +9,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { GraduationCap, Mail, Lock, User, BookOpen, ShieldCheck } from "lucide-react";
 
+function ForgotPasswordLink({ email, label }: { email: string; label?: string }) {
+  const [sending, setSending] = useState(false);
+
+  const handleForgot = async () => {
+    if (!email) {
+      toast({ title: "Informe seu email", description: "Preencha o campo de email antes de solicitar a recuperação.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/auth/reset-password",
+    });
+    if (error) {
+      toast({ title: "Erro", description: "Não foi possível enviar o email. Verifique se o email está correto.", variant: "destructive" });
+    } else {
+      toast({ title: "Email enviado", description: "Verifique sua caixa de entrada para redefinir sua senha." });
+    }
+    setSending(false);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleForgot}
+      disabled={sending}
+      className="text-xs text-primary hover:underline disabled:opacity-50"
+    >
+      {sending ? "Enviando..." : label || "Esqueceu sua senha?"}
+    </button>
+  );
+}
+
 export default function Auth() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -167,6 +199,9 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar na Sala"}
                 </Button>
+                <div className="text-center pt-1">
+                  <ForgotPasswordLink email={studentEmail} label="Esqueceu seu acesso? Recupere por email" />
+                </div>
               </form>
             </TabsContent>
 
@@ -195,6 +230,9 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Acessar Sessão"}
                 </Button>
+                <div className="text-center pt-1">
+                  <ForgotPasswordLink email={professorEmail} label="Esqueceu seu acesso? Recupere por email" />
+                </div>
               </form>
             </TabsContent>
 
@@ -223,6 +261,9 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar como Admin"}
                 </Button>
+                <div className="text-center pt-1">
+                  <ForgotPasswordLink email={adminEmail} />
+                </div>
               </form>
             </TabsContent>
           </Tabs>
