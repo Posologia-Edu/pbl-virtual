@@ -97,27 +97,61 @@ export default function CoursesTab({ courses, institutions, onRefresh }: Props) 
           <p className="text-sm text-muted-foreground">Nenhum curso cadastrado ainda</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => (
-            <div key={c.id} className="group relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{c.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{getInstitutionName(c.institution_id)}</p>
+        <div className="space-y-6">
+          {institutions
+            .filter((inst) => courses.some((c) => c.institution_id === inst.id))
+            .map((inst) => (
+              <div key={inst.id}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <h4 className="text-sm font-semibold text-foreground">{inst.name}</h4>
+                  <span className="text-xs text-muted-foreground">
+                    ({courses.filter((c) => c.institution_id === inst.id).length})
+                  </span>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                    onClick={() => { setEditing(c); setEditName(c.name); setEditInstitutionId(c.institution_id); }}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => remove(c.id, c.name)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {courses
+                    .filter((c) => c.institution_id === inst.id)
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        className="group relative rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <BookOpen className="h-4 w-4" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground truncate pt-1">{c.name}</p>
+                          </div>
+                          <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              onClick={() => {
+                                setEditing(c);
+                                setEditName(c.name);
+                                setEditInstitutionId(c.institution_id);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => remove(c.id, c.name)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 
