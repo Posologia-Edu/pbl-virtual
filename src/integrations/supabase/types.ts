@@ -170,22 +170,32 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          module_id: string | null
           name: string
           professor_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          module_id?: string | null
           name: string
           professor_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          module_id?: string | null
           name?: string
           professor_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "groups_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "groups_professor_id_profiles_fkey"
             columns: ["professor_id"]
@@ -194,6 +204,24 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      modules: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -277,6 +305,47 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenarios: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          module_id: string | null
+          title: string
+          tutor_glossary: Json | null
+          tutor_questions: Json | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          module_id?: string | null
+          title: string
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          module_id?: string | null
+          title?: string
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarios_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
             referencedColumns: ["id"]
           },
         ]

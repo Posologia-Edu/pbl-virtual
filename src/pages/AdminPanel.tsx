@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User, Pencil, FileText, Sparkles, Send, Eye, Loader2 } from "lucide-react";
+import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User, Pencil, FileText, Sparkles, Send, Eye, Loader2, FolderOpen } from "lucide-react";
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -23,6 +23,7 @@ export default function AdminPanel() {
 
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupProfessor, setNewGroupProfessor] = useState("");
+  const [newGroupModule, setNewGroupModule] = useState("");
 
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [addStudentUserId, setAddStudentUserId] = useState("");
@@ -42,27 +43,46 @@ export default function AdminPanel() {
   const [editingGroup, setEditingGroup] = useState<any | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [editGroupProfessor, setEditGroupProfessor] = useState("");
+  const [editGroupModule, setEditGroupModule] = useState("");
 
-  // Scenario management
-  const [rooms, setRooms] = useState<any[]>([]);
+  // Modules
+  const [modules, setModules] = useState<any[]>([]);
+  const [newModuleName, setNewModuleName] = useState("");
+  const [editingModule, setEditingModule] = useState<any | null>(null);
+  const [editModuleName, setEditModuleName] = useState("");
+
+  // Scenarios library
+  const [scenarios, setScenarios] = useState<any[]>([]);
+  const [scenarioTitle, setScenarioTitle] = useState("");
   const [scenarioText, setScenarioText] = useState("");
+  const [scenarioModuleId, setScenarioModuleId] = useState("");
   const [scenarioMode, setScenarioMode] = useState<"manual" | "ai">("manual");
   const [aiObjectives, setAiObjectives] = useState("");
   const [generatingScenario, setGeneratingScenario] = useState(false);
   const [aiGlossary, setAiGlossary] = useState<any[]>([]);
   const [aiQuestions, setAiQuestions] = useState<string[]>([]);
+  const [editingScenario, setEditingScenario] = useState<any | null>(null);
+  const [editScenarioTitle, setEditScenarioTitle] = useState("");
+  const [editScenarioContent, setEditScenarioContent] = useState("");
+  const [editScenarioModuleId, setEditScenarioModuleId] = useState("");
+
+  // Release scenario
+  const [rooms, setRooms] = useState<any[]>([]);
   const [releasingScenario, setReleasingScenario] = useState(false);
+  const [releaseScenarioId, setReleaseScenarioId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAll();
   }, []);
 
   const fetchAll = async () => {
-    const [profilesRes, rolesRes, groupsRes, roomsRes] = await Promise.all([
+    const [profilesRes, rolesRes, groupsRes, roomsRes, modulesRes, scenariosRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("user_roles").select("*"),
-      supabase.from("groups").select("*, profiles(full_name)"),
+      supabase.from("groups").select("*, profiles!groups_professor_id_profiles_fkey(full_name)"),
       supabase.from("rooms").select("*"),
+      supabase.from("modules").select("*").order("created_at", { ascending: false }),
+      supabase.from("scenarios").select("*, modules(name)").order("created_at", { ascending: false }),
     ]);
     if (profilesRes.data) {
       const rolesMap: Record<string, any[]> = {};
@@ -91,8 +111,11 @@ export default function AdminPanel() {
     }
 
     if (roomsRes.data) setRooms(roomsRes.data);
+    if (modulesRes.data) setModules(modulesRes.data);
+    if (scenariosRes.data) setScenarios(scenariosRes.data);
   };
 
+  // ── User CRUD ──
   const createUser = async () => {
     if (!newUserEmail || !newUserRole || !newUserName) return;
     setCreating(true);
@@ -172,14 +195,19 @@ export default function AdminPanel() {
     setChangingPassword(false);
   };
 
+  // ── Group CRUD ──
   const createGroup = async () => {
     if (!newGroupName || !newGroupProfessor) return;
-    const { error } = await supabase.from("groups").insert({ name: newGroupName, professor_id: newGroupProfessor });
+    const { error } = await supabase.from("groups").insert({
+      name: newGroupName,
+      professor_id: newGroupProfessor,
+      module_id: newGroupModule || null,
+    });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Turma criada!" });
-      setNewGroupName(""); setNewGroupProfessor("");
+      setNewGroupName(""); setNewGroupProfessor(""); setNewGroupModule("");
       fetchAll();
     }
   };
@@ -190,6 +218,7 @@ export default function AdminPanel() {
     const { error } = await supabase.from("groups").update({
       name: editGroupName,
       professor_id: editGroupProfessor,
+      module_id: editGroupModule || null,
     }).eq("id", editingGroup.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -203,7 +232,6 @@ export default function AdminPanel() {
 
   const deleteGroup = async (groupId: string, name: string) => {
     if (!confirm(`Tem certeza que deseja excluir a turma "${name}"? Todos os vínculos de alunos serão removidos.`)) return;
-    // Delete members first, then group
     await supabase.from("group_members").delete().eq("group_id", groupId);
     const { error } = await supabase.from("groups").delete().eq("id", groupId);
     if (error) {
@@ -232,6 +260,116 @@ export default function AdminPanel() {
     if (!error) fetchAll();
   };
 
+  // ── Module CRUD ──
+  const createModule = async () => {
+    if (!newModuleName.trim()) return;
+    const { error } = await supabase.from("modules").insert({ name: newModuleName.trim() });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Módulo criado!" });
+      setNewModuleName("");
+      fetchAll();
+    }
+  };
+
+  const updateModule = async () => {
+    if (!editingModule) return;
+    setSaving(true);
+    const { error } = await supabase.from("modules").update({ name: editModuleName.trim() }).eq("id", editingModule.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Módulo atualizado!" });
+      setEditingModule(null);
+      fetchAll();
+    }
+    setSaving(false);
+  };
+
+  const deleteModule = async (id: string, name: string) => {
+    if (!confirm(`Excluir módulo "${name}"?`)) return;
+    const { error } = await supabase.from("modules").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Módulo excluído!" });
+      fetchAll();
+    }
+  };
+
+  // ── Scenario CRUD ──
+  const saveScenario = async () => {
+    if (!scenarioTitle.trim() || !scenarioText.trim()) return;
+    const { error } = await supabase.from("scenarios").insert({
+      title: scenarioTitle.trim(),
+      content: scenarioText.trim(),
+      module_id: scenarioModuleId || null,
+      tutor_glossary: aiGlossary.length > 0 ? aiGlossary : null,
+      tutor_questions: aiQuestions.length > 0 ? aiQuestions : null,
+    });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Cenário salvo na biblioteca!" });
+      setScenarioTitle(""); setScenarioText(""); setScenarioModuleId("");
+      setAiGlossary([]); setAiQuestions([]); setAiObjectives("");
+      fetchAll();
+    }
+  };
+
+  const updateScenario = async () => {
+    if (!editingScenario) return;
+    setSaving(true);
+    const { error } = await supabase.from("scenarios").update({
+      title: editScenarioTitle.trim(),
+      content: editScenarioContent.trim(),
+      module_id: editScenarioModuleId || null,
+    }).eq("id", editingScenario.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Cenário atualizado!" });
+      setEditingScenario(null);
+      fetchAll();
+    }
+    setSaving(false);
+  };
+
+  const deleteScenario = async (id: string, title: string) => {
+    if (!confirm(`Excluir cenário "${title}"?`)) return;
+    const { error } = await supabase.from("scenarios").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Cenário excluído!" });
+      fetchAll();
+    }
+  };
+
+  const releaseScenarioToRooms = async (scenario: any) => {
+    setReleasingScenario(true);
+    try {
+      const activeRooms = rooms.filter(r => r.status === "active");
+      const updates = activeRooms.map((r) =>
+        supabase.from("rooms").update({
+          scenario: scenario.content,
+          is_scenario_visible_to_professor: true,
+          is_scenario_released: false,
+          tutor_glossary: scenario.tutor_glossary || null,
+          tutor_questions: scenario.tutor_questions || null,
+        }).eq("id", r.id)
+      );
+      await Promise.all(updates);
+      toast({ title: "Cenário liberado!", description: `Enviado para ${activeRooms.length} sala(s). Professores podem visualizar.` });
+      setReleaseScenarioId(null);
+      fetchAll();
+    } catch {
+      toast({ title: "Erro", description: "Falha ao liberar cenário.", variant: "destructive" });
+    }
+    setReleasingScenario(false);
+  };
+
   const professors = profiles.filter((p) => p.user_roles?.some((r: any) => r.role === "professor"));
   const students = profiles.filter((p) => p.user_roles?.some((r: any) => r.role === "student"));
 
@@ -250,18 +388,24 @@ export default function AdminPanel() {
     switch (role) { case "professor": return <GraduationCap className="h-4 w-4" />; case "student": return <BookOpen className="h-4 w-4" />; default: return <User className="h-4 w-4" />; }
   };
 
+  const getModuleName = (moduleId: string | null) => {
+    if (!moduleId) return null;
+    return modules.find(m => m.id === moduleId)?.name || null;
+  };
+
   return (
     <Layout>
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="mb-8 animate-fade-in">
           <h1 className="text-2xl font-bold text-foreground">Administração</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gerencie usuários, papéis e turmas</p>
+          <p className="mt-1 text-sm text-muted-foreground">Gerencie usuários, papéis, turmas, módulos e cenários</p>
         </div>
 
         <Tabs defaultValue="users" className="animate-fade-in">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> Cadastrar</TabsTrigger>
             <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> Turmas</TabsTrigger>
+            <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> Módulos</TabsTrigger>
             <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> Cenários</TabsTrigger>
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> Segurança</TabsTrigger>
           </TabsList>
@@ -327,7 +471,6 @@ export default function AdminPanel() {
                               ))}
                             </div>
                           </div>
-                          {/* Edit / Delete buttons (hidden for admin) */}
                           {!isAdmin && (
                             <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button
@@ -373,6 +516,17 @@ export default function AdminPanel() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Módulo</Label>
+                  <Select value={newGroupModule} onValueChange={setNewGroupModule}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
+                    <SelectContent>
+                      {modules.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button onClick={createGroup} disabled={!newGroupName || !newGroupProfessor}>
                   <Plus className="mr-2 h-4 w-4" /> Criar Turma
                 </Button>
@@ -395,6 +549,7 @@ export default function AdminPanel() {
                     const members = groupMembers[group.id] || [];
                     const memberIds = members.map((m: any) => m.student_id);
                     const availableStudents = students.filter((s) => !memberIds.includes(s.user_id));
+                    const moduleName = getModuleName(group.module_id);
 
                     return (
                       <div key={group.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden transition-all">
@@ -410,13 +565,14 @@ export default function AdminPanel() {
                               <p className="text-sm font-semibold text-foreground">{group.name}</p>
                               <p className="text-xs text-muted-foreground">
                                 Prof. {(group.profiles as any)?.full_name || "—"} · {members.length} aluno{members.length !== 1 ? "s" : ""}
+                                {moduleName && <> · <span className="text-primary">{moduleName}</span></>}
                               </p>
                             </div>
                           </button>
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                              onClick={() => { setEditingGroup(group); setEditGroupName(group.name); setEditGroupProfessor(group.professor_id); }}
+                              onClick={() => { setEditingGroup(group); setEditGroupName(group.name); setEditGroupProfessor(group.professor_id); setEditGroupModule(group.module_id || ""); }}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -480,31 +636,93 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
+          {/* ═══════ MÓDULOS ═══════ */}
+          <TabsContent value="modules">
+            <div className="clinical-card p-6 max-w-lg mb-8">
+              <h3 className="mb-4 text-base font-semibold text-foreground">Criar Módulo</h3>
+              <div className="flex gap-2">
+                <Input placeholder="Ex: Cardiologia" value={newModuleName} onChange={(e) => setNewModuleName(e.target.value)} />
+                <Button onClick={createModule} disabled={!newModuleName.trim()}>
+                  <Plus className="mr-2 h-4 w-4" /> Criar
+                </Button>
+              </div>
+            </div>
+
+            <h3 className="mb-4 text-base font-semibold text-foreground">
+              Módulos Cadastrados <span className="ml-2 text-xs font-normal text-muted-foreground">({modules.length})</span>
+            </h3>
+            {modules.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
+                <FolderOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">Nenhum módulo criado ainda</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {modules.map((m) => {
+                  const scenarioCount = scenarios.filter(s => s.module_id === m.id).length;
+                  const groupCount = groups.filter(g => g.module_id === m.id).length;
+                  return (
+                    <div key={m.id} className="group relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {scenarioCount} cenário{scenarioCount !== 1 ? "s" : ""} · {groupCount} turma{groupCount !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => { setEditingModule(m); setEditModuleName(m.name); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteModule(m.id, m.name)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
           {/* ═══════ CENÁRIOS ═══════ */}
           <TabsContent value="scenarios">
             <div className="max-w-3xl space-y-6">
-              {/* Mode selector */}
+              {/* Create scenario */}
               <div className="clinical-card p-6">
                 <h3 className="mb-4 text-base font-semibold text-foreground">Criar Cenário Clínico</h3>
                 <div className="flex gap-2 mb-4">
-                  <Button
-                    variant={scenarioMode === "manual" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setScenarioMode("manual")}
-                  >
+                  <Button variant={scenarioMode === "manual" ? "default" : "outline"} size="sm" onClick={() => setScenarioMode("manual")}>
                     <Pencil className="mr-2 h-4 w-4" /> Inserir Manualmente
                   </Button>
-                  <Button
-                    variant={scenarioMode === "ai" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setScenarioMode("ai")}
-                  >
+                  <Button variant={scenarioMode === "ai" ? "default" : "outline"} size="sm" onClick={() => setScenarioMode("ai")}>
                     <Sparkles className="mr-2 h-4 w-4" /> Gerar com IA
                   </Button>
                 </div>
 
-                {scenarioMode === "manual" ? (
-                  <div className="space-y-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Título do Cenário</Label>
+                      <Input placeholder="Ex: Caso Hipertensão Arterial" value={scenarioTitle} onChange={(e) => setScenarioTitle(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Módulo</Label>
+                      <Select value={scenarioModuleId} onValueChange={setScenarioModuleId}>
+                        <SelectTrigger><SelectValue placeholder="Associar a um módulo (opcional)" /></SelectTrigger>
+                        <SelectContent>
+                          {modules.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {scenarioMode === "manual" ? (
                     <div className="space-y-2">
                       <Label>Texto do Problema / Caso Clínico</Label>
                       <Textarea
@@ -514,144 +732,133 @@ export default function AdminPanel() {
                         className="min-h-[200px]"
                       />
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Objetivos de Aprendizagem</Label>
-                      <Textarea
-                        placeholder="Liste os objetivos de aprendizagem. Ex:&#10;- Compreender a fisiopatologia da hipertensão arterial&#10;- Identificar fatores de risco cardiovascular&#10;- Conhecer as classes de anti-hipertensivos"
-                        value={aiObjectives}
-                        onChange={(e) => setAiObjectives(e.target.value)}
-                        className="min-h-[120px]"
-                      />
-                    </div>
-                    <Button
-                      onClick={async () => {
-                        if (!aiObjectives.trim()) return;
-                        setGeneratingScenario(true);
-                        try {
-                          const { data, error } = await supabase.functions.invoke("generate-scenario", {
-                            body: { objectives: aiObjectives },
-                          });
-                          if (error || data?.error) {
-                            toast({ title: "Erro", description: data?.error || error?.message, variant: "destructive" });
-                          } else {
-                            setScenarioText(data.scenario || "");
-                            setAiGlossary(data.glossary || []);
-                            setAiQuestions(data.questions || []);
-                            toast({ title: "Cenário gerado!", description: "Revise o texto antes de liberar." });
-                          }
-                        } catch {
-                          toast({ title: "Erro", description: "Falha ao gerar cenário.", variant: "destructive" });
-                        }
-                        setGeneratingScenario(false);
-                      }}
-                      disabled={generatingScenario || !aiObjectives.trim()}
-                    >
-                      {generatingScenario ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando...</>
-                      ) : (
-                        <><Sparkles className="mr-2 h-4 w-4" /> Gerar Cenário</>
-                      )}
-                    </Button>
-
-                    {scenarioText && (
+                  ) : (
+                    <>
                       <div className="space-y-2">
-                        <Label>Cenário Gerado (editável)</Label>
+                        <Label>Objetivos de Aprendizagem</Label>
                         <Textarea
-                          value={scenarioText}
-                          onChange={(e) => setScenarioText(e.target.value)}
-                          className="min-h-[200px]"
+                          placeholder="Liste os objetivos de aprendizagem. Ex:&#10;- Compreender a fisiopatologia da hipertensão arterial&#10;- Identificar fatores de risco cardiovascular"
+                          value={aiObjectives}
+                          onChange={(e) => setAiObjectives(e.target.value)}
+                          className="min-h-[120px]"
                         />
                       </div>
-                    )}
-                  </div>
-                )}
+                      <Button
+                        onClick={async () => {
+                          if (!aiObjectives.trim()) return;
+                          setGeneratingScenario(true);
+                          try {
+                            const { data, error } = await supabase.functions.invoke("generate-scenario", {
+                              body: { objectives: aiObjectives },
+                            });
+                            if (error || data?.error) {
+                              toast({ title: "Erro", description: data?.error || error?.message, variant: "destructive" });
+                            } else {
+                              setScenarioText(data.scenario || "");
+                              setAiGlossary(data.glossary || []);
+                              setAiQuestions(data.questions || []);
+                              toast({ title: "Cenário gerado!", description: "Revise o texto antes de salvar." });
+                            }
+                          } catch {
+                            toast({ title: "Erro", description: "Falha ao gerar cenário.", variant: "destructive" });
+                          }
+                          setGeneratingScenario(false);
+                        }}
+                        disabled={generatingScenario || !aiObjectives.trim()}
+                      >
+                        {generatingScenario ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando...</>
+                        ) : (
+                          <><Sparkles className="mr-2 h-4 w-4" /> Gerar Cenário</>
+                        )}
+                      </Button>
+                      {scenarioText && (
+                        <div className="space-y-2">
+                          <Label>Cenário Gerado (editável)</Label>
+                          <Textarea
+                            value={scenarioText}
+                            onChange={(e) => setScenarioText(e.target.value)}
+                            className="min-h-[200px]"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* AI extras preview */}
+                  {aiGlossary.length > 0 && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <h4 className="mb-2 text-sm font-semibold text-primary">📖 Glossário do Tutor</h4>
+                      <div className="space-y-1">
+                        {aiGlossary.map((g: any, i: number) => (
+                          <p key={i} className="text-xs text-foreground/70"><strong>{g.term}:</strong> {g.definition}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {aiQuestions.length > 0 && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <h4 className="mb-2 text-sm font-semibold text-primary">❓ Perguntas Socráticas</h4>
+                      <ol className="list-decimal list-inside space-y-1">
+                        {aiQuestions.map((q: string, i: number) => (
+                          <li key={i} className="text-xs text-foreground/70">{q}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  <Button onClick={saveScenario} disabled={!scenarioTitle.trim() || !scenarioText.trim()}>
+                    <Plus className="mr-2 h-4 w-4" /> Salvar Cenário na Biblioteca
+                  </Button>
+                </div>
               </div>
 
-              {/* AI extras preview */}
-              {aiGlossary.length > 0 && (
-                <div className="clinical-card border-primary/20 p-5">
-                  <h4 className="mb-2 text-sm font-semibold text-primary">📖 Glossário do Tutor (visível apenas para professores)</h4>
-                  <div className="space-y-1">
-                    {aiGlossary.map((g: any, i: number) => (
-                      <p key={i} className="text-xs text-foreground/70">
-                        <strong>{g.term}:</strong> {g.definition}
-                      </p>
-                    ))}
+              {/* Scenario library */}
+              <div>
+                <h3 className="mb-4 text-base font-semibold text-foreground">
+                  Biblioteca de Cenários <span className="ml-2 text-xs font-normal text-muted-foreground">({scenarios.length})</span>
+                </h3>
+                {scenarios.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
+                    <FileText className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Nenhum cenário salvo ainda</p>
                   </div>
-                </div>
-              )}
-              {aiQuestions.length > 0 && (
-                <div className="clinical-card border-primary/20 p-5">
-                  <h4 className="mb-2 text-sm font-semibold text-primary">❓ Perguntas Socráticas (visível apenas para professores)</h4>
-                  <ol className="list-decimal list-inside space-y-1">
-                    {aiQuestions.map((q: string, i: number) => (
-                      <li key={i} className="text-xs text-foreground/70">{q}</li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              {/* Release to all rooms */}
-              {scenarioText.trim() && (
-                <div className="clinical-card p-6">
-                  <h3 className="mb-3 text-base font-semibold text-foreground">Liberar Cenário para Turmas</h3>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    O cenário será enviado para todas as salas ativas. Apenas os <strong>professores</strong> poderão visualizá-lo inicialmente. Cada professor decidirá quando liberar para seus alunos.
-                  </p>
-
-                  {/* Room status */}
-                  <div className="mb-4 space-y-2">
-                    {rooms.filter(r => r.status === "active").map((r) => (
-                      <div key={r.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2">
-                        <span className="text-sm text-foreground">{r.name}</span>
-                        <div className="flex items-center gap-2">
-                          {r.scenario ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                              {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
-                            </span>
-                          ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
-                          )}
+                ) : (
+                  <div className="space-y-3">
+                    {scenarios.map((s) => (
+                      <div key={s.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {(s.modules as any)?.name ? <span className="text-primary">{(s.modules as any).name}</span> : "Sem módulo"}
+                              {" · "}{s.content.length} caracteres
+                              {s.tutor_glossary && " · Com glossário"}
+                              {s.tutor_questions && " · Com perguntas"}
+                            </p>
+                            <p className="text-xs text-muted-foreground/70 mt-2 line-clamp-2">{s.content}</p>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              title="Liberar para turmas"
+                              onClick={() => setReleaseScenarioId(s.id)}>
+                              <Send className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => { setEditingScenario(s); setEditScenarioTitle(s.title); setEditScenarioContent(s.content); setEditScenarioModuleId(s.module_id || ""); }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => deleteScenario(s.id, s.title)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  <Button
-                    onClick={async () => {
-                      setReleasingScenario(true);
-                      try {
-                        const activeRooms = rooms.filter(r => r.status === "active");
-                        const updates = activeRooms.map((r) =>
-                          supabase.from("rooms").update({
-                            scenario: scenarioText.trim(),
-                            is_scenario_visible_to_professor: true,
-                            is_scenario_released: false,
-                            tutor_glossary: aiGlossary.length > 0 ? aiGlossary : null,
-                            tutor_questions: aiQuestions.length > 0 ? aiQuestions : null,
-                          }).eq("id", r.id)
-                        );
-                        await Promise.all(updates);
-                        toast({ title: "Cenário liberado!", description: `Enviado para ${activeRooms.length} sala(s). Professores podem visualizar.` });
-                        fetchAll();
-                      } catch {
-                        toast({ title: "Erro", description: "Falha ao liberar cenário.", variant: "destructive" });
-                      }
-                      setReleasingScenario(false);
-                    }}
-                    disabled={releasingScenario}
-                  >
-                    {releasingScenario ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</>
-                    ) : (
-                      <><Send className="mr-2 h-4 w-4" /> Liberar para Professores</>
-                    )}
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </TabsContent>
 
@@ -679,9 +886,7 @@ export default function AdminPanel() {
         {/* ═══════ EDIT USER DIALOG ═══════ */}
         <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Nome Completo</Label>
@@ -714,9 +919,7 @@ export default function AdminPanel() {
         {/* ═══════ EDIT GROUP DIALOG ═══════ */}
         <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Turma</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Editar Turma</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Nome da Turma</Label>
@@ -733,11 +936,113 @@ export default function AdminPanel() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Módulo</Label>
+                <Select value={editGroupModule} onValueChange={setEditGroupModule}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    {modules.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingGroup(null)}>Cancelar</Button>
               <Button onClick={updateGroup} disabled={saving || !editGroupName || !editGroupProfessor}>
                 {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══════ EDIT MODULE DIALOG ═══════ */}
+        <Dialog open={!!editingModule} onOpenChange={(open) => !open && setEditingModule(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Editar Módulo</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome do Módulo</Label>
+                <Input value={editModuleName} onChange={(e) => setEditModuleName(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingModule(null)}>Cancelar</Button>
+              <Button onClick={updateModule} disabled={saving || !editModuleName.trim()}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══════ EDIT SCENARIO DIALOG ═══════ */}
+        <Dialog open={!!editingScenario} onOpenChange={(open) => !open && setEditingScenario(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader><DialogTitle>Editar Cenário</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input value={editScenarioTitle} onChange={(e) => setEditScenarioTitle(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Módulo</Label>
+                  <Select value={editScenarioModuleId} onValueChange={setEditScenarioModuleId}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
+                    <SelectContent>
+                      {modules.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Conteúdo</Label>
+                <Textarea value={editScenarioContent} onChange={(e) => setEditScenarioContent(e.target.value)} className="min-h-[200px]" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingScenario(null)}>Cancelar</Button>
+              <Button onClick={updateScenario} disabled={saving || !editScenarioTitle.trim() || !editScenarioContent.trim()}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══════ RELEASE SCENARIO DIALOG ═══════ */}
+        <Dialog open={!!releaseScenarioId} onOpenChange={(open) => !open && setReleaseScenarioId(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Liberar Cenário para Turmas</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              O cenário será enviado para todas as salas ativas. Apenas os <strong>professores</strong> poderão visualizá-lo inicialmente.
+            </p>
+            <div className="my-4 space-y-2">
+              {rooms.filter(r => r.status === "active").map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2">
+                  <span className="text-sm text-foreground">{r.name}</span>
+                  {r.scenario ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReleaseScenarioId(null)}>Cancelar</Button>
+              <Button
+                onClick={() => {
+                  const sc = scenarios.find(s => s.id === releaseScenarioId);
+                  if (sc) releaseScenarioToRooms(sc);
+                }}
+                disabled={releasingScenario}
+              >
+                {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> Liberar para Professores</>}
               </Button>
             </DialogFooter>
           </DialogContent>
