@@ -121,9 +121,16 @@ export default function PBLSession() {
         schema: "public",
         table: "step_items",
         filter: `room_id=eq.${roomId}`,
-      }, (payload) => {
+      }, async (payload) => {
         if ((payload.new as any).step === activeStep) {
-          setItems((prev) => [...prev, payload.new]);
+          // Fetch profile for the new item to show author name
+          const newItem = payload.new as any;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", newItem.author_id)
+            .single();
+          setItems((prev) => [...prev, { ...newItem, profiles: profile || { full_name: "Anônimo" } }]);
         }
       })
       .on("postgres_changes", {
