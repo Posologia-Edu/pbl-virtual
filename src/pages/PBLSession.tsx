@@ -8,10 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import ChatPanel from "@/components/ChatPanel";
 import EvaluationPanel from "@/components/EvaluationPanel";
+import ParticipantsPanel from "@/components/ParticipantsPanel";
+import TimerPanel from "@/components/TimerPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
-  ChevronLeft, Send, Plus, Trash2, Eye, EyeOff,
-  ClipboardList, MessageSquare, ArrowLeft,
+  Send, Plus, Trash2, Eye, EyeOff,
+  ClipboardList, MessageSquare, ArrowLeft, Users, Timer,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -32,9 +34,11 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [showChat, setShowChat] = useState(false);
-  const [showEval, setShowEval] = useState(false);
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | null>("chat");
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
 
+  // Fetch room
   useEffect(() => {
     if (!roomId) return;
     const fetchRoom = async () => {
@@ -45,8 +49,53 @@ export default function PBLSession() {
       }
     };
     fetchRoom();
+
+    // Subscribe to room changes (for role updates)
+    const roomChannel = supabase
+      .channel(`room-${roomId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "rooms",
+        filter: `id=eq.${roomId}`,
+      }, (payload) => {
+        setRoom((prev: any) => ({ ...prev, ...payload.new }));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(roomChannel); };
   }, [roomId]);
 
+  // Fetch participants
+  useEffect(() => {
+    if (!room?.group_id) return;
+    const fetchParticipants = async () => {
+      const { data } = await supabase
+        .from("group_members")
+        .select("student_id, profiles(full_name)")
+        .eq("group_id", room.group_id);
+      if (data) {
+        setParticipants(
+          data.map((d: any) => ({
+            student_id: d.student_id,
+            full_name: (d.profiles as any)?.full_name || "—",
+          }))
+        );
+      }
+    };
+    fetchParticipants();
+  }, [room?.group_id]);
+
+  // Setup realtime broadcast channel for timer
+  useEffect(() => {
+    if (!roomId) return;
+    const channel = supabase.channel(`timer-${roomId}`);
+    channel.subscribe();
+    setRealtimeChannel(channel);
+    return () => { supabase.removeChannel(channel); };
+  }, [roomId]);
+
+  // Fetch step items
   useEffect(() => {
     if (!roomId) return;
     const fetchItems = async () => {
@@ -60,7 +109,6 @@ export default function PBLSession() {
     };
     fetchItems();
 
-    // Realtime subscription
     const channel = supabase
       .channel(`step-items-${roomId}-${activeStep}`)
       .on("postgres_changes", {
@@ -115,11 +163,35 @@ export default function PBLSession() {
     }
   };
 
+  const assignRole = async (studentId: string, role: "coordinator" | "reporter" | "none") => {
+    if (!roomId) return;
+    const updates: any = {};
+    if (role === "coordinator") {
+      updates.coordinator_id = studentId;
+      // If this student was reporter, clear it
+      if (room?.reporter_id === studentId) updates.reporter_id = null;
+    } else if (role === "reporter") {
+      updates.reporter_id = studentId;
+      if (room?.coordinator_id === studentId) updates.coordinator_id = null;
+    } else {
+      if (room?.coordinator_id === studentId) updates.coordinator_id = null;
+      if (room?.reporter_id === studentId) updates.reporter_id = null;
+    }
+    await supabase.from("rooms").update(updates).eq("id", roomId);
+    setRoom((prev: any) => ({ ...prev, ...updates }));
+    toast({ title: "Função atualizada!" });
+  };
+
   const openingSteps = PBL_STEPS.filter((s) => s.block === "Abertura");
   const closingSteps = PBL_STEPS.filter((s) => s.block === "Fechamento");
 
   const canViewScenario = isProfessor || room?.is_scenario_released;
   const currentStepInfo = PBL_STEPS.find((s) => s.id === activeStep);
+  const isCoordinator = user?.id === room?.coordinator_id;
+
+  const togglePanel = (panel: "chat" | "eval" | "participants") => {
+    setRightPanel((prev) => (prev === panel ? null : panel));
+  };
 
   return (
     <div className="flex h-screen w-full">
@@ -173,20 +245,38 @@ export default function PBLSession() {
           </div>
         </div>
 
-        {/* Professor tools */}
-        {isProfessor && (
-          <div className="border-t border-border p-3 space-y-1">
+        {/* Bottom tools */}
+        <div className="border-t border-border p-3 space-y-1">
+          <button
+            onClick={() => togglePanel("participants")}
+            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+              rightPanel === "participants" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Participantes
+          </button>
+          <button
+            onClick={() => togglePanel("chat")}
+            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+              rightPanel === "chat" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
+          </button>
+          {isProfessor && (
             <button
-              onClick={() => { setShowEval(!showEval); setShowChat(false); }}
+              onClick={() => togglePanel("eval")}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
-                showEval ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+                rightPanel === "eval" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
               }`}
             >
               <ClipboardList className="h-4 w-4" />
               Avaliação
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </aside>
 
       {/* Main content */}
@@ -199,21 +289,15 @@ export default function PBLSession() {
               Passo {activeStep} — {currentStepInfo?.label}
             </h2>
           </div>
-          <Button
-            variant={showChat ? "default" : "outline"}
-            size="sm"
-            onClick={() => { setShowChat(!showChat); setShowEval(false); }}
-          >
-            <MessageSquare className="mr-1.5 h-4 w-4" />
-            Chat
-          </Button>
+          <div className="flex items-center gap-4">
+            <TimerPanel isCoordinator={isCoordinator} channel={realtimeChannel} />
+          </div>
         </header>
 
         <div className="flex flex-1 min-h-0">
           {/* Step content */}
           <div className="flex-1 overflow-auto p-6 scrollbar-thin">
             {activeStep === 0 ? (
-              /* Scenario step */
               <div className="animate-fade-in">
                 {canViewScenario ? (
                   <div className="clinical-card p-6">
@@ -229,7 +313,7 @@ export default function PBLSession() {
                       </Button>
                     )}
                     {isProfessor && room?.is_scenario_released && (
-                      <p className="mt-3 text-xs text-clinical-success flex items-center gap-1">
+                      <p className="mt-3 text-xs flex items-center gap-1" style={{ color: "hsl(var(--clinical-success))" }}>
                         <Eye className="h-3 w-3" /> Cenário visível para os alunos
                       </p>
                     )}
@@ -241,7 +325,6 @@ export default function PBLSession() {
                   </div>
                 )}
 
-                {/* Tutor-only content */}
                 {isProfessor && room?.tutor_glossary && (
                   <div className="mt-4 clinical-card border-primary/20 p-5">
                     <h4 className="mb-2 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
@@ -260,13 +343,9 @@ export default function PBLSession() {
                 )}
               </div>
             ) : (
-              /* Collaborative list steps */
               <div className="animate-fade-in space-y-3">
                 {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="clinical-card flex items-start gap-3 p-4"
-                  >
+                  <div key={item.id} className="clinical-card flex items-start gap-3 p-4">
                     <div className="flex-1">
                       <p className="text-sm text-foreground">{item.content}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -288,7 +367,6 @@ export default function PBLSession() {
                   </div>
                 )}
 
-                {/* Input */}
                 <div className="flex gap-2 pt-2">
                   {activeStep === 7 ? (
                     <Textarea
@@ -313,11 +391,27 @@ export default function PBLSession() {
             )}
           </div>
 
-          {/* Chat / Evaluation panel */}
-          {(showChat || showEval) && (
+          {/* Right panel */}
+          {rightPanel && (
             <div className="w-80 border-l border-border flex flex-col min-h-0">
-              {showChat && roomId && <ChatPanel roomId={roomId} />}
-              {showEval && roomId && <EvaluationPanel roomId={roomId} />}
+              {rightPanel === "chat" && roomId && <ChatPanel roomId={roomId} />}
+              {rightPanel === "eval" && roomId && <EvaluationPanel roomId={roomId} />}
+              {rightPanel === "participants" && (
+                <div className="flex flex-col h-full">
+                  <div className="border-b border-border px-4 py-3">
+                    <h3 className="text-sm font-semibold text-foreground">Participantes ({participants.length})</h3>
+                  </div>
+                  <div className="flex-1 overflow-auto p-3 scrollbar-thin">
+                    <ParticipantsPanel
+                      participants={participants}
+                      coordinatorId={room?.coordinator_id}
+                      reporterId={room?.reporter_id}
+                      isProfessor={isProfessor}
+                      onAssignRole={assignRole}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
