@@ -363,7 +363,7 @@ export default function PBLSession() {
               {/* Tutor-only materials */}
               {isProfessor && room?.tutor_glossary && Array.isArray(room.tutor_glossary) && (
                 <div className="clinical-card border-primary/20 p-5">
-                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
+                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Termos desconhecidos</h4>
                   <div className="space-y-2">
                     {(room.tutor_glossary as any[]).map((item: any, i: number) => (
                       <p key={i} className="text-sm leading-relaxed text-foreground/80">
@@ -375,7 +375,7 @@ export default function PBLSession() {
               )}
               {isProfessor && room?.tutor_questions && Array.isArray(room.tutor_questions) && (
                 <div className="clinical-card border-primary/20 p-5">
-                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Perguntas Socráticas</h4>
+                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Possíveis intervenções</h4>
                   <ol className="list-decimal list-inside space-y-2">
                     {(room.tutor_questions as any[]).map((q: any, i: number) => (
                       <li key={i} className="text-sm leading-relaxed text-foreground/80">{typeof q === "string" ? q : JSON.stringify(q)}</li>
