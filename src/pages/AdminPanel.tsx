@@ -108,7 +108,7 @@ export default function AdminPanel() {
               selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
             />
-            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} />
+            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={selectedInstitutionId} institutions={institutions} courses={courses} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="groups">
