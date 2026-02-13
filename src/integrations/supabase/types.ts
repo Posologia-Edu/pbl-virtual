@@ -87,18 +87,21 @@ export type Database = {
           created_at: string
           id: string
           institution_id: string
+          is_hidden: boolean
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
           institution_id: string
+          is_hidden?: boolean
           name: string
         }
         Update: {
           created_at?: string
           id?: string
           institution_id?: string
+          is_hidden?: boolean
           name?: string
         }
         Relationships: [
@@ -229,6 +232,7 @@ export type Database = {
           course_id: string | null
           created_at: string | null
           id: string
+          is_hidden: boolean
           module_id: string | null
           name: string
           professor_id: string
@@ -237,6 +241,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string | null
           id?: string
+          is_hidden?: boolean
           module_id?: string | null
           name: string
           professor_id: string
@@ -245,6 +250,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string | null
           id?: string
+          is_hidden?: boolean
           module_id?: string | null
           name?: string
           professor_id?: string
@@ -277,16 +283,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_hidden: boolean
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_hidden?: boolean
           name: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_hidden?: boolean
           name?: string
         }
         Relationships: []
@@ -296,18 +305,21 @@ export type Database = {
           course_id: string | null
           created_at: string
           id: string
+          is_hidden: boolean
           name: string
         }
         Insert: {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           name: string
         }
         Update: {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           name?: string
         }
         Relationships: [
@@ -325,18 +337,21 @@ export type Database = {
           created_at: string | null
           full_name: string
           id: string
+          is_hidden: boolean
           user_id: string
         }
         Insert: {
           created_at?: string | null
           full_name?: string
           id?: string
+          is_hidden?: boolean
           user_id: string
         }
         Update: {
           created_at?: string | null
           full_name?: string
           id?: string
+          is_hidden?: boolean
           user_id?: string
         }
         Relationships: []
@@ -412,6 +427,7 @@ export type Database = {
           course_id: string | null
           created_at: string
           id: string
+          is_hidden: boolean
           module_id: string | null
           title: string
           tutor_glossary: Json | null
@@ -423,6 +439,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           module_id?: string | null
           title: string
           tutor_glossary?: Json | null
@@ -434,6 +451,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           module_id?: string | null
           title?: string
           tutor_glossary?: Json | null
@@ -535,6 +553,10 @@ export type Database = {
       }
       is_group_professor: {
         Args: { _group_id: string; _professor_id: string }
+        Returns: boolean
+      }
+      is_user_effectively_hidden: {
+        Args: { _user_id: string }
         Returns: boolean
       }
     }
