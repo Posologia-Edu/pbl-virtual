@@ -98,7 +98,7 @@ export default function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="courses">
-            <CoursesTab courses={courses} institutions={institutions} onRefresh={fetchAll} />
+            <CoursesTab courses={courses} institutions={institutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} />
           </TabsContent>
 
           {/* Tabs that need course context */}
@@ -130,7 +130,7 @@ export default function AdminPanel() {
               selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
             />
-            <ModulesTab modules={modules} scenarios={scenarios} groups={groups} selectedCourseId={selectedCourseId} onRefresh={fetchAll} />
+            <ModulesTab modules={modules} scenarios={scenarios} groups={groups} profiles={profiles} groupMembers={groupMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="scenarios">
