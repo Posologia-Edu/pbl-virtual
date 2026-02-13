@@ -255,7 +255,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
 
           {aiGlossary.length > 0 && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <h4 className="mb-2 text-sm font-semibold text-primary">📖 Glossário do Tutor</h4>
+              <h4 className="mb-2 text-sm font-semibold text-primary">📖 Termos desconhecidos</h4>
               <div className="space-y-1">
                 {aiGlossary.map((g: any, i: number) => (
                   <p key={i} className="text-xs text-foreground/70"><strong>{g.term}:</strong> {g.definition}</p>
