@@ -59,7 +59,12 @@ export default function PBLSession() {
         table: "rooms",
         filter: `id=eq.${roomId}`,
       }, (payload) => {
-        setRoom((prev: any) => ({ ...prev, ...payload.new }));
+        const newRoom = payload.new as any;
+        setRoom((prev: any) => ({ ...prev, ...newRoom }));
+        // Students follow the professor's step
+        if (newRoom.current_step !== undefined && newRoom.current_step !== null) {
+          setActiveStep(newRoom.current_step);
+        }
       })
       .subscribe();
 
@@ -211,11 +216,12 @@ export default function PBLSession() {
               {openingSteps.map((step) => (
                 <button
                   key={step.id}
-                  onClick={() => updateStep(step.id)}
+                  onClick={() => isProfessor && updateStep(step.id)}
+                  disabled={!isProfessor}
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
                     activeStep === step.id
                       ? "bg-primary/10 text-primary font-medium"
-                      : "text-foreground/70 hover:bg-secondary"
+                      : isProfessor ? "text-foreground/70 hover:bg-secondary" : "text-foreground/70 cursor-default"
                   }`}
                 >
                   <step.icon className="h-4 w-4 shrink-0" />
@@ -230,11 +236,12 @@ export default function PBLSession() {
               {closingSteps.map((step) => (
                 <button
                   key={step.id}
-                  onClick={() => updateStep(step.id)}
+                  onClick={() => isProfessor && updateStep(step.id)}
+                  disabled={!isProfessor}
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
                     activeStep === step.id
                       ? "bg-primary/10 text-primary font-medium"
-                      : "text-foreground/70 hover:bg-secondary"
+                      : isProfessor ? "text-foreground/70 hover:bg-secondary" : "text-foreground/70 cursor-default"
                   }`}
                 >
                   <step.icon className="h-4 w-4 shrink-0" />
