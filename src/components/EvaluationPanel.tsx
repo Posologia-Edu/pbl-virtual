@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Check, Archive } from "lucide-react";
+import { Pencil, Check, Archive, History, ArrowLeft } from "lucide-react";
 
 const GRADES = [
   { label: "O", value: 0 },
@@ -23,29 +23,34 @@ export default function EvaluationPanel({ roomId }: Props) {
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [criteria, setCriteria] = useState<any[]>([]);
+  const [allCriteria, setAllCriteria] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<Record<string, string>>({});
   const [editingCriterion, setEditingCriterion] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [phase, setPhase] = useState<"opening" | "closing">("opening");
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [archivedEvals, setArchivedEvals] = useState<any[]>([]);
+  const [historyStudent, setHistoryStudent] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
   }, [roomId, phase]);
 
+  useEffect(() => {
+    if (showHistory) fetchArchivedData();
+  }, [showHistory]);
+
   const fetchData = async () => {
-    // Get room to find group
     const { data: room } = await supabase.from("rooms").select("group_id").eq("id", roomId).single();
     if (!room) return;
 
-    // Get students
     const { data: members } = await supabase
       .from("group_members")
       .select("student_id, profiles!group_members_student_id_profiles_fkey(full_name)")
       .eq("group_id", room.group_id);
     if (members) setStudents(members);
 
-    // Get criteria
     const { data: crit } = await supabase
       .from("evaluation_criteria")
       .select("*")
@@ -54,7 +59,13 @@ export default function EvaluationPanel({ roomId }: Props) {
       .order("sort_order");
     if (crit) setCriteria(crit);
 
-    // Get evaluations
+    const { data: allCrit } = await supabase
+      .from("evaluation_criteria")
+      .select("*")
+      .eq("room_id", roomId)
+      .order("sort_order");
+    if (allCrit) setAllCriteria(allCrit);
+
     const { data: evals } = await supabase
       .from("evaluations")
       .select("*")
@@ -67,6 +78,17 @@ export default function EvaluationPanel({ roomId }: Props) {
       });
       setEvaluations(map);
     }
+  };
+
+  const fetchArchivedData = async () => {
+    const { data } = await supabase
+      .from("evaluations")
+      .select("*")
+      .eq("room_id", roomId)
+      .eq("archived", true)
+      .not("problem_number", "is", null)
+      .order("problem_number");
+    if (data) setArchivedEvals(data);
   };
 
   const setGrade = async (studentId: string, criterionId: string, grade: string) => {
@@ -89,20 +111,37 @@ export default function EvaluationPanel({ roomId }: Props) {
     const { error } = await supabase.from("evaluation_criteria").update({ label: editLabel }).eq("id", id);
     if (!error) {
       setCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, label: editLabel } : c)));
+      setAllCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, label: editLabel } : c)));
       setEditingCriterion(null);
     }
   };
 
   const archiveEvaluations = async () => {
     if (!user) return;
+
+    // Determine next problem number
+    const { data: maxData } = await supabase
+      .from("evaluations")
+      .select("problem_number")
+      .eq("room_id", roomId)
+      .eq("archived", true)
+      .not("problem_number", "is", null)
+      .order("problem_number", { ascending: false })
+      .limit(1);
+
+    const nextProblem = (maxData && maxData.length > 0 && maxData[0].problem_number != null)
+      ? maxData[0].problem_number + 1
+      : 1;
+
     const { error } = await supabase
       .from("evaluations")
-      .update({ archived: true })
+      .update({ archived: true, problem_number: nextProblem })
       .eq("room_id", roomId)
       .eq("professor_id", user.id)
       .eq("archived", false);
+
     if (!error) {
-      toast({ title: "Avaliação arquivada com sucesso!" });
+      toast({ title: `Avaliação arquivada como P${nextProblem}!` });
       setEvaluations({});
     }
   };
@@ -116,6 +155,92 @@ export default function EvaluationPanel({ roomId }: Props) {
     return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length);
   };
 
+  const getArchivedScore = (studentId: string, problemNumber: number, phaseFilter: string) => {
+    const phaseCriteria = allCriteria.filter((c) => c.phase === phaseFilter);
+    const grades = phaseCriteria
+      .map((c) => {
+        const ev = archivedEvals.find(
+          (e) => e.student_id === studentId && e.criterion_id === c.id && e.problem_number === problemNumber
+        );
+        return ev?.grade;
+      })
+      .filter(Boolean)
+      .map((g) => GRADES.find((gr) => gr.label === g)?.value || 0);
+    if (grades.length === 0) return null;
+    return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length);
+  };
+
+  const problemNumbers = [...new Set(archivedEvals.map((e) => e.problem_number))].sort((a, b) => a - b);
+
+  // ---- HISTORY VIEW ----
+  if (showHistory) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="border-b border-border px-4 py-3 flex items-center gap-2">
+          <button onClick={() => { setShowHistory(false); setHistoryStudent(null); }} className="text-primary hover:underline">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h3 className="text-sm font-semibold text-foreground">Histórico de Avaliações</h3>
+        </div>
+
+        <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
+          {!historyStudent ? (
+            <div className="space-y-1">
+              {students.map((s) => (
+                <button
+                  key={s.student_id}
+                  onClick={() => setHistoryStudent(s.student_id)}
+                  className="flex w-full items-center justify-between rounded-xl bg-secondary/50 px-3 py-2.5 text-left hover:bg-secondary transition-colors"
+                >
+                  <span className="text-sm text-foreground">{(s.profiles as any)?.full_name}</span>
+                </button>
+              ))}
+              {students.length === 0 && (
+                <p className="py-4 text-center text-xs text-muted-foreground">Nenhum aluno</p>
+              )}
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <button onClick={() => setHistoryStudent(null)} className="mb-3 text-xs text-primary hover:underline">
+                ← Voltar à lista
+              </button>
+              <p className="mb-3 text-sm font-medium text-foreground">
+                {students.find((s) => s.student_id === historyStudent)?.profiles?.full_name}
+              </p>
+
+              {problemNumbers.length === 0 ? (
+                <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma avaliação arquivada</p>
+              ) : (
+                <div className="space-y-3">
+                  {problemNumbers.map((pn) => {
+                    const openingScore = getArchivedScore(historyStudent, pn, "opening");
+                    const closingScore = getArchivedScore(historyStudent, pn, "closing");
+                    return (
+                      <div key={pn} className="rounded-xl border border-border p-3">
+                        <h4 className="text-sm font-semibold text-foreground mb-2">P{pn}</h4>
+                        <div className="flex gap-4">
+                          <div className="flex-1 rounded-lg bg-secondary/50 p-2 text-center">
+                            <span className="text-xs text-muted-foreground block">Abertura</span>
+                            <span className="text-sm font-bold text-primary">{openingScore ?? "—"}%</span>
+                          </div>
+                          <div className="flex-1 rounded-lg bg-secondary/50 p-2 text-center">
+                            <span className="text-xs text-muted-foreground block">Fechamento</span>
+                            <span className="text-sm font-bold text-primary">{closingScore ?? "—"}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- MAIN VIEW ----
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border px-4 py-3">
@@ -133,7 +258,6 @@ export default function EvaluationPanel({ roomId }: Props) {
 
       <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
         {!selectedStudent ? (
-          /* Student list */
           <div className="space-y-1">
             {students.map((s) => {
               const score = getStudentScore(s.student_id);
@@ -155,7 +279,6 @@ export default function EvaluationPanel({ roomId }: Props) {
             )}
           </div>
         ) : (
-          /* Evaluation form for selected student */
           <div className="animate-fade-in">
             <button
               onClick={() => setSelectedStudent(null)}
@@ -232,9 +355,12 @@ export default function EvaluationPanel({ roomId }: Props) {
         )}
       </div>
 
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3 space-y-2">
         <Button variant="outline" size="sm" className="w-full" onClick={archiveEvaluations}>
           <Archive className="mr-2 h-4 w-4" /> Arquivar Registro
+        </Button>
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowHistory(true)}>
+          <History className="mr-2 h-4 w-4" /> Histórico
         </Button>
       </div>
     </div>

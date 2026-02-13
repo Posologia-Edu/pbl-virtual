@@ -153,6 +153,7 @@ export type Database = {
           criterion_id: string
           grade: string | null
           id: string
+          problem_number: number | null
           professor_id: string
           room_id: string
           student_id: string
@@ -163,6 +164,7 @@ export type Database = {
           criterion_id: string
           grade?: string | null
           id?: string
+          problem_number?: number | null
           professor_id: string
           room_id: string
           student_id: string
@@ -173,6 +175,7 @@ export type Database = {
           criterion_id?: string
           grade?: string | null
           id?: string
+          problem_number?: number | null
           professor_id?: string
           room_id?: string
           student_id?: string
