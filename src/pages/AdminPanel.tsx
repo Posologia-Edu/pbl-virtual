@@ -7,16 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, Trash2, Plus, Shield } from "lucide-react";
+import { UserPlus, Users, Trash2, Plus, Shield, KeyRound } from "lucide-react";
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, any[]>>({});
 
-  // Role assignment
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedRole, setSelectedRole] = useState("");
+  // Create user
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState("");
+  const [creating, setCreating] = useState(false);
 
   // Group creation
   const [newGroupName, setNewGroupName] = useState("");
@@ -25,6 +27,11 @@ export default function AdminPanel() {
   // Add student to group
   const [addStudentGroupId, setAddStudentGroupId] = useState("");
   const [addStudentUserId, setAddStudentUserId] = useState("");
+
+  // Change password
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -38,7 +45,6 @@ export default function AdminPanel() {
     if (profilesRes.data) setProfiles(profilesRes.data);
     if (groupsRes.data) {
       setGroups(groupsRes.data);
-      // fetch members for each group
       const membersMap: Record<string, any[]> = {};
       for (const g of groupsRes.data) {
         const { data } = await supabase
@@ -51,20 +57,59 @@ export default function AdminPanel() {
     }
   };
 
-  const assignRole = async () => {
-    if (!selectedUserId || !selectedRole) return;
-    const { error } = await supabase.from("user_roles").insert({
-      user_id: selectedUserId,
-      role: selectedRole as any,
-    });
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Papel atribuído com sucesso!" });
-      setSelectedUserId("");
-      setSelectedRole("");
-      fetchAll();
+  const createUser = async () => {
+    if (!newUserEmail || !newUserRole || !newUserName) return;
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("manage-users", {
+        body: {
+          action: "create_user",
+          email: newUserEmail,
+          full_name: newUserName,
+          role: newUserRole,
+        },
+      });
+      if (res.error || res.data?.error) {
+        toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
+      } else {
+        toast({ title: "Usuário criado!", description: `${newUserName} cadastrado como ${newUserRole}.` });
+        setNewUserName("");
+        setNewUserEmail("");
+        setNewUserRole("");
+        fetchAll();
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao criar usuário.", variant: "destructive" });
     }
+    setCreating(false);
+  };
+
+  const changePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await supabase.functions.invoke("manage-users", {
+        body: { action: "change_password", new_password: newPassword },
+      });
+      if (res.error || res.data?.error) {
+        toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
+      } else {
+        toast({ title: "Senha alterada com sucesso!" });
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao alterar senha.", variant: "destructive" });
+    }
+    setChangingPassword(false);
   };
 
   const createGroup = async () => {
@@ -118,52 +163,54 @@ export default function AdminPanel() {
           <p className="mt-1 text-sm text-muted-foreground">Gerencie usuários, papéis e turmas</p>
         </div>
 
-        <Tabs defaultValue="roles" className="animate-fade-in">
+        <Tabs defaultValue="users" className="animate-fade-in">
           <TabsList className="mb-6">
-            <TabsTrigger value="roles">
-              <Shield className="mr-2 h-4 w-4" /> Papéis
+            <TabsTrigger value="users">
+              <UserPlus className="mr-2 h-4 w-4" /> Cadastrar
             </TabsTrigger>
             <TabsTrigger value="groups">
               <Users className="mr-2 h-4 w-4" /> Turmas
             </TabsTrigger>
+            <TabsTrigger value="security">
+              <KeyRound className="mr-2 h-4 w-4" /> Segurança
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="roles">
-            <div className="clinical-card p-6 max-w-lg">
-              <h3 className="mb-4 text-base font-semibold text-foreground">Atribuir Papel</h3>
+          {/* Create Users Tab */}
+          <TabsContent value="users">
+            <div className="clinical-card p-6 max-w-lg mb-6">
+              <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Novo Usuário</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Crie contas de alunos e professores. Eles acessarão usando nome e email na tela de login.
+              </p>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Usuário</Label>
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar usuário" /></SelectTrigger>
-                    <SelectContent>
-                      {profiles.map((p) => (
-                        <SelectItem key={p.user_id} value={p.user_id}>
-                          {p.full_name} ({p.user_roles?.map((r: any) => r.role).join(", ") || "sem papel"})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Nome Completo</Label>
+                  <Input placeholder="Nome do usuário" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" placeholder="email@exemplo.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Papel</Label>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <Select value={newUserRole} onValueChange={setNewUserRole}>
                     <SelectTrigger><SelectValue placeholder="Selecionar papel" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="professor">Professor</SelectItem>
                       <SelectItem value="student">Aluno</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={assignRole} disabled={!selectedUserId || !selectedRole}>
-                  <UserPlus className="mr-2 h-4 w-4" /> Atribuir
+                <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {creating ? "Criando..." : "Cadastrar Usuário"}
                 </Button>
               </div>
             </div>
 
             {/* User list */}
-            <div className="mt-6 clinical-card p-6">
+            <div className="clinical-card p-6">
               <h3 className="mb-4 text-base font-semibold text-foreground">Usuários Cadastrados</h3>
               <div className="space-y-2">
                 {profiles.map((p) => (
@@ -180,8 +227,8 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
+          {/* Groups Tab */}
           <TabsContent value="groups">
-            {/* Create group */}
             <div className="clinical-card p-6 max-w-lg mb-6">
               <h3 className="mb-4 text-base font-semibold text-foreground">Criar Turma</h3>
               <div className="space-y-4">
@@ -206,7 +253,6 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Groups list */}
             {groups.map((group) => (
               <div key={group.id} className="clinical-card p-6 mb-4">
                 <div className="mb-4 flex items-center justify-between">
@@ -218,7 +264,6 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {/* Add student */}
                 <div className="mb-3 flex gap-2">
                   <Select
                     value={addStudentGroupId === group.id ? addStudentUserId : ""}
@@ -240,7 +285,6 @@ export default function AdminPanel() {
                   </Button>
                 </div>
 
-                {/* Members */}
                 <div className="space-y-1">
                   {(groupMembers[group.id] || []).map((m) => (
                     <div key={m.id} className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2">
@@ -256,6 +300,27 @@ export default function AdminPanel() {
                 </div>
               </div>
             ))}
+          </TabsContent>
+
+          {/* Security Tab */}
+          <TabsContent value="security">
+            <div className="clinical-card p-6 max-w-lg">
+              <h3 className="mb-4 text-base font-semibold text-foreground">Alterar Senha do Administrador</h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nova Senha</Label>
+                  <Input type="password" placeholder="Mínimo 6 caracteres" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Confirmar Nova Senha</Label>
+                  <Input type="password" placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                </div>
+                <Button onClick={changePassword} disabled={changingPassword || !newPassword || !confirmPassword}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  {changingPassword ? "Alterando..." : "Alterar Senha"}
+                </Button>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
