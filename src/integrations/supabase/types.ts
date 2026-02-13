@@ -44,6 +44,13 @@ export type Database = {
             referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_messages_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       evaluation_criteria: {
@@ -294,6 +301,13 @@ export type Database = {
           step?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "step_items_author_id_profiles_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "step_items_room_id_fkey"
             columns: ["room_id"]
