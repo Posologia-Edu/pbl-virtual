@@ -173,43 +173,76 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, on
             <p className="text-sm text-muted-foreground">Nenhum usuário vinculado a este curso</p>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProfiles.map((p) => {
-              const primaryRole = p.user_roles?.[0]?.role || "unknown";
-              const isAdmin = p.user_roles?.some((r: any) => r.role === "admin");
-              return (
-                <div key={p.id} className="group relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <RoleIcon role={primaryRole} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">{p.full_name}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {p.user_roles?.map((r: any, i: number) => (
-                          <span key={i} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleColor(r.role)}`}>
-                            {roleLabel(r.role)}
-                          </span>
-                        ))}
+          <div className="space-y-6">
+            {[
+              { key: "professor", label: "Professores", icon: <GraduationCap className="h-4 w-4" /> },
+              { key: "student", label: "Alunos", icon: <BookOpen className="h-4 w-4" /> },
+              { key: "admin", label: "Administradores", icon: <User className="h-4 w-4" /> },
+            ]
+              .map((section) => {
+                const users = filteredProfiles.filter(
+                  (p) => (p.user_roles?.[0]?.role || "unknown") === section.key
+                );
+                if (users.length === 0) return null;
+                return (
+                  <div key={section.key}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-md ${
+                        section.key === "professor" ? "bg-primary/10 text-primary" :
+                        section.key === "student" ? "bg-[hsl(var(--clinical-success))]/10 text-[hsl(var(--clinical-success))]" :
+                        "bg-destructive/10 text-destructive"
+                      }`}>
+                        {section.icon}
                       </div>
+                      <h4 className="text-sm font-semibold text-foreground">{section.label}</h4>
+                      <span className="text-xs text-muted-foreground">({users.length})</span>
                     </div>
-                    {!isAdmin && (
-                      <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditEmail(""); setEditRole(primaryRole); }}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          title="Remover do curso"
-                          onClick={() => removeFromCourse(p.user_id, p.full_name)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {users.map((p) => {
+                        const primaryRole = p.user_roles?.[0]?.role || "unknown";
+                        const isAdmin = p.user_roles?.some((r: any) => r.role === "admin");
+                        return (
+                          <div key={p.id} className="group relative rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                            <div className="flex items-start gap-3">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                                primaryRole === "professor" ? "bg-primary/10 text-primary" :
+                                primaryRole === "student" ? "bg-[hsl(var(--clinical-success))]/10 text-[hsl(var(--clinical-success))]" :
+                                "bg-destructive/10 text-destructive"
+                              }`}>
+                                <RoleIcon role={primaryRole} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-foreground">{p.full_name}</p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {p.user_roles?.map((r: any, i: number) => (
+                                    <span key={i} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleColor(r.role)}`}>
+                                      {roleLabel(r.role)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              {!isAdmin && (
+                                <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                    onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditEmail(""); setEditRole(primaryRole); }}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    title="Remover do curso"
+                                    onClick={() => removeFromCourse(p.user_id, p.full_name)}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+              .filter(Boolean)}
           </div>
         )}
       </div>
