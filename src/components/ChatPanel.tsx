@@ -19,7 +19,7 @@ export default function ChatPanel({ roomId }: Props) {
     const fetchMessages = async () => {
       const { data } = await supabase
         .from("chat_messages")
-        .select("*, profiles!chat_messages_user_id_fkey(full_name)")
+        .select("*, profiles!chat_messages_user_id_profiles_fkey(full_name)")
         .eq("room_id", roomId)
         .order("created_at");
       if (data) setMessages(data);
@@ -33,8 +33,19 @@ export default function ChatPanel({ roomId }: Props) {
         schema: "public",
         table: "chat_messages",
         filter: `room_id=eq.${roomId}`,
-      }, (payload) => {
-        setMessages((prev) => [...prev, payload.new]);
+      }, async (payload) => {
+        const newMsg = payload.new as any;
+        // Fetch the profile to get the author name
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", newMsg.user_id)
+          .single();
+        setMessages((prev) => {
+          // Deduplicate
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, { ...newMsg, profiles: profile || { full_name: "—" } }];
+        });
       })
       .subscribe();
 
@@ -76,7 +87,18 @@ export default function ChatPanel({ roomId }: Props) {
                     : "bg-secondary text-secondary-foreground"
                 }`}
               >
-                {msg.content}
+                {msg.content?.startsWith("📋 [Whiteboard compartilhado]") ? (
+                  <div>
+                    <p className="text-xs font-medium mb-1">📋 Whiteboard compartilhado</p>
+                    <img
+                      src={msg.content.split("\n")[1]}
+                      alt="Whiteboard"
+                      className="rounded-lg max-w-full border border-border"
+                    />
+                  </div>
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           );
