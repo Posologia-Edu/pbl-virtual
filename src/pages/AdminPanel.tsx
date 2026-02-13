@@ -4,11 +4,12 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User, Pencil } from "lucide-react";
+import { UserPlus, Users, Trash2, Plus, KeyRound, GraduationCap, BookOpen, ChevronDown, ChevronUp, User, Pencil, FileText, Sparkles, Send, Eye, Loader2 } from "lucide-react";
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -42,17 +43,27 @@ export default function AdminPanel() {
   const [editGroupName, setEditGroupName] = useState("");
   const [editGroupProfessor, setEditGroupProfessor] = useState("");
 
+  // Scenario management
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [scenarioText, setScenarioText] = useState("");
+  const [scenarioMode, setScenarioMode] = useState<"manual" | "ai">("manual");
+  const [aiObjectives, setAiObjectives] = useState("");
+  const [generatingScenario, setGeneratingScenario] = useState(false);
+  const [aiGlossary, setAiGlossary] = useState<any[]>([]);
+  const [aiQuestions, setAiQuestions] = useState<string[]>([]);
+  const [releasingScenario, setReleasingScenario] = useState(false);
+
   useEffect(() => {
     fetchAll();
   }, []);
 
   const fetchAll = async () => {
-    const [profilesRes, rolesRes, groupsRes] = await Promise.all([
+    const [profilesRes, rolesRes, groupsRes, roomsRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("user_roles").select("*"),
       supabase.from("groups").select("*, profiles(full_name)"),
+      supabase.from("rooms").select("*"),
     ]);
-
     if (profilesRes.data) {
       const rolesMap: Record<string, any[]> = {};
       (rolesRes.data || []).forEach((r: any) => {
@@ -78,6 +89,8 @@ export default function AdminPanel() {
       }
       setGroupMembers(membersMap);
     }
+
+    if (roomsRes.data) setRooms(roomsRes.data);
   };
 
   const createUser = async () => {
@@ -249,6 +262,7 @@ export default function AdminPanel() {
           <TabsList className="mb-6">
             <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> Cadastrar</TabsTrigger>
             <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> Turmas</TabsTrigger>
+            <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> Cenários</TabsTrigger>
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> Segurança</TabsTrigger>
           </TabsList>
 
@@ -461,6 +475,181 @@ export default function AdminPanel() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ═══════ CENÁRIOS ═══════ */}
+          <TabsContent value="scenarios">
+            <div className="max-w-3xl space-y-6">
+              {/* Mode selector */}
+              <div className="clinical-card p-6">
+                <h3 className="mb-4 text-base font-semibold text-foreground">Criar Cenário Clínico</h3>
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant={scenarioMode === "manual" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScenarioMode("manual")}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" /> Inserir Manualmente
+                  </Button>
+                  <Button
+                    variant={scenarioMode === "ai" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScenarioMode("ai")}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" /> Gerar com IA
+                  </Button>
+                </div>
+
+                {scenarioMode === "manual" ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Texto do Problema / Caso Clínico</Label>
+                      <Textarea
+                        placeholder="Cole ou escreva o cenário clínico aqui..."
+                        value={scenarioText}
+                        onChange={(e) => setScenarioText(e.target.value)}
+                        className="min-h-[200px]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Objetivos de Aprendizagem</Label>
+                      <Textarea
+                        placeholder="Liste os objetivos de aprendizagem. Ex:&#10;- Compreender a fisiopatologia da hipertensão arterial&#10;- Identificar fatores de risco cardiovascular&#10;- Conhecer as classes de anti-hipertensivos"
+                        value={aiObjectives}
+                        onChange={(e) => setAiObjectives(e.target.value)}
+                        className="min-h-[120px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        if (!aiObjectives.trim()) return;
+                        setGeneratingScenario(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke("generate-scenario", {
+                            body: { objectives: aiObjectives },
+                          });
+                          if (error || data?.error) {
+                            toast({ title: "Erro", description: data?.error || error?.message, variant: "destructive" });
+                          } else {
+                            setScenarioText(data.scenario || "");
+                            setAiGlossary(data.glossary || []);
+                            setAiQuestions(data.questions || []);
+                            toast({ title: "Cenário gerado!", description: "Revise o texto antes de liberar." });
+                          }
+                        } catch {
+                          toast({ title: "Erro", description: "Falha ao gerar cenário.", variant: "destructive" });
+                        }
+                        setGeneratingScenario(false);
+                      }}
+                      disabled={generatingScenario || !aiObjectives.trim()}
+                    >
+                      {generatingScenario ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando...</>
+                      ) : (
+                        <><Sparkles className="mr-2 h-4 w-4" /> Gerar Cenário</>
+                      )}
+                    </Button>
+
+                    {scenarioText && (
+                      <div className="space-y-2">
+                        <Label>Cenário Gerado (editável)</Label>
+                        <Textarea
+                          value={scenarioText}
+                          onChange={(e) => setScenarioText(e.target.value)}
+                          className="min-h-[200px]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* AI extras preview */}
+              {aiGlossary.length > 0 && (
+                <div className="clinical-card border-primary/20 p-5">
+                  <h4 className="mb-2 text-sm font-semibold text-primary">📖 Glossário do Tutor (visível apenas para professores)</h4>
+                  <div className="space-y-1">
+                    {aiGlossary.map((g: any, i: number) => (
+                      <p key={i} className="text-xs text-foreground/70">
+                        <strong>{g.term}:</strong> {g.definition}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {aiQuestions.length > 0 && (
+                <div className="clinical-card border-primary/20 p-5">
+                  <h4 className="mb-2 text-sm font-semibold text-primary">❓ Perguntas Socráticas (visível apenas para professores)</h4>
+                  <ol className="list-decimal list-inside space-y-1">
+                    {aiQuestions.map((q: string, i: number) => (
+                      <li key={i} className="text-xs text-foreground/70">{q}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Release to all rooms */}
+              {scenarioText.trim() && (
+                <div className="clinical-card p-6">
+                  <h3 className="mb-3 text-base font-semibold text-foreground">Liberar Cenário para Turmas</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    O cenário será enviado para todas as salas ativas. Apenas os <strong>professores</strong> poderão visualizá-lo inicialmente. Cada professor decidirá quando liberar para seus alunos.
+                  </p>
+
+                  {/* Room status */}
+                  <div className="mb-4 space-y-2">
+                    {rooms.filter(r => r.status === "active").map((r) => (
+                      <div key={r.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2">
+                        <span className="text-sm text-foreground">{r.name}</span>
+                        <div className="flex items-center gap-2">
+                          {r.scenario ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                              {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    onClick={async () => {
+                      setReleasingScenario(true);
+                      try {
+                        const activeRooms = rooms.filter(r => r.status === "active");
+                        const updates = activeRooms.map((r) =>
+                          supabase.from("rooms").update({
+                            scenario: scenarioText.trim(),
+                            is_scenario_visible_to_professor: true,
+                            is_scenario_released: false,
+                            tutor_glossary: aiGlossary.length > 0 ? aiGlossary : null,
+                            tutor_questions: aiQuestions.length > 0 ? aiQuestions : null,
+                          }).eq("id", r.id)
+                        );
+                        await Promise.all(updates);
+                        toast({ title: "Cenário liberado!", description: `Enviado para ${activeRooms.length} sala(s). Professores podem visualizar.` });
+                        fetchAll();
+                      } catch {
+                        toast({ title: "Erro", description: "Falha ao liberar cenário.", variant: "destructive" });
+                      }
+                      setReleasingScenario(false);
+                    }}
+                    disabled={releasingScenario}
+                  >
+                    {releasingScenario ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</>
+                    ) : (
+                      <><Send className="mr-2 h-4 w-4" /> Liberar para Professores</>
+                    )}
+                  </Button>
                 </div>
               )}
             </div>
