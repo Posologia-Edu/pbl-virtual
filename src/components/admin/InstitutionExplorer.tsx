@@ -13,7 +13,7 @@ interface BreadcrumbItem {
   label: string;
 }
 
-export default function InstitutionExplorer() {
+export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => void }) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -33,6 +33,7 @@ export default function InstitutionExplorer() {
       toast({ title: "Instituição criada!" });
       setNewName("");
       loadData();
+      onRefresh?.();
     }
   };
 
@@ -65,7 +66,7 @@ export default function InstitutionExplorer() {
         const instId = breadcrumbs[0].id;
         const { data } = await supabase.from("courses").select("*").eq("institution_id", instId).order("name");
         const courseIds = (data || []).map((c) => c.id);
-        const { data: allModules } = await supabase.from("modules").select("id, course_id").in("course_id", courseIds.length ? courseIds : ["__none__"]);
+        const allModules = courseIds.length ? (await supabase.from("modules").select("id, course_id").in("course_id", courseIds)).data : [];
         const moduleCounts: Record<string, number> = {};
         (allModules || []).forEach((m) => {
           if (m.course_id) moduleCounts[m.course_id] = (moduleCounts[m.course_id] || 0) + 1;
@@ -75,7 +76,7 @@ export default function InstitutionExplorer() {
         const courseId = breadcrumbs[1].id;
         const { data } = await supabase.from("modules").select("*").eq("course_id", courseId).order("name");
         const moduleIds = (data || []).map((m) => m.id);
-        const { data: allGroups } = await supabase.from("groups").select("id, module_id").in("module_id", moduleIds.length ? moduleIds : ["__none__"]);
+        const allGroups = moduleIds.length ? (await supabase.from("groups").select("id, module_id").in("module_id", moduleIds)).data : [];
         const groupCounts: Record<string, number> = {};
         (allGroups || []).forEach((g) => {
           if (g.module_id) groupCounts[g.module_id] = (groupCounts[g.module_id] || 0) + 1;
@@ -89,7 +90,7 @@ export default function InstitutionExplorer() {
           .eq("module_id", moduleId)
           .order("name");
         const groupIds = (data || []).map((g) => g.id);
-        const { data: allMembers } = await supabase.from("group_members").select("id, group_id").in("group_id", groupIds.length ? groupIds : ["__none__"]);
+        const allMembers = groupIds.length ? (await supabase.from("group_members").select("id, group_id").in("group_id", groupIds)).data : [];
         const memberCounts: Record<string, number> = {};
         (allMembers || []).forEach((m) => {
           memberCounts[m.group_id] = (memberCounts[m.group_id] || 0) + 1;
