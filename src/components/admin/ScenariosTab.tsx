@@ -265,7 +265,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
           )}
           {aiQuestions.length > 0 && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <h4 className="mb-2 text-sm font-semibold text-primary">❓ Perguntas Socráticas</h4>
+              <h4 className="mb-2 text-sm font-semibold text-primary">❓ Possíveis intervenções</h4>
               <ol className="list-decimal list-inside space-y-1">
                 {aiQuestions.map((q: string, i: number) => (
                   <li key={i} className="text-xs text-foreground/70">{q}</li>
