@@ -230,6 +230,8 @@ export type Database = {
           reporter_id: string | null
           scenario: string | null
           status: string | null
+          timer_end_at: string | null
+          timer_running: boolean | null
           tutor_glossary: Json | null
           tutor_questions: Json | null
         }
@@ -246,6 +248,8 @@ export type Database = {
           reporter_id?: string | null
           scenario?: string | null
           status?: string | null
+          timer_end_at?: string | null
+          timer_running?: boolean | null
           tutor_glossary?: Json | null
           tutor_questions?: Json | null
         }
@@ -262,6 +266,8 @@ export type Database = {
           reporter_id?: string | null
           scenario?: string | null
           status?: string | null
+          timer_end_at?: string | null
+          timer_running?: boolean | null
           tutor_glossary?: Json | null
           tutor_questions?: Json | null
         }

@@ -37,7 +37,7 @@ export default function PBLSession() {
   const [newItem, setNewItem] = useState("");
   const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
-  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
+  
 
   // Fetch room
   useEffect(() => {
@@ -90,14 +90,7 @@ export default function PBLSession() {
     fetchParticipants();
   }, [room?.group_id]);
 
-  // Setup realtime broadcast channel for timer
-  useEffect(() => {
-    if (!roomId) return;
-    const channel = supabase.channel(`timer-${roomId}`);
-    channel.subscribe();
-    setRealtimeChannel(channel);
-    return () => { supabase.removeChannel(channel); };
-  }, [roomId]);
+  
 
   // Fetch step items
   useEffect(() => {
@@ -332,7 +325,7 @@ export default function PBLSession() {
             </h2>
           </div>
           <div className="flex items-center gap-4">
-            <TimerPanel isCoordinator={isCoordinator} channel={realtimeChannel} />
+            <TimerPanel isCoordinator={isCoordinator} roomId={roomId!} />
           </div>
         </header>
 
@@ -445,7 +438,12 @@ export default function PBLSession() {
           {/* Right panel */}
           {rightPanel && (
             <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" ? "w-[480px]" : "w-80"}`}>
-              {rightPanel === "chat" && roomId && <ChatPanel roomId={roomId} />}
+              {rightPanel === "chat" && roomId && (
+                <ChatPanel
+                  roomId={roomId}
+                  profilesMap={Object.fromEntries(participants.map((p) => [p.student_id, p.full_name]))}
+                />
+              )}
               {rightPanel === "eval" && roomId && <EvaluationPanel roomId={roomId} />}
               {rightPanel === "whiteboard" && isReporter && (
                 <WhiteboardPanel onShareToChat={handleShareWhiteboard} />
