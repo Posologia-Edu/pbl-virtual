@@ -41,6 +41,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
   // Copy scenario dialog
   const [copyingScenario, setCopyingScenario] = useState<any | null>(null);
   const [copyTargetCourseId, setCopyTargetCourseId] = useState("");
+  const [copyTargetModuleId, setCopyTargetModuleId] = useState("");
 
   const filteredScenarios = selectedCourseId
     ? scenarios.filter((s) => s.course_id === selectedCourseId)
@@ -136,7 +137,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       title: copyingScenario.title,
       content: copyingScenario.content,
       course_id: copyTargetCourseId,
-      module_id: null, // Module IDs are course-specific, so reset
+      module_id: copyTargetModuleId || null,
       tutor_glossary: copyingScenario.tutor_glossary,
       tutor_questions: copyingScenario.tutor_questions,
     });
@@ -147,6 +148,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       toast({ title: "Cenário copiado!", description: `Copiado para ${targetCourse?.name || "outro curso"}.` });
       setCopyingScenario(null);
       setCopyTargetCourseId("");
+      setCopyTargetModuleId("");
       onRefresh();
     }
     setSaving(false);
@@ -308,7 +310,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                   <div className="flex shrink-0 gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                       title="Copiar para outro curso"
-                      onClick={() => { setCopyingScenario(s); setCopyTargetCourseId(""); }}>
+                      onClick={() => { setCopyingScenario(s); setCopyTargetCourseId(""); setCopyTargetModuleId(""); }}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
@@ -414,7 +416,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Curso de Destino</Label>
-              <Select value={copyTargetCourseId} onValueChange={setCopyTargetCourseId}>
+              <Select value={copyTargetCourseId} onValueChange={(val) => { setCopyTargetCourseId(val); setCopyTargetModuleId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Selecionar curso" /></SelectTrigger>
                 <SelectContent>
                   {courses.filter((c) => c.id !== selectedCourseId).map((c) => {
@@ -428,6 +430,23 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                 </SelectContent>
               </Select>
             </div>
+            {copyTargetCourseId && (
+              <div className="space-y-2">
+                <Label>Módulo de Destino</Label>
+                <Select value={copyTargetModuleId} onValueChange={setCopyTargetModuleId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    {modules.filter((m) => m.course_id === copyTargetCourseId).length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum módulo neste curso</div>
+                    ) : (
+                      modules.filter((m) => m.course_id === copyTargetCourseId).map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCopyingScenario(null)}>Cancelar</Button>
