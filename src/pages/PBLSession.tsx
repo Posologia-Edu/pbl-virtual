@@ -325,20 +325,26 @@ export default function PBLSession() {
                   </div>
                 )}
 
-                {isProfessor && room?.tutor_glossary && (
+                {isProfessor && room?.tutor_glossary && Array.isArray(room.tutor_glossary) && (
                   <div className="mt-4 clinical-card border-primary/20 p-5">
-                    <h4 className="mb-2 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
-                    <pre className="whitespace-pre-wrap text-xs text-foreground/70">
-                      {JSON.stringify(room.tutor_glossary, null, 2)}
-                    </pre>
+                    <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
+                    <div className="space-y-2">
+                      {(room.tutor_glossary as any[]).map((item: any, i: number) => (
+                        <p key={i} className="text-sm leading-relaxed text-foreground/80">
+                          <strong className="text-foreground">{item.term}:</strong> {item.definition}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {isProfessor && room?.tutor_questions && (
+                {isProfessor && room?.tutor_questions && Array.isArray(room.tutor_questions) && (
                   <div className="mt-4 clinical-card border-primary/20 p-5">
-                    <h4 className="mb-2 text-sm font-semibold text-primary">🔒 Perguntas Socráticas</h4>
-                    <pre className="whitespace-pre-wrap text-xs text-foreground/70">
-                      {JSON.stringify(room.tutor_questions, null, 2)}
-                    </pre>
+                    <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Perguntas Socráticas</h4>
+                    <ol className="list-decimal list-inside space-y-2">
+                      {(room.tutor_questions as any[]).map((q: any, i: number) => (
+                        <li key={i} className="text-sm leading-relaxed text-foreground/80">{typeof q === "string" ? q : JSON.stringify(q)}</li>
+                      ))}
+                    </ol>
                   </div>
                 )}
               </div>
