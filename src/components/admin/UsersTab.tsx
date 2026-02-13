@@ -6,16 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen } from "lucide-react";
+import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2 } from "lucide-react";
 
 interface Props {
   profiles: any[];
   courseMembers: any[];
   selectedCourseId: string;
+  selectedInstitutionId: string;
+  institutions: any[];
+  courses: any[];
   onRefresh: () => void;
 }
 
-export default function UsersTab({ profiles, courseMembers, selectedCourseId, onRefresh }: Props) {
+export default function UsersTab({ profiles, courseMembers, selectedCourseId, selectedInstitutionId, institutions, courses, onRefresh }: Props) {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("");
@@ -164,9 +167,23 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, on
       </div>
 
       <div>
-        <h3 className="mb-4 text-base font-semibold text-foreground">
-          Usuários do Curso <span className="ml-2 text-xs font-normal text-muted-foreground">({filteredProfiles.length})</span>
-        </h3>
+        {(() => {
+          const institution = institutions.find((i) => i.id === selectedInstitutionId);
+          const course = courses.find((c) => c.id === selectedCourseId);
+          return (
+            <div className="mb-5">
+              {institution && (
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{institution.name}</span>
+                </div>
+              )}
+              <h3 className="text-base font-semibold text-foreground">
+                {course?.name || "Curso"} <span className="ml-1 text-xs font-normal text-muted-foreground">({filteredProfiles.length} usuários)</span>
+              </h3>
+            </div>
+          );
+        })()}
         {filteredProfiles.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
             <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
