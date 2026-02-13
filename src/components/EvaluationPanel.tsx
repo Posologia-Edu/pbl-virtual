@@ -96,13 +96,29 @@ export default function EvaluationPanel({ roomId }: Props) {
     const key = `${studentId}-${criterionId}`;
     setEvaluations((prev) => ({ ...prev, [key]: grade }));
 
-    const { error } = await supabase.from("evaluations").upsert({
-      room_id: roomId,
-      student_id: studentId,
-      criterion_id: criterionId,
-      grade,
-      professor_id: user.id,
-    }, { onConflict: "room_id,student_id,criterion_id" });
+    // Check if a non-archived evaluation already exists
+    const { data: existing } = await supabase
+      .from("evaluations")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("student_id", studentId)
+      .eq("criterion_id", criterionId)
+      .eq("archived", false)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase.from("evaluations").update({ grade }).eq("id", existing.id));
+    } else {
+      ({ error } = await supabase.from("evaluations").insert({
+        room_id: roomId,
+        student_id: studentId,
+        criterion_id: criterionId,
+        grade,
+        professor_id: user.id,
+        archived: false,
+      }));
+    }
 
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
   };
