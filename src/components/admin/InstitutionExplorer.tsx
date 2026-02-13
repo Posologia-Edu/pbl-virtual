@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Building2, BookOpen, FolderOpen, Users, ChevronRight, ArrowLeft, GraduationCap, User, Eye, EyeOff } from "lucide-react";
+import { Building2, BookOpen, FolderOpen, Users, ChevronRight, ArrowLeft, GraduationCap, User, Eye, EyeOff, Plus } from "lucide-react";
 
 type Level = "institutions" | "courses" | "modules" | "groups" | "members";
 
@@ -21,6 +22,19 @@ export default function InstitutionExplorer() {
   const [members, setMembers] = useState<any[]>([]);
   const [professorProfile, setProfessorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const createInstitution = async () => {
+    if (!newName.trim()) return;
+    const { error } = await supabase.from("institutions").insert({ name: newName.trim() });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Instituição criada!" });
+      setNewName("");
+      loadData();
+    }
+  };
 
   const currentLevel: Level = breadcrumbs.length === 0
     ? "institutions"
@@ -205,23 +219,34 @@ export default function InstitutionExplorer() {
         <>
           {/* Institutions */}
           {currentLevel === "institutions" && (
-            institutions.length === 0 ? (
-              <EmptyState icon={<Building2 />} message="Nenhuma instituição cadastrada" />
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {institutions.map((inst) => (
-                  <DrillCard
-                    key={inst.id}
-                    icon={<Building2 className="h-5 w-5" />}
-                    title={inst.name}
-                    subtitle={`${inst.courseCount} curso${inst.courseCount !== 1 ? "s" : ""}`}
-                    isHidden={inst.is_hidden}
-                    onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
-                    onClick={() => navigateTo("courses", inst.id, inst.name)}
-                  />
-                ))}
+            <>
+              <div className="clinical-card p-6 max-w-lg mb-6">
+                <h4 className="mb-3 text-sm font-semibold text-foreground">Cadastrar Instituição</h4>
+                <div className="flex gap-2">
+                  <Input placeholder="Nome da instituição" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                  <Button onClick={createInstitution} disabled={!newName.trim()}>
+                    <Plus className="mr-2 h-4 w-4" /> Criar
+                  </Button>
+                </div>
               </div>
-            )
+              {institutions.length === 0 ? (
+                <EmptyState icon={<Building2 />} message="Nenhuma instituição cadastrada" />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {institutions.map((inst) => (
+                    <DrillCard
+                      key={inst.id}
+                      icon={<Building2 className="h-5 w-5" />}
+                      title={inst.name}
+                      subtitle={`${inst.courseCount} curso${inst.courseCount !== 1 ? "s" : ""}`}
+                      isHidden={inst.is_hidden}
+                      onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
+                      onClick={() => navigateTo("courses", inst.id, inst.name)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {/* Courses */}
