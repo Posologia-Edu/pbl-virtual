@@ -438,12 +438,7 @@ export default function PBLSession() {
           {/* Right panel */}
           {rightPanel && (
             <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" ? "w-[480px]" : "w-80"}`}>
-              {rightPanel === "chat" && roomId && (
-                <ChatPanel
-                  roomId={roomId}
-                  profilesMap={Object.fromEntries(participants.map((p) => [p.student_id, p.full_name]))}
-                />
-              )}
+              {rightPanel === "chat" && roomId && <ChatPanel roomId={roomId} />}
               {rightPanel === "eval" && roomId && <EvaluationPanel roomId={roomId} />}
               {rightPanel === "whiteboard" && isReporter && (
                 <WhiteboardPanel onShareToChat={handleShareWhiteboard} />
