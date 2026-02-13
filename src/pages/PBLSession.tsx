@@ -10,10 +10,11 @@ import ChatPanel from "@/components/ChatPanel";
 import EvaluationPanel from "@/components/EvaluationPanel";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
+import WhiteboardPanel from "@/components/WhiteboardPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
-  ClipboardList, MessageSquare, ArrowLeft, Users, Timer,
+  ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -34,7 +35,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
   const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
 
@@ -50,7 +51,6 @@ export default function PBLSession() {
     };
     fetchRoom();
 
-    // Subscribe to room changes (for role updates)
     const roomChannel = supabase
       .channel(`room-${roomId}`)
       .on("postgres_changes", {
@@ -61,7 +61,6 @@ export default function PBLSession() {
       }, (payload) => {
         const newRoom = payload.new as any;
         setRoom((prev: any) => ({ ...prev, ...newRoom }));
-        // Students follow the professor's step
         if (newRoom.current_step !== undefined && newRoom.current_step !== null) {
           setActiveStep(newRoom.current_step);
         }
@@ -106,7 +105,7 @@ export default function PBLSession() {
     const fetchItems = async () => {
       const { data } = await supabase
         .from("step_items")
-        .select("*, profiles!step_items_author_id_fkey(full_name)")
+        .select("*, profiles!step_items_author_id_profiles_fkey(full_name)")
         .eq("room_id", roomId)
         .eq("step", activeStep)
         .order("created_at");
@@ -122,16 +121,18 @@ export default function PBLSession() {
         table: "step_items",
         filter: `room_id=eq.${roomId}`,
       }, async (payload) => {
-        if ((payload.new as any).step === activeStep) {
-          // Fetch profile for the new item to show author name
-          const newItem = payload.new as any;
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", newItem.author_id)
-            .single();
-          setItems((prev) => [...prev, { ...newItem, profiles: profile || { full_name: "Anônimo" } }]);
-        }
+        const newItem = payload.new as any;
+        if (newItem.step !== activeStep) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", newItem.author_id)
+          .single();
+        setItems((prev) => {
+          // Deduplicate
+          if (prev.some((i) => i.id === newItem.id)) return prev;
+          return [...prev, { ...newItem, profiles: profile || { full_name: "Anônimo" } }];
+        });
       })
       .on("postgres_changes", {
         event: "DELETE",
@@ -180,7 +181,6 @@ export default function PBLSession() {
     const updates: any = {};
     if (role === "coordinator") {
       updates.coordinator_id = studentId;
-      // If this student was reporter, clear it
       if (room?.reporter_id === studentId) updates.reporter_id = null;
     } else if (role === "reporter") {
       updates.reporter_id = studentId;
@@ -194,14 +194,31 @@ export default function PBLSession() {
     toast({ title: "Função atualizada!" });
   };
 
+  const handleShareWhiteboard = async (imageDataUrl: string) => {
+    if (!user || !roomId) return;
+    // Send the whiteboard image as a chat message
+    const { error } = await supabase.from("chat_messages").insert({
+      room_id: roomId,
+      user_id: user.id,
+      content: `📋 [Whiteboard compartilhado]\n${imageDataUrl}`,
+    });
+    if (!error) {
+      toast({ title: "Whiteboard compartilhado no chat!" });
+      setRightPanel("chat");
+    } else {
+      toast({ title: "Erro ao compartilhar", description: error.message, variant: "destructive" });
+    }
+  };
+
   const openingSteps = PBL_STEPS.filter((s) => s.block === "Abertura");
   const closingSteps = PBL_STEPS.filter((s) => s.block === "Fechamento");
 
   const canViewScenario = isProfessor ? !!room?.is_scenario_visible_to_professor : !!room?.is_scenario_released;
   const currentStepInfo = PBL_STEPS.find((s) => s.id === activeStep);
   const isCoordinator = user?.id === room?.coordinator_id;
+  const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
@@ -279,6 +296,17 @@ export default function PBLSession() {
             <MessageSquare className="h-4 w-4" />
             Chat
           </button>
+          {isReporter && (
+            <button
+              onClick={() => togglePanel("whiteboard")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "whiteboard" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <PenTool className="h-4 w-4" />
+              Whiteboard
+            </button>
+          )}
           {isProfessor && (
             <button
               onClick={() => togglePanel("eval")}
@@ -339,7 +367,7 @@ export default function PBLSession() {
                 </div>
               )}
 
-              {/* Tutor-only materials (all steps) */}
+              {/* Tutor-only materials */}
               {isProfessor && room?.tutor_glossary && Array.isArray(room.tutor_glossary) && (
                 <div className="clinical-card border-primary/20 p-5">
                   <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
@@ -363,7 +391,7 @@ export default function PBLSession() {
                 </div>
               )}
 
-              {/* Step contributions (all steps except P0 show input) */}
+              {/* Step contributions */}
               {activeStep !== 0 && (
                 <div className="space-y-3">
                   {items.map((item) => (
@@ -416,9 +444,12 @@ export default function PBLSession() {
 
           {/* Right panel */}
           {rightPanel && (
-            <div className="w-80 border-l border-border flex flex-col min-h-0">
+            <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" ? "w-[480px]" : "w-80"}`}>
               {rightPanel === "chat" && roomId && <ChatPanel roomId={roomId} />}
               {rightPanel === "eval" && roomId && <EvaluationPanel roomId={roomId} />}
+              {rightPanel === "whiteboard" && isReporter && (
+                <WhiteboardPanel onShareToChat={handleShareWhiteboard} />
+              )}
               {rightPanel === "participants" && (
                 <div className="flex flex-col h-full">
                   <div className="border-b border-border px-4 py-3">
