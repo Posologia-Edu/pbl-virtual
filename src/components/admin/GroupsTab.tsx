@@ -215,7 +215,15 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
             const isExpanded = expandedGroupId === group.id;
             const members = groupMembers[group.id] || [];
             const memberIds = members.map((m: any) => m.student_id);
-            const availableStudents = students.filter((s) => !memberIds.includes(s.user_id));
+            // Exclude students already in this group OR in another group of the same module
+            const studentsInSameModule = group.module_id
+              ? filteredGroups
+                  .filter((g) => g.module_id === group.module_id && g.id !== group.id)
+                  .flatMap((g) => (groupMembers[g.id] || []).map((m: any) => m.student_id))
+              : [];
+            const availableStudents = students.filter(
+              (s) => !memberIds.includes(s.user_id) && !studentsInSameModule.includes(s.user_id)
+            );
             const moduleName = getModuleName(group.module_id);
 
             return (
