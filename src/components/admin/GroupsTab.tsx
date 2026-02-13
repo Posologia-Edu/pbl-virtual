@@ -44,10 +44,31 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
     .filter((cm) => cm.course_id === selectedCourseId)
     .map((cm) => cm.user_id);
 
-  const professors = profiles.filter(
+  const allProfessors = profiles.filter(
     (p) => p.user_roles?.some((r: any) => r.role === "professor") &&
       (!selectedCourseId || courseMemberIds.includes(p.user_id))
   );
+
+  // Professors already assigned to a group in a given module
+  const getProfessorsUsedInModule = (moduleId: string | null) => {
+    if (!moduleId) return [];
+    return filteredGroups
+      .filter((g) => g.module_id === moduleId)
+      .map((g) => g.professor_id);
+  };
+
+  // Available professors for creation (exclude those already in the selected module)
+  const availableProfessorsForCreate = allProfessors.filter(
+    (p) => !getProfessorsUsedInModule(newGroupModule).includes(p.user_id)
+  );
+
+  // Available professors for editing (exclude those in the same module, but keep the current one)
+  const getAvailableProfessorsForEdit = (moduleId: string | null, currentProfessorId: string) => {
+    const usedIds = getProfessorsUsedInModule(moduleId);
+    return allProfessors.filter(
+      (p) => p.user_id === currentProfessorId || !usedIds.includes(p.user_id)
+    );
+  };
 
   const students = profiles.filter(
     (p) => p.user_roles?.some((r: any) => r.role === "student") &&
@@ -147,15 +168,25 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
             <Select value={newGroupProfessor} onValueChange={setNewGroupProfessor}>
               <SelectTrigger><SelectValue placeholder="Selecionar professor" /></SelectTrigger>
               <SelectContent>
-                {professors.map((p) => (
-                  <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>
-                ))}
+                {availableProfessorsForCreate.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Todos os professores já estão alocados neste módulo</div>
+                ) : (
+                  availableProfessorsForCreate.map((p) => (
+                    <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Módulo</Label>
-            <Select value={newGroupModule} onValueChange={setNewGroupModule}>
+            <Select value={newGroupModule} onValueChange={(val) => {
+              setNewGroupModule(val);
+              // Reset professor if they're no longer available in this module
+              if (val && getProfessorsUsedInModule(val).includes(newGroupProfessor)) {
+                setNewGroupProfessor("");
+              }
+            }}>
               <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
               <SelectContent>
                 {filteredModules.map((m) => (
@@ -279,7 +310,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
               <Select value={editGroupProfessor} onValueChange={setEditGroupProfessor}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {professors.map((p) => (
+                  {getAvailableProfessorsForEdit(editGroupModule, editingGroup?.professor_id).map((p) => (
                     <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>
                   ))}
                 </SelectContent>
