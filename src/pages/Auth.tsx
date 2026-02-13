@@ -9,9 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { GraduationCap, Mail, Lock, User, BookOpen, ShieldCheck } from "lucide-react";
 
-const DEFAULT_STUDENT_PASSWORD = "medpbl-student-2026";
-const DEFAULT_PROFESSOR_PASSWORD = "medpbl-professor-2026";
-
 export default function Auth() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -29,15 +26,29 @@ export default function Auth() {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
+  const handleRoleLogin = async (email: string, role: "student" | "professor") => {
+    const { data, error } = await supabase.functions.invoke("login", {
+      body: { email, role },
+    });
+    if (error || data?.error) {
+      return { error: error || new Error(data?.error) };
+    }
+    // Set the session from the tokens returned by the edge function
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
+    return { error: sessionError };
+  };
+
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await signIn(studentEmail, DEFAULT_STUDENT_PASSWORD);
+      const { error } = await handleRoleLogin(studentEmail, "student");
       if (error) {
         toast({ title: "Acesso negado", description: "Email não encontrado. Verifique com o administrador se você foi cadastrado.", variant: "destructive" });
       } else {
-        // Find the student's room and redirect
         const { data: membership } = await supabase
           .from("group_members")
           .select("group_id")
@@ -73,7 +84,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await signIn(professorEmail, DEFAULT_PROFESSOR_PASSWORD);
+      const { error } = await handleRoleLogin(professorEmail, "professor");
       if (error) {
         toast({ title: "Acesso negado", description: "Email não encontrado. Verifique com o administrador se você foi cadastrado.", variant: "destructive" });
       } else {
