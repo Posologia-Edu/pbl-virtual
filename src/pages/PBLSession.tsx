@@ -304,104 +304,107 @@ export default function PBLSession() {
         <div className="flex flex-1 min-h-0">
           {/* Step content */}
           <div className="flex-1 overflow-auto p-6 scrollbar-thin">
-            {activeStep === 0 ? (
-              <div className="animate-fade-in">
-                {canViewScenario ? (
-                  <div className="clinical-card p-6">
-                    <h3 className="mb-3 text-lg font-semibold text-foreground">Caso Clínico</h3>
-                    {room?.scenario ? (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">{room.scenario}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">Nenhum cenário configurado ainda.</p>
-                    )}
-                    {isProfessor && !room?.is_scenario_released && (
-                      <Button className="mt-4" onClick={releaseScenario}>
-                        <Eye className="mr-2 h-4 w-4" /> Liberar para Alunos
-                      </Button>
-                    )}
-                    {isProfessor && room?.is_scenario_released && (
-                      <p className="mt-3 text-xs flex items-center gap-1" style={{ color: "hsl(var(--clinical-success))" }}>
-                        <Eye className="h-3 w-3" /> Cenário visível para os alunos
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="clinical-card flex flex-col items-center justify-center py-16">
-                    <EyeOff className="mb-3 h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">O cenário ainda não foi liberado pelo tutor.</p>
-                  </div>
-                )}
-
-                {isProfessor && room?.tutor_glossary && Array.isArray(room.tutor_glossary) && (
-                  <div className="mt-4 clinical-card border-primary/20 p-5">
-                    <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
-                    <div className="space-y-2">
-                      {(room.tutor_glossary as any[]).map((item: any, i: number) => (
-                        <p key={i} className="text-sm leading-relaxed text-foreground/80">
-                          <strong className="text-foreground">{item.term}:</strong> {item.definition}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {isProfessor && room?.tutor_questions && Array.isArray(room.tutor_questions) && (
-                  <div className="mt-4 clinical-card border-primary/20 p-5">
-                    <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Perguntas Socráticas</h4>
-                    <ol className="list-decimal list-inside space-y-2">
-                      {(room.tutor_questions as any[]).map((q: any, i: number) => (
-                        <li key={i} className="text-sm leading-relaxed text-foreground/80">{typeof q === "string" ? q : JSON.stringify(q)}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="animate-fade-in space-y-3">
-                {items.map((item) => (
-                  <div key={item.id} className="clinical-card flex items-start gap-3 p-4">
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground">{item.content}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {(item.profiles as any)?.full_name || "Anônimo"}
-                      </p>
-                    </div>
-                    {item.author_id === user?.id && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteItem(item.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-
-                {items.length === 0 && (
-                  <div className="flex flex-col items-center py-12 text-center">
-                    <Plus className="mb-2 h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">Nenhuma contribuição ainda. Seja o primeiro!</p>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  {activeStep === 7 ? (
-                    <Textarea
-                      placeholder="Escreva sua contribuição..."
-                      value={newItem}
-                      onChange={(e) => setNewItem(e.target.value)}
-                      className="min-h-[80px]"
-                    />
+            <div className="animate-fade-in space-y-4">
+              {/* Scenario always visible at top */}
+              {canViewScenario ? (
+                <div className="clinical-card p-6">
+                  <h3 className="mb-3 text-lg font-semibold text-foreground">Caso Clínico</h3>
+                  {room?.scenario ? (
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">{room.scenario}</p>
                   ) : (
-                    <Input
-                      placeholder="Adicionar contribuição..."
-                      value={newItem}
-                      onChange={(e) => setNewItem(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addItem()}
-                    />
+                    <p className="text-sm text-muted-foreground italic">Nenhum cenário configurado ainda.</p>
                   )}
-                  <Button onClick={addItem} disabled={!newItem.trim()} className="shrink-0">
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  {isProfessor && !room?.is_scenario_released && (
+                    <Button className="mt-4" onClick={releaseScenario}>
+                      <Eye className="mr-2 h-4 w-4" /> Liberar para Alunos
+                    </Button>
+                  )}
+                  {isProfessor && room?.is_scenario_released && (
+                    <p className="mt-3 text-xs flex items-center gap-1" style={{ color: "hsl(var(--clinical-success))" }}>
+                      <Eye className="h-3 w-3" /> Cenário visível para os alunos
+                    </p>
+                  )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="clinical-card flex flex-col items-center justify-center py-10">
+                  <EyeOff className="mb-3 h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">O cenário ainda não foi liberado pelo tutor.</p>
+                </div>
+              )}
+
+              {/* Tutor-only materials (all steps) */}
+              {isProfessor && room?.tutor_glossary && Array.isArray(room.tutor_glossary) && (
+                <div className="clinical-card border-primary/20 p-5">
+                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Glossário do Tutor</h4>
+                  <div className="space-y-2">
+                    {(room.tutor_glossary as any[]).map((item: any, i: number) => (
+                      <p key={i} className="text-sm leading-relaxed text-foreground/80">
+                        <strong className="text-foreground">{item.term}:</strong> {item.definition}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {isProfessor && room?.tutor_questions && Array.isArray(room.tutor_questions) && (
+                <div className="clinical-card border-primary/20 p-5">
+                  <h4 className="mb-3 text-sm font-semibold text-primary">🔒 Perguntas Socráticas</h4>
+                  <ol className="list-decimal list-inside space-y-2">
+                    {(room.tutor_questions as any[]).map((q: any, i: number) => (
+                      <li key={i} className="text-sm leading-relaxed text-foreground/80">{typeof q === "string" ? q : JSON.stringify(q)}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Step contributions (all steps except P0 show input) */}
+              {activeStep !== 0 && (
+                <div className="space-y-3">
+                  {items.map((item) => (
+                    <div key={item.id} className="clinical-card flex items-start gap-3 p-4">
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground">{item.content}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {(item.profiles as any)?.full_name || "Anônimo"}
+                        </p>
+                      </div>
+                      {item.author_id === user?.id && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteItem(item.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+
+                  {items.length === 0 && (
+                    <div className="flex flex-col items-center py-8 text-center">
+                      <Plus className="mb-2 h-8 w-8 text-muted-foreground/30" />
+                      <p className="text-sm text-muted-foreground">Nenhuma contribuição ainda. Seja o primeiro!</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    {activeStep === 7 ? (
+                      <Textarea
+                        placeholder="Escreva sua contribuição..."
+                        value={newItem}
+                        onChange={(e) => setNewItem(e.target.value)}
+                        className="min-h-[80px]"
+                      />
+                    ) : (
+                      <Input
+                        placeholder="Adicionar contribuição..."
+                        value={newItem}
+                        onChange={(e) => setNewItem(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addItem()}
+                      />
+                    )}
+                    <Button onClick={addItem} disabled={!newItem.trim()} className="shrink-0">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right panel */}
