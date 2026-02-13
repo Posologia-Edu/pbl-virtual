@@ -38,15 +38,34 @@ Deno.serve(async (req) => {
 
     const password = DEFAULT_PASSWORDS[role];
 
-    // Sign in using the service client to generate a session
+    // Sign in using the anon client to generate a session
     const anonClient = createClient(supabaseUrl, anonKey);
-    const { data, error } = await anonClient.auth.signInWithPassword({ email, password });
+    let { data, error } = await anonClient.auth.signInWithPassword({ email, password });
 
+    // If login fails, the user's password may have drifted (e.g. after a reset).
+    // Reset it to the default via admin API and retry once.
     if (error) {
-      return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const adminResetClient = createClient(supabaseUrl, serviceRoleKey);
+      const { data: usersData } = await adminResetClient.auth.admin.listUsers();
+      const targetUser = usersData?.users?.find((u) => u.email === email);
+
+      if (!targetUser) {
+        return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Reset password to default and retry
+      await adminResetClient.auth.admin.updateUserById(targetUser.id, { password });
+      const retry = await anonClient.auth.signInWithPassword({ email, password });
+      if (retry.error) {
+        return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      data = retry.data;
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
