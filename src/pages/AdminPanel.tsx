@@ -38,18 +38,33 @@ export default function AdminPanel() {
   }, []);
 
   const fetchAll = async () => {
-    const [profilesRes, groupsRes] = await Promise.all([
-      supabase.from("profiles").select("*, user_roles(role)"),
-      supabase.from("groups").select("*, profiles!groups_professor_id_fkey(full_name)"),
+    // Fetch profiles and roles separately, then merge
+    const [profilesRes, rolesRes, groupsRes] = await Promise.all([
+      supabase.from("profiles").select("*"),
+      supabase.from("user_roles").select("*"),
+      supabase.from("groups").select("*, profiles(full_name)"),
     ]);
-    if (profilesRes.data) setProfiles(profilesRes.data);
+
+    if (profilesRes.data) {
+      const rolesMap: Record<string, any[]> = {};
+      (rolesRes.data || []).forEach((r: any) => {
+        if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+        rolesMap[r.user_id].push(r);
+      });
+      const merged = profilesRes.data.map((p: any) => ({
+        ...p,
+        user_roles: rolesMap[p.user_id] || [],
+      }));
+      setProfiles(merged);
+    }
+
     if (groupsRes.data) {
       setGroups(groupsRes.data);
       const membersMap: Record<string, any[]> = {};
       for (const g of groupsRes.data) {
         const { data } = await supabase
           .from("group_members")
-          .select("*, profiles!group_members_student_id_fkey(full_name)")
+          .select("*, profiles(full_name)")
           .eq("group_id", g.id);
         membersMap[g.id] = data || [];
       }

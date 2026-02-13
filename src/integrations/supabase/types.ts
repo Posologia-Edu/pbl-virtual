@@ -150,6 +150,13 @@ export type Database = {
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "group_members_student_id_profiles_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       groups: {
@@ -171,7 +178,15 @@ export type Database = {
           name?: string
           professor_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "groups_professor_id_profiles_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
