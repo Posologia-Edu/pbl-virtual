@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
 
     // ACTION: update_user
     if (action === "update_user") {
-      const { user_id, full_name, role } = body;
+      const { user_id, full_name, role, email } = body;
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id required" }), {
           status: 400,
@@ -155,6 +155,10 @@ Deno.serve(async (req) => {
         await adminClient.auth.admin.updateUserById(user_id, {
           user_metadata: { full_name },
         });
+      }
+
+      if (email) {
+        await adminClient.auth.admin.updateUserById(user_id, { email });
       }
 
       if (role) {

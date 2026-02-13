@@ -33,6 +33,7 @@ export default function AdminPanel() {
   // Edit user dialog
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -104,7 +105,7 @@ export default function AdminPanel() {
     setSaving(true);
     try {
       const res = await supabase.functions.invoke("manage-users", {
-        body: { action: "update_user", user_id: editingUser.user_id, full_name: editName, role: editRole },
+        body: { action: "update_user", user_id: editingUser.user_id, full_name: editName, email: editEmail, role: editRole },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
@@ -317,7 +318,7 @@ export default function AdminPanel() {
                             <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditRole(primaryRole); }}
+                                onClick={() => { setEditingUser(p); setEditName(p.full_name); setEditEmail(""); setEditRole(primaryRole); }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -496,6 +497,10 @@ export default function AdminPanel() {
               <div className="space-y-2">
                 <Label>Nome Completo</Label>
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" placeholder="Novo email (deixe vazio para manter)" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Papel</Label>
