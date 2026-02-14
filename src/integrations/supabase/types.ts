@@ -20,6 +20,7 @@ export type Database = {
           created_at: string | null
           id: string
           room_id: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           room_id: string
+          session_id?: string | null
           user_id: string
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           room_id?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -42,6 +45,13 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -156,6 +166,7 @@ export type Database = {
           problem_number: number | null
           professor_id: string
           room_id: string
+          session_id: string | null
           student_id: string
         }
         Insert: {
@@ -167,6 +178,7 @@ export type Database = {
           problem_number?: number | null
           professor_id: string
           room_id: string
+          session_id?: string | null
           student_id: string
         }
         Update: {
@@ -178,6 +190,7 @@ export type Database = {
           problem_number?: number | null
           professor_id?: string
           room_id?: string
+          session_id?: string | null
           student_id?: string
         }
         Relationships: [
@@ -193,6 +206,13 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -359,6 +379,60 @@ export type Database = {
         }
         Relationships: []
       }
+      room_scenarios: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string | null
+          room_id: string
+          scenario_content: string
+          scenario_id: string | null
+          sort_order: number | null
+          tutor_glossary: Json | null
+          tutor_questions: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          room_id: string
+          scenario_content?: string
+          scenario_id?: string | null
+          sort_order?: number | null
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          room_id?: string
+          scenario_content?: string
+          scenario_id?: string | null
+          sort_order?: number | null
+          tutor_glossary?: Json | null
+          tutor_questions?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_scenarios_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_scenarios_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           coordinator_id: string | null
@@ -485,6 +559,7 @@ export type Database = {
           created_at: string | null
           id: string
           room_id: string
+          session_id: string | null
           step: number
         }
         Insert: {
@@ -493,6 +568,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           room_id: string
+          session_id?: string | null
           step: number
         }
         Update: {
@@ -501,6 +577,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           room_id?: string
+          session_id?: string | null
           step?: number
         }
         Relationships: [
@@ -516,6 +593,73 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "step_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutorial_sessions: {
+        Row: {
+          coordinator_id: string | null
+          current_step: number | null
+          ended_at: string | null
+          id: string
+          label: string
+          reporter_id: string | null
+          room_id: string
+          room_scenario_id: string
+          started_at: string | null
+          status: string | null
+          timer_end_at: string | null
+          timer_running: boolean | null
+        }
+        Insert: {
+          coordinator_id?: string | null
+          current_step?: number | null
+          ended_at?: string | null
+          id?: string
+          label?: string
+          reporter_id?: string | null
+          room_id: string
+          room_scenario_id: string
+          started_at?: string | null
+          status?: string | null
+          timer_end_at?: string | null
+          timer_running?: boolean | null
+        }
+        Update: {
+          coordinator_id?: string | null
+          current_step?: number | null
+          ended_at?: string | null
+          id?: string
+          label?: string
+          reporter_id?: string | null
+          room_id?: string
+          room_scenario_id?: string
+          started_at?: string | null
+          status?: string | null
+          timer_end_at?: string | null
+          timer_running?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutorial_sessions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutorial_sessions_room_scenario_id_fkey"
+            columns: ["room_scenario_id"]
+            isOneToOne: false
+            referencedRelation: "room_scenarios"
             referencedColumns: ["id"]
           },
         ]
