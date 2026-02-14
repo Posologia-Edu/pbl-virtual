@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +48,7 @@ export default function PBLSession() {
   const [viewingHistorySessionId, setViewingHistorySessionId] = useState<string | null>(null);
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [historyStep, setHistoryStep] = useState(0);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   const currentSessionId = viewingHistorySessionId || activeSession?.id;
   const isViewingHistory = !!viewingHistorySessionId;
@@ -74,6 +75,29 @@ export default function PBLSession() {
 
     return () => { supabase.removeChannel(roomChannel); };
   }, [roomId]);
+
+  // ---- Presence tracking ----
+  useEffect(() => {
+    if (!roomId || !user) return;
+
+    const presenceChannel = supabase.channel(`presence-${roomId}`, {
+      config: { presence: { key: user.id } },
+    });
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const ids = new Set<string>(Object.keys(state));
+        setOnlineUserIds(ids);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await presenceChannel.track({ user_id: user.id });
+        }
+      });
+
+    return () => { supabase.removeChannel(presenceChannel); };
+  }, [roomId, user?.id]);
 
   // ---- Fetch room_scenarios and sessions ----
   const fetchScenariosAndSessions = async () => {
@@ -712,6 +736,7 @@ export default function PBLSession() {
                       reporterId={room?.reporter_id}
                       isProfessor={isProfessor}
                       onAssignRole={assignRole}
+                      onlineUserIds={onlineUserIds}
                     />
                   </div>
                 </div>
