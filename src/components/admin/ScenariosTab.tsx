@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,11 +16,12 @@ interface Props {
   rooms: any[];
   courses: any[];
   institutions: any[];
+  groups: any[];
   selectedCourseId: string;
   onRefresh: () => void;
 }
 
-export default function ScenariosTab({ scenarios, modules, rooms, courses, institutions, selectedCourseId, onRefresh }: Props) {
+export default function ScenariosTab({ scenarios, modules, rooms, courses, institutions, groups, selectedCourseId, onRefresh }: Props) {
   const [scenarioTitle, setScenarioTitle] = useState("");
   const [scenarioText, setScenarioText] = useState("");
   const [scenarioModuleId, setScenarioModuleId] = useState("");
@@ -37,6 +39,11 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
 
   const [releaseScenarioId, setReleaseScenarioId] = useState<string | null>(null);
   const [releasingScenario, setReleasingScenario] = useState(false);
+  const [releaseInstitutionId, setReleaseInstitutionId] = useState("");
+  const [releaseCourseId, setReleaseCourseId] = useState("");
+  const [releaseModuleId, setReleaseModuleId] = useState("");
+  const [releaseGroupId, setReleaseGroupId] = useState("");
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
 
   // Copy scenario dialog
   const [copyingScenario, setCopyingScenario] = useState<any | null>(null);
@@ -107,11 +114,37 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
     }
   };
 
+  // Computed lists for release dialog filters
+  const releaseCoursesForInstitution = releaseInstitutionId
+    ? courses.filter((c) => c.institution_id === releaseInstitutionId)
+    : [];
+  const releaseModulesForCourse = releaseCourseId
+    ? modules.filter((m) => m.course_id === releaseCourseId)
+    : [];
+  const releaseGroupsForFilter = groups.filter((g) => {
+    if (releaseCourseId && g.course_id !== releaseCourseId) return false;
+    if (releaseModuleId && g.module_id !== releaseModuleId) return false;
+    return true;
+  });
+  const releaseFilteredRooms = rooms.filter((r) => {
+    if (r.status !== "active") return false;
+    const group = groups.find((g) => g.id === r.group_id);
+    if (!group) return false;
+    if (releaseCourseId && group.course_id !== releaseCourseId) return false;
+    if (releaseModuleId && group.module_id !== releaseModuleId) return false;
+    if (releaseGroupId && r.group_id !== releaseGroupId) return false;
+    return true;
+  });
+
   const releaseScenarioToRooms = async (scenario: any) => {
+    const targetRooms = releaseFilteredRooms.filter((r) => selectedRoomIds.includes(r.id));
+    if (targetRooms.length === 0) {
+      toast({ title: "Nenhuma sala selecionada", variant: "destructive" });
+      return;
+    }
     setReleasingScenario(true);
     try {
-      const activeRooms = filteredRooms;
-      const updates = activeRooms.map((r) =>
+      const updates = targetRooms.map((r) =>
         supabase.from("rooms").update({
           scenario: scenario.content,
           is_scenario_visible_to_professor: true,
@@ -121,8 +154,9 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
         }).eq("id", r.id)
       );
       await Promise.all(updates);
-      toast({ title: "Cenário liberado!", description: `Enviado para ${activeRooms.length} sala(s).` });
+      toast({ title: "Cenário liberado!", description: `Enviado para ${targetRooms.length} sala(s).` });
       setReleaseScenarioId(null);
+      setSelectedRoomIds([]);
       onRefresh();
     } catch {
       toast({ title: "Erro", description: "Falha ao liberar cenário.", variant: "destructive" });
@@ -371,26 +405,145 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       </Dialog>
 
       {/* Release Scenario Dialog */}
-      <Dialog open={!!releaseScenarioId} onOpenChange={(open) => !open && setReleaseScenarioId(null)}>
-        <DialogContent>
+      <Dialog open={!!releaseScenarioId} onOpenChange={(open) => {
+        if (!open) {
+          setReleaseScenarioId(null);
+          setReleaseInstitutionId("");
+          setReleaseCourseId("");
+          setReleaseModuleId("");
+          setReleaseGroupId("");
+          setSelectedRoomIds([]);
+        }
+      }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Liberar Cenário para Turmas</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            O cenário será enviado para todas as salas ativas. Professores poderão visualizá-lo.
+            Filtre por instituição, curso, módulo e turma para selecionar as salas que receberão o cenário.
           </p>
-          <div className="my-4 space-y-2">
-            {filteredRooms.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2">
-                <span className="text-sm text-foreground">{r.name}</span>
-                {r.scenario ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
-                  </span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
-                )}
+          <div className="space-y-3 my-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Instituição</Label>
+              <Select value={releaseInstitutionId} onValueChange={(val) => {
+                setReleaseInstitutionId(val);
+                setReleaseCourseId("");
+                setReleaseModuleId("");
+                setReleaseGroupId("");
+                setSelectedRoomIds([]);
+              }}>
+                <SelectTrigger><SelectValue placeholder="Todas as instituições" /></SelectTrigger>
+                <SelectContent>
+                  {institutions.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {releaseInstitutionId && (
+              <div className="space-y-1">
+                <Label className="text-xs">Curso</Label>
+                <Select value={releaseCourseId} onValueChange={(val) => {
+                  setReleaseCourseId(val);
+                  setReleaseModuleId("");
+                  setReleaseGroupId("");
+                  setSelectedRoomIds([]);
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Todos os cursos" /></SelectTrigger>
+                  <SelectContent>
+                    {releaseCoursesForInstitution.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
+            )}
+            {releaseCourseId && (
+              <div className="space-y-1">
+                <Label className="text-xs">Módulo</Label>
+                <Select value={releaseModuleId} onValueChange={(val) => {
+                  setReleaseModuleId(val);
+                  setReleaseGroupId("");
+                  setSelectedRoomIds([]);
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Todos os módulos" /></SelectTrigger>
+                  <SelectContent>
+                    {releaseModulesForCourse.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum módulo neste curso</div>
+                    ) : (
+                      releaseModulesForCourse.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {releaseCourseId && (
+              <div className="space-y-1">
+                <Label className="text-xs">Turma</Label>
+                <Select value={releaseGroupId} onValueChange={(val) => {
+                  setReleaseGroupId(val);
+                  setSelectedRoomIds([]);
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Todas as turmas" /></SelectTrigger>
+                  <SelectContent>
+                    {releaseGroupsForFilter.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">Nenhuma turma encontrada</div>
+                    ) : (
+                      releaseGroupsForFilter.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
+
+          {releaseFilteredRooms.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Salas ({releaseFilteredRooms.length})</Label>
+                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+                  if (selectedRoomIds.length === releaseFilteredRooms.length) {
+                    setSelectedRoomIds([]);
+                  } else {
+                    setSelectedRoomIds(releaseFilteredRooms.map((r) => r.id));
+                  }
+                }}>
+                  {selectedRoomIds.length === releaseFilteredRooms.length ? "Desmarcar todas" : "Selecionar todas"}
+                </Button>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {releaseFilteredRooms.map((r) => (
+                  <label key={r.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-2 cursor-pointer hover:bg-muted/50">
+                    <Checkbox
+                      checked={selectedRoomIds.includes(r.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedRoomIds((prev) =>
+                          checked ? [...prev, r.id] : prev.filter((id) => id !== r.id)
+                        );
+                      }}
+                    />
+                    <span className="text-sm text-foreground flex-1">{r.name}</span>
+                    {r.scenario ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {releaseInstitutionId && releaseFilteredRooms.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-center">
+              <p className="text-sm text-muted-foreground">Nenhuma sala ativa encontrada com os filtros selecionados.</p>
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setReleaseScenarioId(null)}>Cancelar</Button>
             <Button
@@ -398,9 +551,9 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                 const sc = scenarios.find((s) => s.id === releaseScenarioId);
                 if (sc) releaseScenarioToRooms(sc);
               }}
-              disabled={releasingScenario}
+              disabled={releasingScenario || selectedRoomIds.length === 0}
             >
-              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> Liberar</>}
+              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> Liberar ({selectedRoomIds.length})</>}
             </Button>
           </DialogFooter>
         </DialogContent>

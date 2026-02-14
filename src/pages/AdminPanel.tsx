@@ -141,7 +141,7 @@ export default function AdminPanel() {
             />
             <ScenariosTab
               scenarios={scenarios} modules={modules} rooms={rooms}
-              courses={courses} institutions={institutions}
+              courses={courses} institutions={institutions} groups={groups}
               selectedCourseId={selectedCourseId} onRefresh={fetchAll}
             />
           </TabsContent>
