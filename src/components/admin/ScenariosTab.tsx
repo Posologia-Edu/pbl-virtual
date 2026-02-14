@@ -144,22 +144,21 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
     }
     setReleasingScenario(true);
     try {
-      const updates = targetRooms.map((r) =>
-        supabase.from("rooms").update({
-          scenario: scenario.content,
-          is_scenario_visible_to_professor: true,
-          is_scenario_released: false,
-          tutor_glossary: scenario.tutor_glossary || null,
-          tutor_questions: scenario.tutor_questions || null,
-        }).eq("id", r.id)
-      );
-      await Promise.all(updates);
-      toast({ title: "Cenário liberado!", description: `Enviado para ${targetRooms.length} sala(s).` });
+      const inserts = targetRooms.map((r) => ({
+        room_id: r.id,
+        scenario_id: scenario.id,
+        scenario_content: scenario.content,
+        tutor_glossary: scenario.tutor_glossary || null,
+        tutor_questions: scenario.tutor_questions || null,
+      }));
+      const { error } = await (supabase as any).from("room_scenarios").insert(inserts);
+      if (error) throw error;
+      toast({ title: "Cenário enviado!", description: `Enviado para ${targetRooms.length} sala(s).` });
       setReleaseScenarioId(null);
       setSelectedRoomIds([]);
       onRefresh();
     } catch {
-      toast({ title: "Erro", description: "Falha ao liberar cenário.", variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao enviar cenário.", variant: "destructive" });
     }
     setReleasingScenario(false);
   };
@@ -416,9 +415,9 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
         }
       }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Liberar / Substituir Cenário</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Enviar Cenário para Salas</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Filtre por instituição, curso, módulo e turma para selecionar as salas. Salas que já possuem cenário terão o conteúdo substituído.
+            Filtre por instituição, curso, módulo e turma para selecionar as salas. O cenário será adicionado à lista de cenários disponíveis em cada sala.
           </p>
           <div className="space-y-3 my-2">
             <div className="space-y-1">
@@ -525,13 +524,6 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                       }}
                     />
                     <span className="text-sm text-foreground flex-1">{r.name}</span>
-                    {r.scenario ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
-                        {r.is_scenario_released ? "Substituirá (visível p/ alunos)" : r.is_scenario_visible_to_professor ? "Substituirá (visível p/ professor)" : "Substituirá cenário"}
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
-                    )}
                   </label>
                 ))}
               </div>
@@ -553,7 +545,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
               }}
               disabled={releasingScenario || selectedRoomIds.length === 0}
             >
-              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> {releaseFilteredRooms.some((r) => selectedRoomIds.includes(r.id) && r.scenario) ? `Substituir e Liberar (${selectedRoomIds.length})` : `Liberar (${selectedRoomIds.length})`}</>}
+              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : <><Send className="mr-2 h-4 w-4" /> Enviar Cenário ({selectedRoomIds.length})</>}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -17,9 +17,10 @@ const GRADES = [
 
 interface Props {
   roomId: string;
+  sessionId?: string;
 }
 
-export default function EvaluationPanel({ roomId }: Props) {
+export default function EvaluationPanel({ roomId, sessionId }: Props) {
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [criteria, setCriteria] = useState<any[]>([]);
@@ -66,11 +67,14 @@ export default function EvaluationPanel({ roomId }: Props) {
       .order("sort_order");
     if (allCrit) setAllCriteria(allCrit);
 
-    const { data: evals } = await supabase
+    const evalsQueryBuilder = (supabase as any)
       .from("evaluations")
       .select("*")
       .eq("room_id", roomId)
       .eq("archived", false);
+    const { data: evals } = sessionId
+      ? await evalsQueryBuilder.eq("session_id", sessionId)
+      : await evalsQueryBuilder;
     if (evals) {
       const map: Record<string, string> = {};
       evals.forEach((e: any) => {
@@ -117,7 +121,8 @@ export default function EvaluationPanel({ roomId }: Props) {
         grade,
         professor_id: user.id,
         archived: false,
-      }));
+        ...(sessionId ? { session_id: sessionId } : {}),
+      } as any));
     }
 
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });

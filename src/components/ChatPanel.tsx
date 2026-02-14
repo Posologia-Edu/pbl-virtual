@@ -7,9 +7,10 @@ import { Send } from "lucide-react";
 
 interface Props {
   roomId: string;
+  sessionId?: string;
 }
 
-export default function ChatPanel({ roomId }: Props) {
+export default function ChatPanel({ roomId, sessionId }: Props) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
@@ -17,12 +18,10 @@ export default function ChatPanel({ roomId }: Props) {
   const profilesRef = useRef<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Keep ref in sync
   useEffect(() => {
     profilesRef.current = profilesMap;
   }, [profilesMap]);
 
-  // Fetch a profile and cache it
   const fetchProfile = useCallback(async (userId: string) => {
     if (profilesRef.current[userId]) return;
     const { data } = await supabase
@@ -35,20 +34,19 @@ export default function ChatPanel({ roomId }: Props) {
     }
   }, []);
 
-  // Fetch messages + profiles
   useEffect(() => {
     if (!roomId) return;
 
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("chat_messages")
         .select("*")
         .eq("room_id", roomId)
+        .eq("session_id", sessionId || null)
         .order("created_at");
       if (data) {
         setMessages(data);
-        // Batch-fetch all profiles for message authors
-        const userIds = [...new Set(data.map((m) => m.user_id))];
+        const userIds = [...new Set(data.map((m: any) => m.user_id))] as string[];
         if (userIds.length > 0) {
           const { data: profiles } = await supabase
             .from("profiles")
@@ -65,7 +63,7 @@ export default function ChatPanel({ roomId }: Props) {
     fetchMessages();
 
     const channel = supabase
-      .channel(`chat-${roomId}`)
+      .channel(`chat-${roomId}-${sessionId || "all"}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
@@ -73,7 +71,9 @@ export default function ChatPanel({ roomId }: Props) {
         filter: `room_id=eq.${roomId}`,
       }, async (payload) => {
         const newMsg = payload.new as any;
-        // Fetch profile if missing (uses ref to avoid stale closure)
+        // Filter by session
+        if (sessionId && newMsg.session_id !== sessionId) return;
+
         if (!profilesRef.current[newMsg.user_id]) {
           const { data: profile } = await supabase
             .from("profiles")
@@ -92,7 +92,7 @@ export default function ChatPanel({ roomId }: Props) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [roomId, fetchProfile]);
+  }, [roomId, sessionId, fetchProfile]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,7 +104,8 @@ export default function ChatPanel({ roomId }: Props) {
       room_id: roomId,
       user_id: user.id,
       content: text.trim(),
-    });
+      ...(sessionId ? { session_id: sessionId } : {}),
+    } as any);
     setText("");
   };
 
