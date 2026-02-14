@@ -105,7 +105,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
     if (!confirm(`Remover "${name}" deste curso?`)) return;
     const { error } = await supabase.from("course_members").delete().eq("course_id", selectedCourseId).eq("user_id", userId);
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao remover usuário do curso.", variant: "destructive" });
     } else {
       toast({ title: "Usuário removido do curso!" });
       onRefresh();
@@ -115,7 +115,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
   const toggleHidden = async (userId: string, currentlyHidden: boolean) => {
     const { error } = await supabase.from("profiles").update({ is_hidden: !currentlyHidden }).eq("user_id", userId);
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao alterar visibilidade do usuário.", variant: "destructive" });
     } else {
       toast({ title: !currentlyHidden ? "Usuário ocultado!" : "Usuário reativado!" });
       onRefresh();
