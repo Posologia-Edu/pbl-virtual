@@ -43,6 +43,7 @@ export default function SessionScenarioManager({
 }: Props) {
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelValue, setLabelValue] = useState("");
+  const [isMoving, setIsMoving] = useState(false);
 
   const sorted = [...roomScenarios].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
@@ -53,14 +54,27 @@ export default function SessionScenarioManager({
   };
 
   const moveScenario = async (rsId: string, direction: "up" | "down") => {
+    if (isMoving) return;
     const idx = sorted.findIndex((s) => s.id === rsId);
     if ((direction === "up" && idx === 0) || (direction === "down" && idx === sorted.length - 1)) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    await Promise.all([
-      (supabase as any).from("room_scenarios").update({ sort_order: sorted[swapIdx].sort_order }).eq("id", sorted[idx].id),
-      (supabase as any).from("room_scenarios").update({ sort_order: sorted[idx].sort_order }).eq("id", sorted[swapIdx].id),
-    ]);
-    onRefresh();
+
+    setIsMoving(true);
+    try {
+      // Create a new array with swapped positions
+      const reordered = sorted.map((s) => s.id);
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+
+      // Assign sequential sort_order values to all items
+      await Promise.all(
+        reordered.map((id, i) =>
+          (supabase as any).from("room_scenarios").update({ sort_order: i }).eq("id", id)
+        )
+      );
+      onRefresh();
+    } finally {
+      setIsMoving(false);
+    }
   };
 
   const activate = (rs: RoomScenario, idx: number) => {
@@ -115,7 +129,7 @@ export default function SessionScenarioManager({
                       size="icon"
                       className="h-5 w-5"
                       onClick={() => moveScenario(rs.id, "up")}
-                      disabled={idx === 0}
+                      disabled={idx === 0 || isMoving}
                     >
                       <ArrowUp className="h-3 w-3" />
                     </Button>
@@ -124,7 +138,7 @@ export default function SessionScenarioManager({
                       size="icon"
                       className="h-5 w-5"
                       onClick={() => moveScenario(rs.id, "down")}
-                      disabled={idx === sorted.length - 1}
+                      disabled={idx === sorted.length - 1 || isMoving}
                     >
                       <ArrowDown className="h-3 w-3" />
                     </Button>
