@@ -416,9 +416,9 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
         }
       }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Liberar Cenário para Turmas</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Liberar / Substituir Cenário</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Filtre por instituição, curso, módulo e turma para selecionar as salas que receberão o cenário.
+            Filtre por instituição, curso, módulo e turma para selecionar as salas. Salas que já possuem cenário terão o conteúdo substituído.
           </p>
           <div className="space-y-3 my-2">
             <div className="space-y-1">
@@ -526,8 +526,8 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                     />
                     <span className="text-sm text-foreground flex-1">{r.name}</span>
                     {r.scenario ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        {r.is_scenario_released ? "Visível p/ alunos" : r.is_scenario_visible_to_professor ? "Visível p/ professor" : "Com cenário"}
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
+                        {r.is_scenario_released ? "Substituirá (visível p/ alunos)" : r.is_scenario_visible_to_professor ? "Substituirá (visível p/ professor)" : "Substituirá cenário"}
                       </span>
                     ) : (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem cenário</span>
@@ -553,7 +553,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
               }}
               disabled={releasingScenario || selectedRoomIds.length === 0}
             >
-              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> Liberar ({selectedRoomIds.length})</>}
+              {releasingScenario ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Liberando...</> : <><Send className="mr-2 h-4 w-4" /> {releaseFilteredRooms.some((r) => selectedRoomIds.includes(r.id) && r.scenario) ? `Substituir e Liberar (${selectedRoomIds.length})` : `Liberar (${selectedRoomIds.length})`}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
