@@ -96,6 +96,11 @@ export default function Layout({ children }: {children: ReactNode;}) {
               </Button>
             }
           </div>
+          {!collapsed && (
+            <p className="mt-3 px-1 text-[10px] leading-tight text-sidebar-foreground/40">
+              Desenvolvido por Sérgio Araújo · Posologia Produções
+            </p>
+          )}
         </div>
       </aside>
 
