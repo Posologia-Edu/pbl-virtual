@@ -19,6 +19,7 @@ interface Props {
   reporterId: string | null;
   isProfessor: boolean;
   onAssignRole: (studentId: string, role: "coordinator" | "reporter" | "none") => void;
+  onlineUserIds?: Set<string>;
 }
 
 const roleConfig = {
@@ -27,24 +28,38 @@ const roleConfig = {
   participant: { label: "Participante", icon: User, color: "bg-secondary text-muted-foreground border-border" },
 };
 
-export default function ParticipantsPanel({ participants, coordinatorId, reporterId, isProfessor, onAssignRole }: Props) {
+export default function ParticipantsPanel({ participants, coordinatorId, reporterId, isProfessor, onAssignRole, onlineUserIds = new Set() }: Props) {
   const getRole = (id: string) => {
     if (id === coordinatorId) return "coordinator";
     if (id === reporterId) return "reporter";
     return "participant";
   };
 
+  // Sort: online first, then alphabetically
+  const sorted = [...participants].sort((a, b) => {
+    const aOnline = onlineUserIds.has(a.student_id) ? 0 : 1;
+    const bOnline = onlineUserIds.has(b.student_id) ? 0 : 1;
+    if (aOnline !== bOnline) return aOnline - bOnline;
+    return a.full_name.localeCompare(b.full_name);
+  });
+
   return (
     <div className="space-y-1.5">
-      {participants.map((p) => {
+      {sorted.map((p) => {
         const role = getRole(p.student_id);
         const cfg = roleConfig[role];
         const Icon = cfg.icon;
+        const isOnline = onlineUserIds.has(p.student_id);
 
         return (
           <div key={p.student_id} className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-secondary/50 transition-colors group">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
+            <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
               <Icon className="h-3.5 w-3.5 text-primary" />
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${
+                  isOnline ? "bg-emerald-500" : "bg-muted-foreground/40"
+                }`}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{p.full_name}</p>
