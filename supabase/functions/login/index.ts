@@ -25,6 +25,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validate email format and length
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (typeof email !== "string" || !emailRegex.test(email) || email.length > 254) {
+      return new Response(JSON.stringify({ error: "Formato de email inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!["student", "professor"].includes(role)) {
       return new Response(JSON.stringify({ error: "Invalid role" }), {
         status: 400,

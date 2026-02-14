@@ -148,7 +148,7 @@ export default function PBLSession() {
       author_id: user.id,
     });
     if (!error) setNewItem("");
-    else toast({ title: "Erro", description: error.message, variant: "destructive" });
+    else toast({ title: "Erro", description: "Falha ao adicionar contribuição.", variant: "destructive" });
   };
 
   const deleteItem = async (id: string) => {
@@ -199,7 +199,7 @@ export default function PBLSession() {
       toast({ title: "Whiteboard compartilhado no chat!" });
       setRightPanel("chat");
     } else {
-      toast({ title: "Erro ao compartilhar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao compartilhar", description: "Falha ao compartilhar whiteboard.", variant: "destructive" });
     }
   };
 

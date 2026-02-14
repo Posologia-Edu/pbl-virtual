@@ -127,7 +127,8 @@ Deno.serve(async (req) => {
       });
 
       if (createError) {
-        return new Response(JSON.stringify({ error: createError.message }), {
+        console.error("User creation error:", createError);
+        return new Response(JSON.stringify({ error: "Falha ao criar usuário. Verifique os dados." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -140,7 +141,8 @@ Deno.serve(async (req) => {
       });
 
       if (roleError) {
-        return new Response(JSON.stringify({ error: roleError.message }), {
+        console.error("Role assignment error:", roleError);
+        return new Response(JSON.stringify({ error: "Falha ao atribuir papel ao usuário." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -210,7 +212,8 @@ Deno.serve(async (req) => {
       const { error } = await adminClient.auth.admin.deleteUser(user_id);
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error("Delete user error:", error);
+        return new Response(JSON.stringify({ error: "Falha ao excluir usuário." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -237,7 +240,8 @@ Deno.serve(async (req) => {
       });
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error("Password change error:", error);
+        return new Response(JSON.stringify({ error: "Falha ao alterar senha." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -254,7 +258,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("manage-users error:", err);
+    return new Response(JSON.stringify({ error: "Erro interno do servidor." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

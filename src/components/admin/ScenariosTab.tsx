@@ -69,7 +69,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       tutor_questions: aiQuestions.length > 0 ? aiQuestions : null,
     });
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao salvar cenário.", variant: "destructive" });
     } else {
       toast({ title: "Cenário salvo na biblioteca!" });
       setScenarioTitle(""); setScenarioText(""); setScenarioModuleId("");
@@ -87,7 +87,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       module_id: editScenarioModuleId || null,
     }).eq("id", editingScenario.id);
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao atualizar cenário.", variant: "destructive" });
     } else {
       toast({ title: "Cenário atualizado!" });
       setEditingScenario(null);
@@ -100,7 +100,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
     if (!confirm(`Excluir cenário "${title}"?`)) return;
     const { error } = await supabase.from("scenarios").delete().eq("id", id);
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao excluir cenário.", variant: "destructive" });
     } else {
       toast({ title: "Cenário excluído!" });
       onRefresh();
