@@ -5,6 +5,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Simple in-memory rate limiting (per user, max 3 requests per minute)
+const rateLimitMap = new Map<string, number[]>();
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const windowMs = 60_000;
+  const maxRequests = 3;
+  const timestamps = (rateLimitMap.get(userId) || []).filter(t => now - t < windowMs);
+  if (timestamps.length >= maxRequests) return false;
+  timestamps.push(now);
+  rateLimitMap.set(userId, timestamps);
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,6 +53,13 @@ Deno.serve(async (req) => {
     if (!roleCheck) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limit: max 3 requests per minute per user
+    if (!checkRateLimit(caller.id)) {
+      return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
