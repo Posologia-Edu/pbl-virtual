@@ -155,11 +155,12 @@ export default function PBLSession() {
     await supabase.from("step_items").delete().eq("id", id);
   };
 
-  const releaseScenario = async () => {
+  const toggleScenarioRelease = async () => {
     if (!roomId) return;
-    await supabase.from("rooms").update({ is_scenario_released: true }).eq("id", roomId);
-    setRoom((prev: any) => ({ ...prev, is_scenario_released: true }));
-    toast({ title: "Cenário liberado para os alunos!" });
+    const newValue = !room?.is_scenario_released;
+    await supabase.from("rooms").update({ is_scenario_released: newValue }).eq("id", roomId);
+    setRoom((prev: any) => ({ ...prev, is_scenario_released: newValue }));
+    toast({ title: newValue ? "Cenário liberado para os alunos!" : "Cenário ocultado dos alunos!" });
   };
 
   const updateStep = async (step: number) => {
@@ -343,14 +344,19 @@ export default function PBLSession() {
                     <p className="text-sm text-muted-foreground italic">Nenhum cenário configurado ainda.</p>
                   )}
                   {isProfessor && !room?.is_scenario_released && (
-                    <Button className="mt-4" onClick={releaseScenario}>
+                    <Button className="mt-4" onClick={toggleScenarioRelease}>
                       <Eye className="mr-2 h-4 w-4" /> Liberar para Alunos
                     </Button>
                   )}
                   {isProfessor && room?.is_scenario_released && (
-                    <p className="mt-3 text-xs flex items-center gap-1" style={{ color: "hsl(var(--clinical-success))" }}>
-                      <Eye className="h-3 w-3" /> Cenário visível para os alunos
-                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <p className="text-xs flex items-center gap-1" style={{ color: "hsl(var(--clinical-success))" }}>
+                        <Eye className="h-3 w-3" /> Cenário visível para os alunos
+                      </p>
+                      <Button variant="outline" size="sm" onClick={toggleScenarioRelease}>
+                        <EyeOff className="mr-2 h-3.5 w-3.5" /> Ocultar dos Alunos
+                      </Button>
+                    </div>
                   )}
                 </div>
               ) : (
