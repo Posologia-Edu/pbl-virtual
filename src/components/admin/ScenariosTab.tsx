@@ -142,7 +142,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       tutor_questions: copyingScenario.tutor_questions,
     });
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: "Falha ao copiar cenário.", variant: "destructive" });
     } else {
       const targetCourse = courses.find((c) => c.id === copyTargetCourseId);
       toast({ title: "Cenário copiado!", description: `Copiado para ${targetCourse?.name || "outro curso"}.` });
