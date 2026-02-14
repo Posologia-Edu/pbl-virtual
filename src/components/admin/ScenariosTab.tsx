@@ -230,15 +230,43 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
           </div>
 
           {scenarioMode === "manual" ? (
-            <div className="space-y-2">
-              <Label>Texto do Problema / Caso Clínico</Label>
-              <Textarea
-                placeholder="Cole ou escreva o cenário clínico aqui..."
-                value={scenarioText}
-                onChange={(e) => setScenarioText(e.target.value)}
-                className="min-h-[200px]"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>Texto do Problema / Caso Clínico</Label>
+                <Textarea
+                  placeholder="Cole ou escreva o cenário clínico aqui..."
+                  value={scenarioText}
+                  onChange={(e) => setScenarioText(e.target.value)}
+                  className="min-h-[200px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Termos Desconhecidos</Label>
+                <Textarea
+                  placeholder={"Insira um termo por linha no formato:\nTermo: Definição\n\nEx:\nHipertensão: Pressão arterial elevada\nDispneia: Dificuldade respiratória"}
+                  value={aiGlossary.map((g: any) => `${g.term}: ${g.definition}`).join("\n")}
+                  onChange={(e) => {
+                    const lines = e.target.value.split("\n").filter((l) => l.trim());
+                    setAiGlossary(lines.map((line) => {
+                      const [term, ...rest] = line.split(":");
+                      return { term: term?.trim() || "", definition: rest.join(":").trim() };
+                    }));
+                  }}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Possíveis Intervenções</Label>
+                <Textarea
+                  placeholder={"Insira uma intervenção por linha.\n\nEx:\nQuais fatores de risco estão presentes?\nComo os sintomas se relacionam?"}
+                  value={aiQuestions.join("\n")}
+                  onChange={(e) => {
+                    setAiQuestions(e.target.value.split("\n").filter((l) => l.trim()));
+                  }}
+                  className="min-h-[100px]"
+                />
+              </div>
+            </>
           ) : (
             <>
               <div className="space-y-2">
