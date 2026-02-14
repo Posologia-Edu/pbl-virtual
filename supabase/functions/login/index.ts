@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 const DEFAULT_PASSWORDS: Record<string, string> = {
-  student: "medpbl-student-2026",
-  professor: "medpbl-professor-2026",
+  student: Deno.env.get("DEFAULT_STUDENT_PASSWORD") || "",
+  professor: Deno.env.get("DEFAULT_PROFESSOR_PASSWORD") || "",
 };
 
 Deno.serve(async (req) => {

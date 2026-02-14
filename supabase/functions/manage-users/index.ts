@@ -77,9 +77,9 @@ Deno.serve(async (req) => {
       }
 
       const defaultPasswords: Record<string, string> = {
-        student: "medpbl-student-2026",
-        professor: "medpbl-professor-2026",
-        admin: "admin",
+        student: Deno.env.get("DEFAULT_STUDENT_PASSWORD") || "",
+        professor: Deno.env.get("DEFAULT_PROFESSOR_PASSWORD") || "",
+        admin: Deno.env.get("DEFAULT_ADMIN_PASSWORD") || "",
       };
 
       const userPassword = password || defaultPasswords[role] || "medpbl-default-2026";
