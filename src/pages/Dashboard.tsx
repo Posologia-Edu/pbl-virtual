@@ -76,7 +76,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Active rooms */}
+        {/* Active rooms grouped by turma */}
         <div>
           <h2 className="mb-4 text-lg font-semibold text-foreground">Salas Ativas</h2>
           {rooms.length === 0 ? (
@@ -90,23 +90,56 @@ export default function Dashboard() {
               )}
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rooms.map((room) => (
-                <div
-                  key={room.id}
-                  onClick={() => navigate(`/session/${room.id}`)}
-                  className="clinical-card cursor-pointer p-5 transition-all hover:shadow-md animate-fade-in"
-                >
+            <div className="space-y-6">
+              {Object.entries(
+                rooms.reduce<Record<string, any[]>>((acc, room) => {
+                  const groupName = (room.groups as any)?.name || "Sem turma";
+                  if (!acc[groupName]) acc[groupName] = [];
+                  acc[groupName].push(room);
+                  return acc;
+                }, {})
+              ).map(([groupName, groupRooms]) => (
+                <div key={groupName} className="animate-fade-in">
                   <div className="mb-3 flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-primary">
-                      {(room.groups as any)?.name || "Turma"}
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                      <Users className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">{groupName}</h3>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {groupRooms.length} {groupRooms.length === 1 ? "sala" : "salas"}
                     </span>
                   </div>
-                  <h3 className="mb-1 text-base font-semibold text-foreground">{room.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Passo {room.current_step} • {room.status === "active" ? "Em andamento" : "Encerrada"}
-                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {groupRooms.map((room: any) => (
+                      <div
+                        key={room.id}
+                        onClick={() => navigate(`/session/${room.id}`)}
+                        className="group clinical-card cursor-pointer p-4 transition-all hover:shadow-md hover:border-primary/30"
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <DoorOpen className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs font-medium text-primary">Passo {room.current_step}</span>
+                          </div>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            room.is_scenario_released
+                              ? "bg-[hsl(var(--clinical-success))]/10 text-[hsl(var(--clinical-success))]"
+                              : room.scenario
+                                ? "bg-[hsl(var(--clinical-warning))]/10 text-[hsl(var(--clinical-warning))]"
+                                : "bg-muted text-muted-foreground"
+                          }`}>
+                            {room.is_scenario_released ? "Cenário visível" : room.scenario ? "Cenário oculto" : "Sem cenário"}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                          {room.name}
+                        </h4>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {room.status === "active" ? "Em andamento" : "Encerrada"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
