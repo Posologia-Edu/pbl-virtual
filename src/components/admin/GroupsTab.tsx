@@ -49,26 +49,10 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
       (!selectedCourseId || courseMemberIds.includes(p.user_id))
   );
 
-  // Professors already assigned to a group in a given module
-  const getProfessorsUsedInModule = (moduleId: string | null) => {
-    if (!moduleId) return [];
-    return filteredGroups
-      .filter((g) => g.module_id === moduleId)
-      .map((g) => g.professor_id);
-  };
+  // All professors are available (no module restriction)
+  const availableProfessorsForCreate = allProfessors;
 
-  // Available professors for creation (exclude those already in the selected module)
-  const availableProfessorsForCreate = allProfessors.filter(
-    (p) => !getProfessorsUsedInModule(newGroupModule).includes(p.user_id)
-  );
-
-  // Available professors for editing (exclude those in the same module, but keep the current one)
-  const getAvailableProfessorsForEdit = (moduleId: string | null, currentProfessorId: string) => {
-    const usedIds = getProfessorsUsedInModule(moduleId);
-    return allProfessors.filter(
-      (p) => p.user_id === currentProfessorId || !usedIds.includes(p.user_id)
-    );
-  };
+  const getAvailableProfessorsForEdit = () => allProfessors;
 
   const students = profiles.filter(
     (p) => p.user_roles?.some((r: any) => r.role === "student") &&
@@ -182,10 +166,6 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
             <Label>Módulo</Label>
             <Select value={newGroupModule} onValueChange={(val) => {
               setNewGroupModule(val);
-              // Reset professor if they're no longer available in this module
-              if (val && getProfessorsUsedInModule(val).includes(newGroupProfessor)) {
-                setNewGroupProfessor("");
-              }
             }}>
               <SelectTrigger><SelectValue placeholder="Selecionar módulo (opcional)" /></SelectTrigger>
               <SelectContent>
@@ -318,7 +298,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
               <Select value={editGroupProfessor} onValueChange={setEditGroupProfessor}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {getAvailableProfessorsForEdit(editGroupModule, editingGroup?.professor_id).map((p) => (
+                  {getAvailableProfessorsForEdit().map((p) => (
                     <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>
                   ))}
                 </SelectContent>
