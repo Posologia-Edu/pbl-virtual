@@ -411,9 +411,12 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-foreground/40">
           <div className="flex items-center gap-2">
             <GraduationCap className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-foreground/60">PBL Flow</span>
+            <span className="font-semibold text-foreground/60">PBL Virtual</span>
           </div>
-          <p>© {new Date().getFullYear()} PBL Flow. Todos os direitos reservados.</p>
+          <div className="text-center sm:text-right">
+            <p>© {new Date().getFullYear()} PBL Virtual. Todos os direitos reservados.</p>
+            <p className="text-xs mt-1">Desenvolvido por Sérgio Araújo. Posologia Produções.</p>
+          </div>
         </div>
       </footer>
     </div>
