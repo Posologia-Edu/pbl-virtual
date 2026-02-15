@@ -22,7 +22,7 @@ export default function Layout({ children }: {children: ReactNode;}) {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth");
+    navigate("/");
   };
 
   const visibleNav = navItems.filter((item) =>
