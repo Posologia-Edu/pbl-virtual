@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -148,9 +148,9 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md animate-fade-in">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
+          <Link to="/" className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary hover:opacity-90 transition-opacity cursor-pointer">
             <GraduationCap className="h-7 w-7 text-primary-foreground" />
-          </div>
+          </Link>
           <h1 className="text-2xl font-bold text-foreground">PBL Virtual</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Plataforma de Aprendizagem Baseada em Problemas
