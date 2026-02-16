@@ -737,6 +737,8 @@ export default function PBLSession() {
                       isProfessor={isProfessor}
                       onAssignRole={assignRole}
                       onlineUserIds={onlineUserIds}
+                      sessionId={currentSessionId}
+                      professorId={room?.professor_id}
                     />
                   </div>
                 </div>
