@@ -121,7 +121,7 @@ export default function LandingPage() {
             <div className="h-8 w-8 rounded-xl bg-primary flex items-center justify-center">
               <GraduationCap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-sm text-primary">PBL Flow</span>
+            <span className="font-bold text-sm text-primary">PBL Virtual</span>
           </div>
 
           {/* Nav links pill */}
