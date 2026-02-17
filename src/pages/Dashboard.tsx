@@ -5,6 +5,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import {
   Plus, Users, DoorOpen, BookOpen, ChevronRight, Activity,
   GraduationCap, Building2,
@@ -16,6 +17,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 export default function Dashboard() {
   const { user, isAdmin, isProfessor, isStudent, profile } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [rooms, setRooms] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -46,7 +48,6 @@ export default function Dashboard() {
     const courseMap = new Map(courses.map(c => [c.id, c]));
     const instMap = new Map(institutions.map(i => [i.id, i]));
 
-    // Group rooms by course_id via their group
     const byCourse: Record<string, { course: any; institution: any; rooms: any[] }> = {};
     const uncategorized: any[] = [];
 
@@ -67,7 +68,6 @@ export default function Dashboard() {
       byCourse[courseId].rooms.push(room);
     }
 
-    // Group by institution
     const byInst: Record<string, { institution: any; courses: { course: any; rooms: any[] }[] }> = {};
     for (const entry of Object.values(byCourse)) {
       const instId = entry.institution?.id || "__none__";
@@ -92,9 +92,9 @@ export default function Dashboard() {
   }, [rooms, courses, institutions]);
 
   const getScenarioStatus = (room: any) => {
-    if (room.is_scenario_released) return { label: "Cenário visível", variant: "success" as const };
-    if (room.scenario) return { label: "Cenário oculto", variant: "warning" as const };
-    return { label: "Sem cenário", variant: "neutral" as const };
+    if (room.is_scenario_released) return { label: t("dashboard.scenarioVisible"), variant: "success" as const };
+    if (room.scenario) return { label: t("dashboard.scenarioHidden"), variant: "warning" as const };
+    return { label: t("dashboard.noScenario"), variant: "neutral" as const };
   };
 
   return (
@@ -106,28 +106,28 @@ export default function Dashboard() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div className="animate-fade-in">
                 <p className="text-xs font-semibold uppercase tracking-widest text-primary/70 mb-1">
-                  {isProfessor ? "Professor" : isAdmin ? "Administrador" : "Estudante"}
+                  {isProfessor ? t("roles.professor") : isAdmin ? t("roles.admin") : t("roles.studentFull")}
                 </p>
                 <h1 className="text-3xl font-bold text-foreground tracking-tight">
-                  Olá, {profile?.full_name?.split(" ")[0] || "Usuário"} 👋
+                  {t("dashboard.greeting", { name: profile?.full_name?.split(" ")[0] || "User" })}
                 </h1>
                 <p className="mt-1.5 text-sm text-muted-foreground">
-                  {isProfessor ? "Gerencie suas sessões PBL e acompanhe o progresso das turmas" : isAdmin ? "Visão geral do painel administrativo" : "Acompanhe suas sessões de aprendizagem"}
+                  {isProfessor ? t("dashboard.professorSubtitle") : isAdmin ? t("dashboard.adminSubtitle") : t("dashboard.studentSubtitle")}
                 </p>
               </div>
               {isProfessor && (
                 <Button onClick={() => setShowCreateRoom(true)} className="rounded-xl shadow-sm gap-2 self-start sm:self-auto">
-                  <Plus className="h-4 w-4" /> Nova Sala
+                  <Plus className="h-4 w-4" /> {t("dashboard.newRoom")}
                 </Button>
               )}
             </div>
 
             {/* Stats */}
             <div className="mt-6 flex flex-wrap gap-3 animate-fade-in">
-              <StatChip icon={Activity} label="Salas Ativas" value={rooms.length} variant="primary" />
-              <StatChip icon={GraduationCap} label="Cursos" value={hierarchy.reduce((s, h) => s + h.courses.length, 0)} variant="accent" />
+              <StatChip icon={Activity} label={t("dashboard.activeRooms")} value={rooms.length} variant="primary" />
+              <StatChip icon={GraduationCap} label={t("dashboard.courses")} value={hierarchy.reduce((s, h) => s + h.courses.length, 0)} variant="accent" />
               {(isProfessor || isAdmin) && (
-                <StatChip icon={Users} label="Turmas" value={groups.length} variant="muted" />
+                <StatChip icon={Users} label={t("dashboard.groups")} value={groups.length} variant="muted" />
               )}
             </div>
           </div>
@@ -140,13 +140,13 @@ export default function Dashboard() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
                 <BookOpen className="h-7 w-7 text-muted-foreground/50" />
               </div>
-              <h3 className="text-base font-semibold text-foreground mb-1">Nenhuma sala ativa</h3>
+              <h3 className="text-base font-semibold text-foreground mb-1">{t("dashboard.noRooms")}</h3>
               <p className="text-sm text-muted-foreground max-w-xs">
-                {isProfessor ? "Crie uma nova sala para iniciar uma sessão PBL." : "Você não possui sessões ativas no momento."}
+                {isProfessor ? t("dashboard.noRoomsProf") : t("dashboard.noRoomsStudent")}
               </p>
               {isProfessor && (
                 <Button className="mt-5 rounded-xl gap-2" onClick={() => setShowCreateRoom(true)}>
-                  <Plus className="h-4 w-4" /> Criar Sala
+                  <Plus className="h-4 w-4" /> {t("dashboard.createRoom")}
                 </Button>
               )}
             </div>
@@ -154,31 +154,28 @@ export default function Dashboard() {
             <div className="space-y-10 animate-fade-in">
               {hierarchy.map((instGroup, idx) => (
                 <section key={instGroup.institution?.id || `uncategorized-${idx}`}>
-                  {/* Institution Header */}
                   <div className="flex items-center gap-2.5 mb-5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 shrink-0">
                       <Building2 className="h-4 w-4 text-primary" />
                     </div>
                     <h2 className="text-lg font-bold text-foreground truncate">
-                      {instGroup.institution?.name || "Sem instituição"}
+                      {instGroup.institution?.name || t("dashboard.noInstitution")}
                     </h2>
                   </div>
 
                   <div className="space-y-6 pl-2 border-l-2 border-primary/10 ml-4">
                     {instGroup.courses.map((courseGroup, cIdx) => (
                       <div key={courseGroup.course?.id || `no-course-${cIdx}`} className="pl-5">
-                        {/* Course Header */}
                         <div className="flex items-center gap-2 mb-3">
                           <GraduationCap className="h-4 w-4 text-accent shrink-0" />
                           <h3 className="text-sm font-semibold text-foreground truncate">
-                            {courseGroup.course?.name || "Sem curso"}
+                            {courseGroup.course?.name || t("dashboard.noCourse")}
                           </h3>
                           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground whitespace-nowrap">
-                            {courseGroup.rooms.length} {courseGroup.rooms.length === 1 ? "sala" : "salas"}
+                            {courseGroup.rooms.length} {courseGroup.rooms.length === 1 ? t("dashboard.room") : t("dashboard.rooms")}
                           </span>
                         </div>
 
-                        {/* Horizontal scroll of room cards */}
                         <ScrollArea className="w-full">
                           <div className="flex gap-3 pb-3">
                             {courseGroup.rooms.map((room: any) => {
@@ -190,7 +187,6 @@ export default function Dashboard() {
                                   onClick={() => navigate(`/session/${room.id}`)}
                                   className="group clinical-card text-left p-0 overflow-hidden transition-all hover:shadow-md hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 w-64"
                                 >
-                                  {/* Progress bar */}
                                   <div className="h-1 bg-gradient-to-r from-primary/60 to-primary/20" style={{ width: `${Math.min(((room.current_step || 1) / 7) * 100, 100)}%` }} />
 
                                   <div className="p-4">
@@ -209,7 +205,7 @@ export default function Dashboard() {
 
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="inline-flex items-center gap-1 rounded-lg bg-primary/8 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                                        Passo {room.current_step || 1}
+                                        {t("dashboard.step")} {room.current_step || 1}
                                       </span>
                                       <span className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium ${
                                         scenario.variant === "success"
@@ -252,7 +248,7 @@ export default function Dashboard() {
           onCreated={(room) => {
             setRooms((prev) => [room, ...prev]);
             setShowCreateRoom(false);
-            toast({ title: "Sala criada com sucesso!" });
+            toast({ title: t("dashboard.roomCreated") });
           }}
         />
       )}

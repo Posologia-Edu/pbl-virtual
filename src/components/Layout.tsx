@@ -1,25 +1,28 @@
 import { ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   GraduationCap, LayoutDashboard, Settings, LogOut, Users,
   DoorOpen, ChevronLeft, ChevronRight, BarChart3 } from
 "lucide-react";
 import { useState } from "react";
-
-const navItems = [
-{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student"] },
-{ label: "Relatórios", path: "/reports", icon: BarChart3, roles: ["admin", "professor"] },
-{ label: "Administração", path: "/admin", icon: Settings, roles: ["admin"] },
-{ label: "Salas", path: "/rooms", icon: DoorOpen, roles: ["professor", "student"] }];
-
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function Layout({ children }: {children: ReactNode;}) {
   const { user, profile, roles, signOut, isAdmin, isProfessor } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+
+  const navItems = [
+    { label: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student"] },
+    { label: t("nav.reports"), path: "/reports", icon: BarChart3, roles: ["admin", "professor"] },
+    { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin"] },
+    { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student"] },
+  ];
 
   const handleSignOut = async () => {
     await signOut();
@@ -27,10 +30,10 @@ export default function Layout({ children }: {children: ReactNode;}) {
   };
 
   const visibleNav = navItems.filter((item) =>
-  item.roles.some((r) => roles.includes(r as any))
+    item.roles.some((r) => roles.includes(r as any))
   );
 
-  const roleLabel = isAdmin ? "Administrador" : isProfessor ? "Professor" : "Aluno";
+  const roleLabel = isAdmin ? t("roles.admin") : isProfessor ? t("roles.professor") : t("roles.student");
 
   return (
     <div className="flex min-h-screen w-full">
@@ -44,7 +47,7 @@ export default function Layout({ children }: {children: ReactNode;}) {
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
             <GraduationCap className="h-4 w-4 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && <span className="text-sm font-semibold text-sidebar-foreground">PBL Virtual</span>}
+          {!collapsed && <span className="text-sm font-semibold text-sidebar-foreground">{t("app.name")}</span>}
         </div>
 
         <nav className="flex-1 space-y-1 p-2">
@@ -85,6 +88,7 @@ export default function Layout({ children }: {children: ReactNode;}) {
 
               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
+            <LanguageSwitcher collapsed={collapsed} />
             {!collapsed &&
             <Button
               variant="ghost"
@@ -93,13 +97,13 @@ export default function Layout({ children }: {children: ReactNode;}) {
               className="ml-auto text-sidebar-foreground hover:bg-sidebar-accent">
 
                 <LogOut className="mr-1 h-4 w-4" />
-                Sair
+                {t("nav.signOut")}
               </Button>
             }
           </div>
           {!collapsed && (
             <p className="mt-3 px-1 text-[10px] leading-tight text-sidebar-foreground/40">
-              Desenvolvido por Sérgio Araújo · Posologia Produções
+              {t("app.credits")}
             </p>
           )}
         </div>
