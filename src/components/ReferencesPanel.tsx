@@ -38,10 +38,11 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
   const fetchReferences = async () => {
     const q = supabase
       .from("session_references" as any)
-      .select("*, profiles!session_references_author_id_fkey(full_name)")
+      .select("*, profiles!session_references_author_id_profiles_fkey(full_name)")
       .eq("room_id", roomId)
       .order("created_at");
-    const { data } = sessionId ? await q.eq("session_id", sessionId) : await q;
+    const { data, error } = sessionId ? await q.eq("session_id", sessionId) : await q;
+    if (error) console.error("Fetch references error:", error);
     if (data) setReferences(data as any[]);
   };
 

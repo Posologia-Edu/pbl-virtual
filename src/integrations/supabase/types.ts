@@ -687,6 +687,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "session_references_author_id_profiles_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "session_references_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
