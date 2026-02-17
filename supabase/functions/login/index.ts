@@ -5,10 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEFAULT_PASSWORDS: Record<string, string> = {
-  student: Deno.env.get("DEFAULT_STUDENT_PASSWORD") || "",
-  professor: Deno.env.get("DEFAULT_PROFESSOR_PASSWORD") || "",
-};
+/** Generate a cryptographically random password for ephemeral login. */
+function generateEphemeralPassword(length = 32): string {
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values, (v) => charset[v % charset.length]).join("");
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -45,45 +48,24 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const password = DEFAULT_PASSWORDS[role];
-
-    // Sign in using the anon client to generate a session
-    const anonClient = createClient(supabaseUrl, anonKey);
-    let { data, error } = await anonClient.auth.signInWithPassword({ email, password });
-
-    // If login fails, the user's password may have drifted (e.g. after a reset).
-    // Reset it to the default via admin API and retry once.
-    if (error) {
-      const adminResetClient = createClient(supabaseUrl, serviceRoleKey);
-      const { data: usersData } = await adminResetClient.auth.admin.listUsers();
-      const targetUser = usersData?.users?.find((u) => u.email === email);
-
-      if (!targetUser) {
-        return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Reset password to default and retry
-      await adminResetClient.auth.admin.updateUserById(targetUser.id, { password });
-      const retry = await anonClient.auth.signInWithPassword({ email, password });
-      if (retry.error) {
-        return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      data = retry.data;
-    }
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Look up the user by email
+    const { data: usersData } = await adminClient.auth.admin.listUsers();
+    const targetUser = usersData?.users?.find((u) => u.email === email);
+
+    if (!targetUser) {
+      return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Verify the user actually has the claimed role
     const { data: roleCheck } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.user.id)
+      .eq("user_id", targetUser.id)
       .eq("role", role)
       .maybeSingle();
 
@@ -94,16 +76,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if user is effectively hidden (directly or via hierarchy)
+    // Check if user is effectively hidden
     const { data: hiddenCheck } = await adminClient.rpc("is_user_effectively_hidden", {
-      _user_id: data.user.id,
+      _user_id: targetUser.id,
     });
 
     if (hiddenCheck === true) {
-      // Sign out the session we just created
-      await anonClient.auth.signOut();
       return new Response(JSON.stringify({ error: "Sua conta está temporariamente desativada. Entre em contato com o administrador." }), {
         status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Generate a unique ephemeral password for this login attempt only
+    const ephemeralPassword = generateEphemeralPassword();
+
+    // Set the user's password to the ephemeral value
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUser.id, {
+      password: ephemeralPassword,
+    });
+
+    if (updateError) {
+      return new Response(JSON.stringify({ error: "Erro interno do servidor." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Sign in with the ephemeral password
+    const anonClient = createClient(supabaseUrl, anonKey);
+    const { data, error: signInError } = await anonClient.auth.signInWithPassword({
+      email,
+      password: ephemeralPassword,
+    });
+
+    if (signInError || !data?.session) {
+      return new Response(JSON.stringify({ error: "Credenciais inválidas ou usuário não cadastrado." }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
