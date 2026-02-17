@@ -13,6 +13,7 @@ import TimerPanel from "@/components/TimerPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
 import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
+import ReferencesPanel from "@/components/ReferencesPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
@@ -663,6 +664,15 @@ export default function PBLSession() {
                         ))}
                       </ol>
                     </div>
+                  )}
+
+                  {/* References panel for step 7 (Síntese) */}
+                  {(isViewingHistory ? historyStep : activeStep) === 7 && (
+                    <ReferencesPanel
+                      roomId={roomId!}
+                      sessionId={currentSessionId}
+                      readOnly={isViewingHistory}
+                    />
                   )}
 
                   {/* Step contributions */}
