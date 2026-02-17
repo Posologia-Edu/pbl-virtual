@@ -654,6 +654,51 @@ export type Database = {
           },
         ]
       }
+      session_minutes: {
+        Row: {
+          content: Json
+          created_at: string
+          generated_by: string
+          id: string
+          room_id: string
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          generated_by: string
+          id?: string
+          room_id: string
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          generated_by?: string
+          id?: string
+          room_id?: string
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_minutes_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_minutes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_references: {
         Row: {
           author_id: string
