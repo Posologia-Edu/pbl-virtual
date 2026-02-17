@@ -15,6 +15,7 @@ import SessionScenarioManager from "@/components/SessionScenarioManager";
 import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import ReferencesPanel from "@/components/ReferencesPanel";
 import SessionMinutesPanel from "@/components/SessionMinutesPanel";
+import ObjectivesBankPanel from "@/components/ObjectivesBankPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
@@ -52,6 +53,7 @@ export default function PBLSession() {
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [historyStep, setHistoryStep] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [moduleId, setModuleId] = useState<string | null>(null);
 
   const currentSessionId = viewingHistorySessionId || activeSession?.id;
   const isViewingHistory = !!viewingHistorySessionId;
@@ -164,6 +166,20 @@ export default function PBLSession() {
       }
     };
     fetchParticipants();
+  }, [room?.group_id]);
+
+  // ---- Fetch module_id from group ----
+  useEffect(() => {
+    if (!room?.group_id) return;
+    const fetchModule = async () => {
+      const { data } = await supabase
+        .from("groups")
+        .select("module_id")
+        .eq("id", room.group_id)
+        .single();
+      setModuleId(data?.module_id || null);
+    };
+    fetchModule();
   }, [room?.group_id]);
 
   // ---- Fetch step items (filtered by session) ----
@@ -681,6 +697,18 @@ export default function PBLSession() {
                         sessionLabel={sessionLabel}
                       />
                     </>
+                  )}
+
+                  {/* Objectives Bank for step 5 */}
+                  {(isViewingHistory ? historyStep : activeStep) === 5 && (
+                    <ObjectivesBankPanel
+                      moduleId={moduleId}
+                      roomId={roomId!}
+                      sessionId={currentSessionId}
+                      allSessions={allSessions}
+                      isProfessor={isProfessor}
+                      currentStepItems={displayItems}
+                    />
                   )}
 
                   {/* Step contributions */}
