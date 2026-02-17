@@ -337,18 +337,33 @@ export type Database = {
       }
       institutions: {
         Row: {
+          brand_accent_color: string | null
+          brand_logo_url: string | null
+          brand_platform_name: string | null
+          brand_primary_color: string | null
+          brand_secondary_color: string | null
           created_at: string
           id: string
           is_hidden: boolean
           name: string
         }
         Insert: {
+          brand_accent_color?: string | null
+          brand_logo_url?: string | null
+          brand_platform_name?: string | null
+          brand_primary_color?: string | null
+          brand_secondary_color?: string | null
           created_at?: string
           id?: string
           is_hidden?: boolean
           name: string
         }
         Update: {
+          brand_accent_color?: string | null
+          brand_logo_url?: string | null
+          brand_platform_name?: string | null
+          brand_primary_color?: string | null
+          brand_secondary_color?: string | null
           created_at?: string
           id?: string
           is_hidden?: boolean
