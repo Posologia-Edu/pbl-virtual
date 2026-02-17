@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-minutes]
 verify_jwt = false
+
+[functions.ai-cotutor]
+verify_jwt = false
