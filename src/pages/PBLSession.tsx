@@ -12,11 +12,12 @@ import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
+import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight,
+  Layers, History, ArrowRight, UserCheck,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -37,7 +38,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
 
   // Multi-scenario session states
@@ -394,7 +395,7 @@ export default function PBLSession() {
   const isCoordinator = user?.id === room?.coordinator_id;
   const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
@@ -526,6 +527,16 @@ export default function PBLSession() {
               }`}
             >
               <ClipboardList className="h-4 w-4" /> Avaliação
+            </button>
+          )}
+          {!isViewingHistory && activeSession && (
+            <button
+              onClick={() => togglePanel("peer-eval")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "peer-eval" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <UserCheck className="h-4 w-4" /> {isProfessor ? "Visão 360°" : "Avaliação por Pares"}
             </button>
           )}
           {isProfessor && hasMultiScenarios && (
@@ -742,6 +753,9 @@ export default function PBLSession() {
                     />
                   </div>
                 </div>
+              )}
+              {rightPanel === "peer-eval" && roomId && (
+                <PeerEvaluationPanel roomId={roomId} sessionId={activeSession?.id} isProfessor={isProfessor} />
               )}
             </div>
           )}

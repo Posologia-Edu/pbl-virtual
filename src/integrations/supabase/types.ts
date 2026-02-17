@@ -355,6 +355,70 @@ export type Database = {
           },
         ]
       }
+      peer_evaluations: {
+        Row: {
+          archived: boolean
+          created_at: string | null
+          criterion_id: string
+          evaluator_id: string
+          grade: string | null
+          id: string
+          is_self: boolean
+          problem_number: number | null
+          room_id: string
+          session_id: string | null
+          target_id: string
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string | null
+          criterion_id: string
+          evaluator_id: string
+          grade?: string | null
+          id?: string
+          is_self?: boolean
+          problem_number?: number | null
+          room_id: string
+          session_id?: string | null
+          target_id: string
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string | null
+          criterion_id?: string
+          evaluator_id?: string
+          grade?: string | null
+          id?: string
+          is_self?: boolean
+          problem_number?: number | null
+          room_id?: string
+          session_id?: string | null
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_evaluations_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_evaluations_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_evaluations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professor_notes: {
         Row: {
           content: string
