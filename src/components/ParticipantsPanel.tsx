@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Crown, FileEdit, User, MoreVertical, StickyNote, ChevronLeft, Save, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import BadgesPanel from "@/components/BadgesPanel";
 import { toast } from "@/hooks/use-toast";
 
 interface Participant {
@@ -160,6 +161,7 @@ export default function ParticipantsPanel({ participants, coordinatorId, reporte
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{p.full_name}</p>
+              <BadgesPanel userId={p.student_id} compact />
             </div>
             {isProfessor && sessionId && (
               <StickyNote className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" />

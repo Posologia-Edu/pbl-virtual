@@ -10,6 +10,7 @@ import {
   GraduationCap, Building2,
 } from "lucide-react";
 import CreateRoomDialog from "@/components/CreateRoomDialog";
+import BadgesPanel from "@/components/BadgesPanel";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function Dashboard() {
@@ -232,6 +233,13 @@ export default function Dashboard() {
                   </div>
                 </section>
               ))}
+            </div>
+          )}
+
+          {/* Badges section for students */}
+          {isStudent && (
+            <div className="mt-8 clinical-card p-6 animate-fade-in">
+              <BadgesPanel />
             </div>
           )}
         </div>

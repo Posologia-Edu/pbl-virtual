@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.ai-cotutor]
 verify_jwt = false
+
+[functions.compute-badges]
+verify_jwt = false
