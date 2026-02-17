@@ -323,6 +323,51 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_objectives: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_essential: boolean
+          module_id: string
+          source_session_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_essential?: boolean
+          module_id: string
+          source_session_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_essential?: boolean
+          module_id?: string
+          source_session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_objectives_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_objectives_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string | null
@@ -351,6 +396,45 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objective_sessions: {
+        Row: {
+          confirmed_by: string
+          created_at: string
+          id: string
+          objective_id: string
+          session_id: string
+        }
+        Insert: {
+          confirmed_by: string
+          created_at?: string
+          id?: string
+          objective_id: string
+          session_id: string
+        }
+        Update: {
+          confirmed_by?: string
+          created_at?: string
+          id?: string
+          objective_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objective_sessions_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "objective_sessions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
             referencedColumns: ["id"]
           },
         ]
