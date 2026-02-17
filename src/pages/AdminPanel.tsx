@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette } from "lucide-react";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
-import InstitutionsTab from "@/components/admin/InstitutionsTab";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
 import CoursesTab from "@/components/admin/CoursesTab";
 import UsersTab from "@/components/admin/UsersTab";
@@ -12,8 +12,10 @@ import GroupsTab from "@/components/admin/GroupsTab";
 import ModulesTab from "@/components/admin/ModulesTab";
 import ScenariosTab from "@/components/admin/ScenariosTab";
 import SecurityTab from "@/components/admin/SecurityTab";
+import BrandingTab from "@/components/admin/BrandingTab";
 
 export default function AdminPanel() {
+  const { t } = useTranslation();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, any[]>>({});
@@ -78,19 +80,20 @@ export default function AdminPanel() {
     <Layout>
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="mb-8 animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">Administração</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gerencie instituições, cursos, usuários, turmas, módulos e cenários</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("admin.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("admin.subtitle")}</p>
         </div>
 
         <Tabs defaultValue="institutions" className="animate-fade-in">
           <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="institutions"><Building2 className="mr-2 h-4 w-4" /> Instituições</TabsTrigger>
-            <TabsTrigger value="courses"><BookOpen className="mr-2 h-4 w-4" /> Cursos</TabsTrigger>
-            <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> Usuários</TabsTrigger>
-            <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> Turmas</TabsTrigger>
-            <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> Módulos</TabsTrigger>
-            <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> Cenários</TabsTrigger>
-            <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> Segurança</TabsTrigger>
+            <TabsTrigger value="institutions"><Building2 className="mr-2 h-4 w-4" /> {t("admin.institutions")}</TabsTrigger>
+            <TabsTrigger value="courses"><BookOpen className="mr-2 h-4 w-4" /> {t("admin.courses")}</TabsTrigger>
+            <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> {t("admin.users")}</TabsTrigger>
+            <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> {t("admin.groups")}</TabsTrigger>
+            <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> {t("admin.modules")}</TabsTrigger>
+            <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> {t("admin.scenarios")}</TabsTrigger>
+            <TabsTrigger value="branding"><Palette className="mr-2 h-4 w-4" /> {t("admin.branding")}</TabsTrigger>
+            <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="institutions">
@@ -101,7 +104,6 @@ export default function AdminPanel() {
             <CoursesTab courses={courses} institutions={institutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} />
           </TabsContent>
 
-          {/* Tabs that need course context */}
           <TabsContent value="users">
             <CourseContextSelector
               institutions={institutions} courses={courses}
@@ -144,6 +146,10 @@ export default function AdminPanel() {
               courses={courses} institutions={institutions} groups={groups}
               selectedCourseId={selectedCourseId} onRefresh={fetchAll}
             />
+          </TabsContent>
+
+          <TabsContent value="branding">
+            <BrandingTab institutions={institutions} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="security">
