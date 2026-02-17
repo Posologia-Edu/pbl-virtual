@@ -76,13 +76,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const defaultPasswords: Record<string, string> = {
-        student: Deno.env.get("DEFAULT_STUDENT_PASSWORD") || "",
-        professor: Deno.env.get("DEFAULT_PROFESSOR_PASSWORD") || "",
-        admin: Deno.env.get("DEFAULT_ADMIN_PASSWORD") || "",
+      // Generate a unique random password per user if none provided
+      const generateRandomPassword = (length = 32): string => {
+        const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        const values = new Uint8Array(length);
+        crypto.getRandomValues(values);
+        return Array.from(values, (v) => charset[v % charset.length]).join("");
       };
 
-      const userPassword = password || defaultPasswords[role] || "medpbl-default-2026";
+      const userPassword = password || generateRandomPassword();
 
       // Check if user already exists
       const { data: existingUsers } = await adminClient.auth.admin.listUsers();
