@@ -654,6 +654,54 @@ export type Database = {
           },
         ]
       }
+      session_references: {
+        Row: {
+          author_id: string
+          created_at: string | null
+          id: string
+          ref_type: string
+          room_id: string
+          session_id: string | null
+          title: string
+          url: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string | null
+          id?: string
+          ref_type?: string
+          room_id: string
+          session_id?: string | null
+          title?: string
+          url: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string | null
+          id?: string
+          ref_type?: string
+          room_id?: string
+          session_id?: string | null
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_references_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_references_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       step_items: {
         Row: {
           author_id: string
