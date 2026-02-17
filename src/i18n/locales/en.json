@@ -217,6 +217,152 @@
     "en": "English",
     "es": "Español"
   },
+  "docs": {
+    "title": "Documentation",
+    "badge": "User Guide",
+    "heading": "How to use PBL Virtual",
+    "subheading": "Learn how to use all platform features quickly and practically.",
+    "navLink": "Documentation",
+    "sections": {
+      "gettingStarted": {
+        "title": "Getting Started",
+        "desc": "How to access and navigate the platform",
+        "steps": {
+          "s1": "Access the platform via your browser and click 'Sign In'. Choose your profile (Student, Professor, or Admin) and enter your credentials.",
+          "s2": "After login, you'll be directed to the Dashboard with an overview of your rooms, courses, and groups.",
+          "s3": "Use the sidebar menu to navigate between Dashboard, Rooms, Reports, and Administration (based on your role)."
+        }
+      },
+      "rooms": {
+        "title": "PBL Rooms",
+        "desc": "Creating and managing tutorial rooms",
+        "steps": {
+          "s1": "Professors can create rooms by clicking 'New Room' on the Dashboard, selecting a group and scenario.",
+          "s2": "Each room contains a PBL scenario, chat, whiteboard, timer, and evaluation tools.",
+          "s3": "Students access rooms automatically through the 'Rooms' section after login.",
+          "s4": "The professor can control the session flow through the 8 PBL steps (Opening → Synthesis)."
+        }
+      },
+      "scenarios": {
+        "title": "PBL Scenarios",
+        "desc": "Creating and managing clinical scenarios",
+        "steps": {
+          "s1": "In Admin > Scenarios, create scenarios with title, content, tutor glossary, and guiding questions.",
+          "s2": "Use AI generation to automatically create scenarios from a topic.",
+          "s3": "Associate scenarios with rooms and control release to students in real-time."
+        }
+      },
+      "session": {
+        "title": "Tutorial Session (8 Steps)",
+        "desc": "Complete flow of the 8 PBL steps",
+        "steps": {
+          "s1": "Step 1 — Opening: Scenario presentation and initial problem reading.",
+          "s2": "Step 2 — Unknown Terms: Identification and recording of terms needing clarification.",
+          "s3": "Step 3 — Problem Definition: Clear formulation of the central problem to investigate.",
+          "s4": "Step 4 — Brainstorming: Generating hypotheses and ideas about the problem.",
+          "s5": "Step 5 — Learning Objectives: Defining objectives to guide individual study.",
+          "s6": "Step 6 — Individual Study: Period for research and deepening on objectives.",
+          "s7": "Step 7 — Synthesis / Closing: Sharing findings and final discussion.",
+          "s8": "The coordinator controls step navigation; the reporter records contributions."
+        }
+      },
+      "chat": {
+        "title": "Real-Time Chat",
+        "desc": "Communication during sessions",
+        "steps": {
+          "s1": "Chat is integrated into the session and enables real-time discussions among all participants.",
+          "s2": "Messages are linked to the active session and can be reviewed in history."
+        }
+      },
+      "whiteboard": {
+        "title": "Interactive Whiteboard",
+        "desc": "Visual documentation of discussions",
+        "steps": {
+          "s1": "Use the whiteboard to create shapes, arrows, and text to visually document discussions.",
+          "s2": "Drag and drop elements to collaboratively organize content.",
+          "s3": "Share the whiteboard in chat so everyone can see the current state of the discussion."
+        }
+      },
+      "timer": {
+        "title": "Synced Timer",
+        "desc": "Session time control",
+        "steps": {
+          "s1": "The coordinator can start, pause, and reset the timer, which is visible to all participants.",
+          "s2": "The timer is synced in real-time, ensuring everyone sees the same time."
+        }
+      },
+      "evaluation": {
+        "title": "Professor Evaluation",
+        "desc": "Criteria-based assessment during sessions",
+        "steps": {
+          "s1": "The professor defines evaluation criteria by phase (Opening/Closing) when configuring the room.",
+          "s2": "During the session, the professor assigns grades (E/VG/G/S/I) for each student per criterion.",
+          "s3": "Evaluations can be archived by problem to generate comparative reports."
+        }
+      },
+      "peereval": {
+        "title": "Peer Evaluation",
+        "desc": "Self-assessment and peer assessment",
+        "steps": {
+          "s1": "Students can evaluate themselves and their peers using the same criteria as the professor.",
+          "s2": "Peer evaluations are recorded and can be reviewed in reports."
+        }
+      },
+      "aicotutor": {
+        "title": "AI Co-tutor",
+        "desc": "Intelligent assistant for the professor",
+        "steps": {
+          "s1": "The AI Co-tutor assists the professor with question suggestions, glossary, and interventions during the session.",
+          "s2": "Based on the active scenario, AI provides relevant context and guidance to facilitate tutoring."
+        }
+      },
+      "objectives": {
+        "title": "Objectives Bank",
+        "desc": "Learning objectives management",
+        "steps": {
+          "s1": "Learning objectives are created during sessions and stored in the module bank.",
+          "s2": "Professors can mark objectives as essential and link them to specific sessions."
+        }
+      },
+      "reports": {
+        "title": "Performance Reports",
+        "desc": "Tracking student progress",
+        "steps": {
+          "s1": "Access Reports in the sidebar to view student performance by room.",
+          "s2": "Progress charts by problem show each student's growth over time.",
+          "s3": "Export reports as PDF using Ctrl+P to share with coordination."
+        }
+      },
+      "admin": {
+        "title": "Admin Panel",
+        "desc": "Complete platform management",
+        "steps": {
+          "s1": "Manage Institutions: create and configure institutions with custom name and colors (branding).",
+          "s2": "Manage Courses: create courses linked to institutions and organize by modules.",
+          "s3": "Manage Users: register professors and students with specific roles.",
+          "s4": "Manage Groups: create groups and assign students to organize PBL rooms.",
+          "s5": "Manage Scenarios: create, edit, and associate clinical scenarios to modules and courses."
+        }
+      },
+      "roles": {
+        "title": "Roles & Permissions",
+        "desc": "Understanding access profiles",
+        "steps": {
+          "s1": "Admin: full platform access, manages institutions, courses, users, groups, and scenarios.",
+          "s2": "Professor: creates rooms, manages PBL sessions, evaluates students, and accesses reports.",
+          "s3": "Student: accesses rooms, participates in PBL sessions, contributes in chat and whiteboard, and does peer evaluations."
+        }
+      },
+      "i18n": {
+        "title": "Languages",
+        "desc": "Platform multi-language support",
+        "steps": {
+          "s1": "The platform is available in Portuguese, English, and Spanish.",
+          "s2": "Change the language by clicking the flags in the sidebar or on the landing page."
+        }
+      }
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
