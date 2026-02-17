@@ -13,6 +13,7 @@ import AdminPanel from "./pages/AdminPanel";
 import PBLSession from "./pages/PBLSession";
 import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
+import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
           <BrandingProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/docs" element={<Documentation />} />
               <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

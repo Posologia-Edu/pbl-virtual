@@ -217,6 +217,152 @@
     "en": "English",
     "es": "Español"
   },
+  "docs": {
+    "title": "Documentação",
+    "badge": "Guia do Usuário",
+    "heading": "Como usar o PBL Virtual",
+    "subheading": "Aprenda a utilizar todas as funcionalidades da plataforma de forma rápida e prática.",
+    "navLink": "Documentação",
+    "sections": {
+      "gettingStarted": {
+        "title": "Primeiros Passos",
+        "desc": "Como acessar e navegar na plataforma",
+        "steps": {
+          "s1": "Acesse a plataforma pelo navegador e clique em 'Entrar'. Escolha seu perfil (Estudante, Professor ou Admin) e insira suas credenciais.",
+          "s2": "Após o login, você será direcionado ao Dashboard com visão geral das suas salas, cursos e turmas.",
+          "s3": "Use o menu lateral para navegar entre Dashboard, Salas, Relatórios e Administração (conforme seu perfil)."
+        }
+      },
+      "rooms": {
+        "title": "Salas PBL",
+        "desc": "Criação e gerenciamento de salas de tutoria",
+        "steps": {
+          "s1": "Professores podem criar salas clicando em 'Nova Sala' no Dashboard, selecionando turma e cenário.",
+          "s2": "Cada sala contém um cenário PBL, chat, whiteboard, cronômetro e ferramentas de avaliação.",
+          "s3": "Alunos acessam as salas automaticamente pela seção 'Salas' após o login.",
+          "s4": "O professor pode controlar o fluxo da sessão pelos 8 passos do PBL (Abertura → Síntese)."
+        }
+      },
+      "scenarios": {
+        "title": "Cenários PBL",
+        "desc": "Criação e gestão de cenários clínicos",
+        "steps": {
+          "s1": "No painel Admin > Cenários, crie cenários com título, conteúdo, glossário do tutor e perguntas orientadoras.",
+          "s2": "Use a geração por IA para criar cenários automaticamente a partir de um tema.",
+          "s3": "Associe cenários a salas e controle a liberação para os alunos em tempo real."
+        }
+      },
+      "session": {
+        "title": "Sessão Tutorial (8 Passos)",
+        "desc": "Fluxo completo dos 8 passos do PBL",
+        "steps": {
+          "s1": "Passo 1 — Abertura: Apresentação do cenário e leitura inicial do problema.",
+          "s2": "Passo 2 — Termos Desconhecidos: Identificação e registro de termos que precisam de esclarecimento.",
+          "s3": "Passo 3 — Definição do Problema: Formulação clara do problema central a ser investigado.",
+          "s4": "Passo 4 — Brainstorming: Levantamento de hipóteses e ideias sobre o problema.",
+          "s5": "Passo 5 — Objetivos de Aprendizagem: Definição dos objetivos que guiarão o estudo individual.",
+          "s6": "Passo 6 — Estudo Individual: Período para pesquisa e aprofundamento nos objetivos.",
+          "s7": "Passo 7 — Síntese / Fechamento: Compartilhamento dos achados e discussão final.",
+          "s8": "O coordenador controla a navegação entre os passos; o relator registra as contribuições."
+        }
+      },
+      "chat": {
+        "title": "Chat em Tempo Real",
+        "desc": "Comunicação durante a sessão",
+        "steps": {
+          "s1": "O chat é integrado à sessão e permite discussões em tempo real entre todos os participantes.",
+          "s2": "As mensagens ficam vinculadas à sessão ativa e podem ser consultadas no histórico."
+        }
+      },
+      "whiteboard": {
+        "title": "Whiteboard Interativo",
+        "desc": "Documentação visual das discussões",
+        "steps": {
+          "s1": "Use o whiteboard para criar formas, setas e textos que documentem visualmente a discussão.",
+          "s2": "Arraste e solte elementos para organizar o conteúdo de forma colaborativa.",
+          "s3": "Compartilhe o whiteboard no chat para que todos vejam o estado atual da discussão."
+        }
+      },
+      "timer": {
+        "title": "Cronômetro Sincronizado",
+        "desc": "Controle de tempo da sessão",
+        "steps": {
+          "s1": "O coordenador pode iniciar, pausar e resetar o cronômetro, que é visível para todos os participantes.",
+          "s2": "O timer é sincronizado em tempo real, garantindo que todos vejam o mesmo tempo."
+        }
+      },
+      "evaluation": {
+        "title": "Avaliação do Professor",
+        "desc": "Avaliação por critérios durante a sessão",
+        "steps": {
+          "s1": "O professor define critérios de avaliação por fase (Abertura/Fechamento) ao configurar a sala.",
+          "s2": "Durante a sessão, o professor atribui notas (E/MB/B/R/I) para cada aluno por critério.",
+          "s3": "As avaliações podem ser arquivadas por problema para gerar relatórios comparativos."
+        }
+      },
+      "peereval": {
+        "title": "Avaliação entre Pares",
+        "desc": "Autoavaliação e avaliação dos colegas",
+        "steps": {
+          "s1": "Alunos podem avaliar a si mesmos e aos colegas usando os mesmos critérios do professor.",
+          "s2": "As avaliações entre pares ficam registradas e podem ser consultadas nos relatórios."
+        }
+      },
+      "aicotutor": {
+        "title": "Co-tutor IA",
+        "desc": "Assistente inteligente para o professor",
+        "steps": {
+          "s1": "O Co-tutor IA auxilia o professor com sugestões de perguntas, glossário e intervenções durante a sessão.",
+          "s2": "Baseado no cenário ativo, a IA fornece contexto e orientações relevantes para facilitar a tutoria."
+        }
+      },
+      "objectives": {
+        "title": "Banco de Objetivos",
+        "desc": "Gestão de objetivos de aprendizagem",
+        "steps": {
+          "s1": "Objetivos de aprendizagem são criados durante as sessões e armazenados no banco do módulo.",
+          "s2": "Professores podem marcar objetivos como essenciais e vinculá-los a sessões específicas."
+        }
+      },
+      "reports": {
+        "title": "Relatórios de Desempenho",
+        "desc": "Acompanhamento da evolução dos alunos",
+        "steps": {
+          "s1": "Acesse Relatórios no menu lateral para visualizar o desempenho dos alunos por sala.",
+          "s2": "Gráficos de evolução por problema mostram o crescimento de cada aluno ao longo do tempo.",
+          "s3": "Exporte relatórios em PDF usando Ctrl+P para compartilhar com a coordenação."
+        }
+      },
+      "admin": {
+        "title": "Painel Administrativo",
+        "desc": "Gestão completa da plataforma",
+        "steps": {
+          "s1": "Gerencie Instituições: crie e configure instituições com nome e cores personalizadas (branding).",
+          "s2": "Gerencie Cursos: crie cursos vinculados a instituições e organize por módulos.",
+          "s3": "Gerencie Usuários: cadastre professores e alunos com papéis específicos.",
+          "s4": "Gerencie Turmas: crie turmas e vincule alunos para organizar as salas PBL.",
+          "s5": "Gerencie Cenários: crie, edite e associe cenários clínicos aos módulos e cursos."
+        }
+      },
+      "roles": {
+        "title": "Papéis e Permissões",
+        "desc": "Entenda os perfis de acesso",
+        "steps": {
+          "s1": "Admin: acesso total à plataforma, gerencia instituições, cursos, usuários, turmas e cenários.",
+          "s2": "Professor: cria salas, gerencia sessões PBL, avalia alunos e acessa relatórios.",
+          "s3": "Aluno: acessa salas, participa de sessões PBL, contribui no chat e whiteboard, e faz avaliações entre pares."
+        }
+      },
+      "i18n": {
+        "title": "Idiomas",
+        "desc": "Suporte multilíngue da plataforma",
+        "steps": {
+          "s1": "A plataforma está disponível em Português, Inglês e Espanhol.",
+          "s2": "Altere o idioma clicando nas bandeiras no menu lateral ou na página inicial."
+        }
+      }
+    }
+  },
   "common": {
     "save": "Salvar",
     "cancel": "Cancelar",

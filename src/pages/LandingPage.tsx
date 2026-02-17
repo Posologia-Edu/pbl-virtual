@@ -67,6 +67,12 @@ export default function LandingPage() {
                 {t(`landing.${key}`)}
               </button>
             ))}
+            <button
+              onClick={() => navigate("/docs")}
+              className="px-4 py-1.5 rounded-full text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-white/60 transition-all"
+            >
+              {t("docs.navLink")}
+            </button>
           </div>
 
           {/* Language pills */}
