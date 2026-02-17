@@ -4,12 +4,13 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   GraduationCap, LayoutDashboard, Settings, LogOut, Users,
-  DoorOpen, ChevronLeft, ChevronRight } from
+  DoorOpen, ChevronLeft, ChevronRight, BarChart3 } from
 "lucide-react";
 import { useState } from "react";
 
 const navItems = [
 { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student"] },
+{ label: "Relatórios", path: "/reports", icon: BarChart3, roles: ["admin", "professor"] },
 { label: "Administração", path: "/admin", icon: Settings, roles: ["admin"] },
 { label: "Salas", path: "/rooms", icon: DoorOpen, roles: ["professor", "student"] }];
 
