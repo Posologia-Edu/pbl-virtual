@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, User, Users, Eye } from "lucide-react";
+import { ArrowLeft, User, Users, Eye, Archive, History } from "lucide-react";
 
 const GRADES = [
   { label: "O", value: 0 },
@@ -13,6 +13,9 @@ const GRADES = [
   { label: "S", value: 75 },
   { label: "MS", value: 100 },
 ];
+
+const gradeToValue = (g: string | null) => GRADES.find((gr) => gr.label === g)?.value ?? null;
+const avg = (arr: number[]) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
 
 interface Props {
   roomId: string;
@@ -24,25 +27,27 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [criteria, setCriteria] = useState<any[]>([]);
+  const [allCriteria, setAllCriteria] = useState<any[]>([]);
   const [peerEvals, setPeerEvals] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<"opening" | "closing">("opening");
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-  const [view, setView] = useState<"evaluate" | "results">(isProfessor ? "results" : "evaluate");
 
-  // For professor 360° view
+  // Professor 360° view
   const [allPeerEvals, setAllPeerEvals] = useState<any[]>([]);
   const [profEvals, setProfEvals] = useState<any[]>([]);
   const [selectedStudentResult, setSelectedStudentResult] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [roomId, phase, sessionId]);
+  // History
+  const [showHistory, setShowHistory] = useState(false);
+  const [archivedPeerEvals, setArchivedPeerEvals] = useState<any[]>([]);
+  const [archivedProfEvals, setArchivedProfEvals] = useState<any[]>([]);
+  const [historyStudent, setHistoryStudent] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const { data: room } = await supabase.from("rooms").select("group_id").eq("id", roomId).single();
     if (!room) return;
 
-    const [membersRes, critRes] = await Promise.all([
+    const [membersRes, critRes, allCritRes] = await Promise.all([
       supabase
         .from("group_members")
         .select("student_id, profiles!group_members_student_id_profiles_fkey(full_name)")
@@ -53,55 +58,79 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
         .eq("room_id", roomId)
         .eq("phase", phase)
         .order("sort_order"),
+      supabase
+        .from("evaluation_criteria")
+        .select("*")
+        .eq("room_id", roomId)
+        .order("sort_order"),
     ]);
 
     if (membersRes.data) setStudents(membersRes.data);
     if (critRes.data) setCriteria(critRes.data);
+    if (allCritRes.data) setAllCriteria(allCritRes.data);
 
-    // Fetch current user's peer evaluations
+    // Student: fetch own peer evaluations (active, non-archived)
     if (user && !isProfessor) {
-      const queryBuilder = supabase
+      const q = supabase
         .from("peer_evaluations")
         .select("*")
         .eq("room_id", roomId)
         .eq("evaluator_id", user.id)
         .eq("archived", false);
-      const { data: evals } = sessionId
-        ? await queryBuilder.eq("session_id", sessionId)
-        : await queryBuilder;
+      const { data: evals } = sessionId ? await q.eq("session_id", sessionId) : await q;
       if (evals) {
         const map: Record<string, string> = {};
-        evals.forEach((e: any) => {
-          map[`${e.target_id}-${e.criterion_id}`] = e.grade;
-        });
+        evals.forEach((e: any) => { map[`${e.target_id}-${e.criterion_id}`] = e.grade; });
         setPeerEvals(map);
       }
     }
 
-    // For professor: fetch all peer evals and professor evals
+    // Professor: fetch ALL peer evals and professor evals (active)
     if (isProfessor) {
+      const peerQ = supabase.from("peer_evaluations").select("*").eq("room_id", roomId).eq("archived", false);
+      const profQ = supabase.from("evaluations").select("*").eq("room_id", roomId).eq("archived", false);
       const [peerRes, profRes] = await Promise.all([
-        sessionId
-          ? supabase.from("peer_evaluations").select("*").eq("room_id", roomId).eq("archived", false).eq("session_id", sessionId)
-          : supabase.from("peer_evaluations").select("*").eq("room_id", roomId).eq("archived", false),
-        sessionId
-          ? supabase.from("evaluations").select("*").eq("room_id", roomId).eq("archived", false).eq("session_id", sessionId)
-          : supabase.from("evaluations").select("*").eq("room_id", roomId).eq("archived", false),
+        sessionId ? peerQ.eq("session_id", sessionId) : peerQ,
+        sessionId ? profQ.eq("session_id", sessionId) : profQ,
       ]);
       if (peerRes.data) setAllPeerEvals(peerRes.data);
       if (profRes.data) setProfEvals(profRes.data);
     }
-  };
+  }, [roomId, phase, sessionId, user, isProfessor]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fetchArchivedData = useCallback(async () => {
+    const [peerRes, profRes] = await Promise.all([
+      supabase
+        .from("peer_evaluations")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("archived", true)
+        .not("problem_number", "is", null)
+        .order("problem_number"),
+      supabase
+        .from("evaluations")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("archived", true)
+        .not("problem_number", "is", null)
+        .order("problem_number"),
+    ]);
+    if (peerRes.data) setArchivedPeerEvals(peerRes.data);
+    if (profRes.data) setArchivedProfEvals(profRes.data);
+  }, [roomId]);
+
+  useEffect(() => { if (showHistory) fetchArchivedData(); }, [showHistory, fetchArchivedData]);
+
+  // --- Set grade (student) ---
   const setGrade = async (targetId: string, criterionId: string, grade: string) => {
     if (!user || !roomId) return;
     const key = `${targetId}-${criterionId}`;
     const isSelf = targetId === user.id;
-
     setPeerEvals((prev) => ({ ...prev, [key]: grade }));
 
-    // Check existing
-    const queryBuilder = supabase
+    const q = supabase
       .from("peer_evaluations")
       .select("id")
       .eq("room_id", roomId)
@@ -110,8 +139,8 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
       .eq("criterion_id", criterionId)
       .eq("archived", false);
     const { data: existing } = sessionId
-      ? await queryBuilder.eq("session_id", sessionId).maybeSingle()
-      : await queryBuilder.maybeSingle();
+      ? await q.eq("session_id", sessionId).maybeSingle()
+      : await q.maybeSingle();
 
     let error;
     if (existing) {
@@ -131,16 +160,59 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
   };
 
-  const getScore = (targetId: string, evals: Record<string, string>) => {
-    const grades = criteria
-      .map((c) => evals[`${targetId}-${c.id}`])
-      .filter(Boolean)
-      .map((g) => GRADES.find((gr) => gr.label === g)?.value || 0);
-    if (grades.length === 0) return null;
-    return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length);
+  // --- Archive peer evaluations (professor) ---
+  const archivePeerEvaluations = async () => {
+    if (!user) return;
+
+    // Find next problem_number
+    const { data: maxData } = await supabase
+      .from("peer_evaluations")
+      .select("problem_number")
+      .eq("room_id", roomId)
+      .eq("archived", true)
+      .not("problem_number", "is", null)
+      .order("problem_number", { ascending: false })
+      .limit(1);
+
+    const nextProblem = maxData?.length && maxData[0].problem_number != null
+      ? maxData[0].problem_number + 1
+      : 1;
+
+    const { error } = await supabase
+      .from("peer_evaluations")
+      .update({ archived: true, problem_number: nextProblem })
+      .eq("room_id", roomId)
+      .eq("archived", false);
+
+    if (!error) {
+      toast({ title: `Avaliação por pares arquivada como P${nextProblem}!` });
+      setAllPeerEvals([]);
+      fetchData();
+    } else {
+      toast({ title: "Erro ao arquivar", description: error.message, variant: "destructive" });
+    }
   };
 
-  // For 360° view: compute average peer score for a student on a criterion
+  // --- Score helpers ---
+  const getScore = (targetId: string, evalsMap: Record<string, string>) => {
+    const grades = criteria
+      .map((c) => evalsMap[`${targetId}-${c.id}`])
+      .filter(Boolean)
+      .map((g) => gradeToValue(g))
+      .filter((v): v is number => v !== null);
+    return avg(grades);
+  };
+
+  const evaluatedCount = useMemo(() => {
+    if (!user) return 0;
+    const targets = new Set<string>();
+    Object.entries(peerEvals).forEach(([key, val]) => {
+      if (val) targets.add(key.split("-")[0]);
+    });
+    return targets.size;
+  }, [peerEvals, user]);
+
+  // --- 360° data for a student (active evals) ---
   const get360Data = (targetStudentId: string) => {
     const selfEvals = allPeerEvals.filter((e) => e.evaluator_id === targetStudentId && e.target_id === targetStudentId);
     const peerEvalsForTarget = allPeerEvals.filter((e) => e.target_id === targetStudentId && e.evaluator_id !== targetStudentId);
@@ -150,35 +222,130 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
       const selfGrade = selfEvals.find((e) => e.criterion_id === c.id)?.grade;
       const peerGrades = peerEvalsForTarget
         .filter((e) => e.criterion_id === c.id && e.grade)
-        .map((e) => GRADES.find((g) => g.label === e.grade)?.value || 0);
+        .map((e) => gradeToValue(e.grade))
+        .filter((v): v is number => v !== null);
       const profGrade = profEvalsForTarget.find((e) => e.criterion_id === c.id)?.grade;
-
-      const peerAvg = peerGrades.length > 0 ? Math.round(peerGrades.reduce((a, b) => a + b, 0) / peerGrades.length) : null;
 
       return {
         criterion: c.label,
-        selfScore: selfGrade ? GRADES.find((g) => g.label === selfGrade)?.value ?? null : null,
+        selfScore: gradeToValue(selfGrade ?? null),
         selfLabel: selfGrade || null,
-        peerAvg,
+        peerAvg: avg(peerGrades),
         peerCount: peerGrades.length,
-        profScore: profGrade ? GRADES.find((g) => g.label === profGrade)?.value ?? null : null,
+        profScore: gradeToValue(profGrade ?? null),
         profLabel: profGrade || null,
       };
     });
   };
 
-  // Evaluate peers count
-  const evaluatedCount = useMemo(() => {
-    if (!user) return 0;
-    const targets = new Set<string>();
-    Object.keys(peerEvals).forEach((key) => {
-      const [targetId] = key.split("-");
-      if (peerEvals[key]) targets.add(targetId);
-    });
-    return targets.size;
-  }, [peerEvals, user]);
+  // --- Archived 360° data for a student on a specific problem ---
+  const getArchived360 = (targetStudentId: string, problemNumber: number, phaseFilter: string) => {
+    const phaseCriteria = allCriteria.filter((c) => c.phase === phaseFilter);
+    const peerEvalsForProblem = archivedPeerEvals.filter((e) => e.problem_number === problemNumber);
+    const profEvalsForProblem = archivedProfEvals.filter((e) => e.problem_number === problemNumber);
 
-  // ----- PROFESSOR 360° VIEW -----
+    const selfEvals = peerEvalsForProblem.filter((e) => e.evaluator_id === targetStudentId && e.target_id === targetStudentId);
+    const peerOnly = peerEvalsForProblem.filter((e) => e.target_id === targetStudentId && e.evaluator_id !== targetStudentId);
+    const profOnly = profEvalsForProblem.filter((e) => e.student_id === targetStudentId);
+
+    const selfGrades = phaseCriteria.map((c) => gradeToValue(selfEvals.find((e) => e.criterion_id === c.id)?.grade ?? null)).filter((v): v is number => v !== null);
+    const peerGrades = phaseCriteria.flatMap((c) =>
+      peerOnly.filter((e) => e.criterion_id === c.id && e.grade).map((e) => gradeToValue(e.grade)).filter((v): v is number => v !== null)
+    );
+    const profGrades = phaseCriteria.map((c) => gradeToValue(profOnly.find((e) => e.criterion_id === c.id)?.grade ?? null)).filter((v): v is number => v !== null);
+
+    return { selfAvg: avg(selfGrades), peerAvg: avg(peerGrades), profAvg: avg(profGrades) };
+  };
+
+  const archivedProblemNumbers = useMemo(() => {
+    const fromPeer = archivedPeerEvals.map((e) => e.problem_number);
+    const fromProf = archivedProfEvals.map((e) => e.problem_number);
+    return [...new Set([...fromPeer, ...fromProf])].sort((a, b) => a - b);
+  }, [archivedPeerEvals, archivedProfEvals]);
+
+  // ===== SCORE CELL COMPONENT =====
+  const ScoreCell = ({ label, score, colorClass }: { label: string; score: number | null; colorClass: string }) => (
+    <div className="rounded-lg bg-secondary/50 p-2 text-center">
+      <span className="text-[10px] text-muted-foreground block">{label}</span>
+      <span className={`text-sm font-bold ${colorClass}`}>
+        {score != null ? `${score}%` : "—"}
+      </span>
+    </div>
+  );
+
+  // ===== HISTORY VIEW =====
+  if (showHistory) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="border-b border-border px-4 py-3 flex items-center gap-2">
+          <button onClick={() => { setShowHistory(false); setHistoryStudent(null); }} className="text-primary hover:underline">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h3 className="text-sm font-semibold text-foreground">Histórico — Avaliação 360°</h3>
+        </div>
+
+        <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
+          {!historyStudent ? (
+            <div className="space-y-1">
+              {students.map((s) => (
+                <button
+                  key={s.student_id}
+                  onClick={() => setHistoryStudent(s.student_id)}
+                  className="flex w-full items-center justify-between rounded-xl bg-secondary/50 px-3 py-2.5 text-left hover:bg-secondary transition-colors"
+                >
+                  <span className="text-sm text-foreground">{(s.profiles as any)?.full_name}</span>
+                </button>
+              ))}
+              {students.length === 0 && (
+                <p className="py-4 text-center text-xs text-muted-foreground">Nenhum aluno</p>
+              )}
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <button onClick={() => setHistoryStudent(null)} className="mb-3 text-xs text-primary hover:underline">
+                ← Voltar à lista
+              </button>
+              <p className="mb-3 text-sm font-medium text-foreground">
+                {students.find((s) => s.student_id === historyStudent)?.profiles?.full_name}
+              </p>
+
+              {archivedProblemNumbers.length === 0 ? (
+                <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma avaliação arquivada</p>
+              ) : (
+                <div className="space-y-3">
+                  {archivedProblemNumbers.map((pn) => {
+                    const opening = getArchived360(historyStudent, pn, "opening");
+                    const closing = getArchived360(historyStudent, pn, "closing");
+                    return (
+                      <div key={pn} className="rounded-xl border border-border p-3">
+                        <h4 className="text-sm font-semibold text-foreground mb-2">P{pn}</h4>
+                        {/* Opening */}
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Abertura</p>
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <ScoreCell label="Auto" score={opening.selfAvg} colorClass="text-primary" />
+                          <ScoreCell label="Pares" score={opening.peerAvg} colorClass="text-accent-foreground" />
+                          <ScoreCell label="Tutor" score={opening.profAvg} colorClass="text-primary" />
+                        </div>
+                        {/* Closing */}
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Fechamento</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <ScoreCell label="Auto" score={closing.selfAvg} colorClass="text-primary" />
+                          <ScoreCell label="Pares" score={closing.peerAvg} colorClass="text-accent-foreground" />
+                          <ScoreCell label="Tutor" score={closing.profAvg} colorClass="text-primary" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== PROFESSOR 360° VIEW =====
   if (isProfessor) {
     return (
       <div className="flex flex-col h-full">
@@ -204,6 +371,7 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
               {students.map((s) => {
                 const peerCount = allPeerEvals.filter((e) => e.target_id === s.student_id && e.evaluator_id !== s.student_id).length;
                 const hasSelf = allPeerEvals.some((e) => e.target_id === s.student_id && e.evaluator_id === s.student_id);
+                const hasProf = profEvals.some((e) => e.student_id === s.student_id);
                 return (
                   <button
                     key={s.student_id}
@@ -211,12 +379,15 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                     className="flex w-full items-center justify-between rounded-xl bg-secondary/50 px-3 py-2.5 text-left hover:bg-secondary transition-colors"
                   >
                     <span className="text-sm text-foreground">{(s.profiles as any)?.full_name}</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {hasSelf && (
                         <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Auto</span>
                       )}
                       {peerCount > 0 && (
-                        <span className="text-[10px] text-muted-foreground">{peerCount} avaliações</span>
+                        <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">{peerCount} par{peerCount > 1 ? "es" : ""}</span>
+                      )}
+                      {hasProf && (
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">Tutor</span>
                       )}
                     </div>
                   </button>
@@ -242,24 +413,20 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                         <span className="text-sm font-bold text-primary">
                           {row.selfScore != null ? `${row.selfScore}%` : "—"}
                         </span>
-                        {row.selfLabel && (
-                          <span className="text-[10px] text-muted-foreground block">{row.selfLabel}</span>
-                        )}
+                        {row.selfLabel && <span className="text-[10px] text-muted-foreground block">{row.selfLabel}</span>}
                       </div>
                       <div className="rounded-lg bg-secondary/50 p-2 text-center">
                         <span className="text-[10px] text-muted-foreground block">Pares ({row.peerCount})</span>
-                        <span className="text-sm font-bold text-accent">
+                        <span className="text-sm font-bold text-accent-foreground">
                           {row.peerAvg != null ? `${row.peerAvg}%` : "—"}
                         </span>
                       </div>
                       <div className="rounded-lg bg-secondary/50 p-2 text-center">
                         <span className="text-[10px] text-muted-foreground block">Tutor</span>
-                        <span className="text-sm font-bold text-[hsl(var(--clinical-success))]">
+                        <span className="text-sm font-bold text-primary">
                           {row.profScore != null ? `${row.profScore}%` : "—"}
                         </span>
-                        {row.profLabel && (
-                          <span className="text-[10px] text-muted-foreground block">{row.profLabel}</span>
-                        )}
+                        {row.profLabel && <span className="text-[10px] text-muted-foreground block">{row.profLabel}</span>}
                       </div>
                     </div>
                   </div>
@@ -272,22 +439,21 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                 const selfScores = data.map((d) => d.selfScore).filter((v): v is number => v !== null);
                 const peerScores = data.map((d) => d.peerAvg).filter((v): v is number => v !== null);
                 const profScores = data.map((d) => d.profScore).filter((v): v is number => v !== null);
-                const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
                 return (
-                  <div className="mt-3 rounded-xl bg-[hsl(var(--clinical-highlight))] p-3">
+                  <div className="mt-3 rounded-xl bg-secondary/30 p-3">
                     <p className="text-xs font-medium text-foreground mb-2">Resumo</p>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
                         <span className="text-[10px] text-muted-foreground block">Auto</span>
-                        <span className="text-sm font-bold text-primary">{avg(selfScores) ?? "—"}%</span>
+                        <span className="text-sm font-bold text-primary">{avg(selfScores) != null ? `${avg(selfScores)}%` : "—"}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-muted-foreground block">Pares</span>
-                        <span className="text-sm font-bold text-accent">{avg(peerScores) ?? "—"}%</span>
+                        <span className="text-sm font-bold text-accent-foreground">{avg(peerScores) != null ? `${avg(peerScores)}%` : "—"}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-muted-foreground block">Tutor</span>
-                        <span className="text-sm font-bold text-[hsl(var(--clinical-success))]">{avg(profScores) ?? "—"}%</span>
+                        <span className="text-sm font-bold text-primary">{avg(profScores) != null ? `${avg(profScores)}%` : "—"}</span>
                       </div>
                     </div>
                   </div>
@@ -296,11 +462,21 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
             </div>
           )}
         </div>
+
+        {/* Archive & History buttons */}
+        <div className="border-t border-border p-3 space-y-2">
+          <Button variant="outline" size="sm" className="w-full" onClick={archivePeerEvaluations}>
+            <Archive className="mr-2 h-4 w-4" /> Arquivar Registro
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowHistory(true)}>
+            <History className="mr-2 h-4 w-4" /> Histórico
+          </Button>
+        </div>
       </div>
     );
   }
 
-  // ----- STUDENT VIEW -----
+  // ===== STUDENT VIEW =====
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border px-4 py-3">
@@ -325,7 +501,6 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
       <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
         {!selectedTarget ? (
           <div className="space-y-1">
-            {/* Self evaluation first */}
             {students
               .sort((a, b) => {
                 if (a.student_id === user?.id) return -1;
@@ -404,7 +579,7 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
               })}
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-[hsl(var(--clinical-highlight))] p-3">
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-secondary/30 p-3">
               <span className="text-xs font-medium text-foreground">Score</span>
               <span className="text-sm font-bold text-primary">
                 {getScore(selectedTarget, peerEvals) ?? "—"}%
