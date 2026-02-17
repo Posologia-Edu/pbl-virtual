@@ -14,6 +14,7 @@ import WhiteboardPanel from "@/components/WhiteboardPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
 import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import ReferencesPanel from "@/components/ReferencesPanel";
+import SessionMinutesPanel from "@/components/SessionMinutesPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
@@ -668,11 +669,18 @@ export default function PBLSession() {
 
                   {/* References panel for step 7 (Síntese) */}
                   {(isViewingHistory ? historyStep : activeStep) === 7 && (
-                    <ReferencesPanel
-                      roomId={roomId!}
-                      sessionId={currentSessionId}
-                      readOnly={isViewingHistory}
-                    />
+                    <>
+                      <ReferencesPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        readOnly={isViewingHistory}
+                      />
+                      <SessionMinutesPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        sessionLabel={sessionLabel}
+                      />
+                    </>
                   )}
 
                   {/* Step contributions */}
