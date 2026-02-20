@@ -99,7 +99,9 @@
     "emailError": "Não foi possível enviar o email. Verifique se o email está correto.",
     "sending": "Enviando...",
     "studentNamePlaceholder": "Seu nome completo",
-    "professorNamePlaceholder": "Prof. João Silva"
+    "professorNamePlaceholder": "Prof. João Silva",
+    "googleLogin": "Entrar com Google",
+    "orContinueWith": "ou continue com"
   },
   "dashboard": {
     "greeting": "Olá, {{name}} 👋",

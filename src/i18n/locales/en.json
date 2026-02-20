@@ -99,7 +99,9 @@
     "emailError": "Could not send the email. Verify the email is correct.",
     "sending": "Sending...",
     "studentNamePlaceholder": "Your full name",
-    "professorNamePlaceholder": "Prof. John Smith"
+    "professorNamePlaceholder": "Prof. John Smith",
+    "googleLogin": "Sign in with Google",
+    "orContinueWith": "or continue with"
   },
   "dashboard": {
     "greeting": "Hello, {{name}} 👋",

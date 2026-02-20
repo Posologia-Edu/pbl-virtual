@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,7 @@ import {
   Shield, Zap, Layers, Globe, ArrowRight, GraduationCap, ChevronDown, Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
 const rise = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" as const } } };
@@ -34,6 +36,7 @@ const languages = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const [authOpen, setAuthOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden selection:bg-primary/20">
@@ -90,7 +93,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <button onClick={() => navigate("/auth")} className="rounded-full bg-foreground text-white px-5 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <button onClick={() => setAuthOpen(true)} className="rounded-full bg-foreground text-white px-5 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]">
             {t("landing.enter")}
           </button>
         </div>
@@ -119,7 +122,7 @@ export default function LandingPage() {
           </motion.p>
 
           <motion.div variants={rise} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" onClick={() => navigate("/auth")} className="rounded-full px-8 h-14 text-base font-semibold shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <Button size="lg" onClick={() => setAuthOpen(true)} className="rounded-full px-8 h-14 text-base font-semibold shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
               <Play className="mr-2 h-4 w-4" />
               {t("landing.cta")}
             </Button>
@@ -231,7 +234,7 @@ export default function LandingPage() {
               <span className="text-primary">{t("landing.ctaTitle2")}</span>
             </h2>
             <p className="text-foreground/55 text-lg mb-10 max-w-xl mx-auto">{t("landing.ctaSubtitle")}</p>
-            <Button size="lg" onClick={() => navigate("/auth")} className="rounded-full px-10 h-14 text-base font-semibold shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <Button size="lg" onClick={() => setAuthOpen(true)} className="rounded-full px-10 h-14 text-base font-semibold shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
               {t("landing.ctaButton")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -252,6 +255,8 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </div>
   );
 }
