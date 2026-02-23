@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, BookOpen, FolderOpen, Users, ChevronRight, ArrowLeft, GraduationCap, User, Eye, EyeOff, Plus, Trash2, UserCircle, CreditCard, Mail } from "lucide-react";
 import {
   AlertDialog,
@@ -26,7 +27,7 @@ interface BreadcrumbItem {
   label: string;
 }
 
-export default function InstitutionExplorer({ onRefresh, canCreate = false, readOnly = false }: { onRefresh?: () => void; canCreate?: boolean; readOnly?: boolean }) {
+export default function InstitutionExplorer({ onRefresh, canCreate = false, readOnly = false, isSuperAdmin = false }: { onRefresh?: () => void; canCreate?: boolean; readOnly?: boolean; isSuperAdmin?: boolean }) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [adminInstitutions, setAdminInstitutions] = useState<any[]>([]);
@@ -38,6 +39,29 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
   const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState("");
   const [selectedAdminInst, setSelectedAdminInst] = useState<any | null>(null);
+  const [availableAdmins, setAvailableAdmins] = useState<any[]>([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+
+  // Fetch available institution_admin users for superadmin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      const fetchAdmins = async () => {
+        const { data: adminRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "institution_admin");
+        if (adminRoles && adminRoles.length > 0) {
+          const adminUserIds = adminRoles.map((r) => r.user_id);
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", adminUserIds);
+          setAvailableAdmins(profiles || []);
+        }
+      };
+      fetchAdmins();
+    }
+  }, [isSuperAdmin]);
 
   const createInstitution = async () => {
     if (!newName.trim()) return;
@@ -55,12 +79,16 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("institutions").insert({ name: newName.trim(), owner_id: user?.id });
+    // If superadmin selected an admin, use that admin as owner; otherwise use current user
+    const ownerId = isSuperAdmin && selectedOwnerId && selectedOwnerId !== "__none__" ? selectedOwnerId : user?.id;
+    
+    const { error } = await supabase.from("institutions").insert({ name: newName.trim(), owner_id: ownerId });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Instituição criada!" });
       setNewName("");
+      setSelectedOwnerId("");
       loadData();
       onRefresh?.();
     }
@@ -303,9 +331,27 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
               {canCreate && (
               <div className="clinical-card p-6 max-w-lg mb-6">
                 <h4 className="mb-3 text-sm font-semibold text-foreground">Cadastrar Instituição</h4>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3">
                   <Input placeholder="Nome da instituição" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                  <Button onClick={createInstitution} disabled={!newName.trim()}>
+                  {isSuperAdmin && availableAdmins.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Administrador (opcional)</label>
+                      <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar admin institucional..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum (minha instituição)</SelectItem>
+                          {availableAdmins.map((admin) => (
+                            <SelectItem key={admin.user_id} value={admin.user_id}>
+                              {admin.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <Button onClick={createInstitution} disabled={!newName.trim()} className="self-end">
                     <Plus className="mr-2 h-4 w-4" /> Criar
                   </Button>
                 </div>
