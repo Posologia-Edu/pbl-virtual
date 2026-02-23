@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import LandingPage from "./pages/LandingPage";
+import Pricing from "./pages/Pricing";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -43,6 +44,7 @@ const App = () => (
           <BrandingProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/docs" element={<Documentation />} />
               <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />

@@ -71,6 +71,12 @@ export default function LandingPage() {
               </button>
             ))}
             <button
+              onClick={() => navigate("/pricing")}
+              className="px-4 py-1.5 rounded-full text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-white/60 transition-all"
+            >
+              Planos
+            </button>
+            <button
               onClick={() => navigate("/docs")}
               className="px-4 py-1.5 rounded-full text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-white/60 transition-all"
             >
