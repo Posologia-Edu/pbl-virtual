@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_invites: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          email: string
+          id: string
+          institution_id: string | null
+          invited_by: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          institution_id?: string | null
+          invited_by: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          institution_id?: string | null
+          invited_by?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_invites_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       badge_definitions: {
         Row: {
           category: string

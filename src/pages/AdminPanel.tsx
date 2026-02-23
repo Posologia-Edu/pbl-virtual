@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
@@ -15,6 +15,7 @@ import ScenariosTab from "@/components/admin/ScenariosTab";
 import SecurityTab from "@/components/admin/SecurityTab";
 import BrandingTab from "@/components/admin/BrandingTab";
 import FinancialDashboard from "@/components/admin/FinancialDashboard";
+import InviteAdminTab from "@/components/admin/InviteAdminTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -125,6 +126,9 @@ export default function AdminPanel() {
             {isSuperAdmin && (
               <TabsTrigger value="financial"><CreditCard className="mr-2 h-4 w-4" /> Financeiro</TabsTrigger>
             )}
+            {isSuperAdmin && (
+              <TabsTrigger value="invites"><MailPlus className="mr-2 h-4 w-4" /> Convites</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
@@ -197,6 +201,12 @@ export default function AdminPanel() {
           {isSuperAdmin && (
             <TabsContent value="financial">
               <FinancialDashboard />
+            </TabsContent>
+          )}
+
+          {isSuperAdmin && (
+            <TabsContent value="invites">
+              <InviteAdminTab />
             </TabsContent>
           )}
 
