@@ -5,9 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   CreditCard, Users, TrendingUp, AlertTriangle, RefreshCw,
-  Building2, CheckCircle2, XCircle, Clock, DollarSign
+  Building2, CheckCircle2, XCircle, Clock, DollarSign, ShieldOff, Loader2
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface SubscriptionRow {
   id: string;
@@ -39,6 +51,7 @@ const PLAN_PRICES: Record<string, number> = {
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   active: { label: "Ativo", color: "bg-green-100 text-green-700 border-green-200", icon: CheckCircle2 },
   canceled: { label: "Cancelado", color: "bg-red-100 text-red-700 border-red-200", icon: XCircle },
+  revoked: { label: "Revogado", color: "bg-red-100 text-red-700 border-red-200", icon: ShieldOff },
   incomplete: { label: "Incompleto", color: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: Clock },
   past_due: { label: "Atrasado", color: "bg-orange-100 text-orange-700 border-orange-200", icon: AlertTriangle },
   trialing: { label: "Trial", color: "bg-blue-100 text-blue-700 border-blue-200", icon: Clock },
@@ -47,18 +60,17 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 export default function FinancialDashboard() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch subscriptions with institution names
       const { data: subs } = await supabase
         .from("subscriptions")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (subs) {
-        // Enrich with institution names and owner profiles
         const instIds = [...new Set(subs.map((s) => s.institution_id))];
         const ownerIds = [...new Set(subs.map((s) => s.owner_id))];
 
@@ -89,12 +101,30 @@ export default function FinancialDashboard() {
     fetchData();
   }, [fetchData]);
 
+  const handleRevoke = async (institutionId: string) => {
+    setRevokingId(institutionId);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-admin", {
+        body: { action: "revoke_access", institution_id: institutionId },
+      });
+      if (error || data?.error) {
+        toast({ title: "Erro", description: data?.error || "Falha ao revogar acesso.", variant: "destructive" });
+      } else {
+        toast({ title: "Acesso revogado", description: "O acesso do administrador foi revogado com sucesso." });
+        fetchData();
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao revogar acesso.", variant: "destructive" });
+    }
+    setRevokingId(null);
+  };
+
   // Metrics
   const activeSubs = subscriptions.filter((s) => s.status === "active");
   const mrr = activeSubs.reduce((sum, s) => sum + (PLAN_PRICES[s.plan_name || ""] || 0), 0);
   const pastDue = subscriptions.filter((s) => s.status === "past_due");
   const canceledThisMonth = subscriptions.filter((s) => {
-    if (s.status !== "canceled") return false;
+    if (s.status !== "canceled" && s.status !== "revoked") return false;
     const now = new Date();
     const created = new Date(s.created_at);
     return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
@@ -223,12 +253,14 @@ export default function FinancialDashboard() {
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Status</th>
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Limites</th>
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vencimento</th>
+                    <th className="text-left py-3 px-2 font-medium text-muted-foreground">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {subscriptions.map((sub) => {
                     const cfg = statusConfig[sub.status] || statusConfig.incomplete;
                     const StatusIcon = cfg.icon;
+                    const canRevoke = sub.status === "active" || sub.status === "past_due" || sub.status === "trialing";
                     return (
                       <tr key={sub.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-2">
@@ -259,6 +291,51 @@ export default function FinancialDashboard() {
                           {sub.current_period_end
                             ? new Date(sub.current_period_end).toLocaleDateString("pt-BR")
                             : "—"}
+                        </td>
+                        <td className="py-3 px-2">
+                          {canRevoke && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={revokingId === sub.institution_id}
+                                >
+                                  {revokingId === sub.institution_id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <><ShieldOff className="h-4 w-4 mr-1" /> Revogar</>
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Revogar acesso de "{sub.institution?.name}"?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá:
+                                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                                      {sub.stripe_subscription_id && !sub.stripe_customer_id.startsWith("invited_") && (
+                                        <li>Cancelar a assinatura no Stripe</li>
+                                      )}
+                                      <li>Revogar o papel de administrador institucional</li>
+                                      <li>Ocultar a instituição e seus dados</li>
+                                    </ul>
+                                    <p className="mt-3 font-semibold">Esta ação não pode ser facilmente desfeita.</p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleRevoke(sub.institution_id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Confirmar Revogação
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </td>
                       </tr>
                     );
