@@ -102,11 +102,12 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
           courseCounts[c.institution_id] = (courseCounts[c.institution_id] || 0) + 1;
         });
 
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         const allInsts = (data || []).map((i) => ({ ...i, courseCount: courseCounts[i.id] || 0 }));
 
-        // Separate superadmin-created (no owner_id) from admin-owned institutions
-        const superadminInsts = allInsts.filter((i) => !i.owner_id);
-        const adminInsts = allInsts.filter((i) => i.owner_id);
+        // Separate: my institutions (owned by current user or no owner) vs other admins' institutions
+        const myInsts = allInsts.filter((i) => !i.owner_id || i.owner_id === currentUser?.id);
+        const adminInsts = allInsts.filter((i) => i.owner_id && i.owner_id !== currentUser?.id);
 
         // Fetch admin profiles and subscriptions for admin institutions
         if (adminInsts.length > 0) {
@@ -127,7 +128,7 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
           setAdminInstitutions([]);
         }
 
-        setInstitutions(superadminInsts);
+        setInstitutions(myInsts);
       } else if (currentLevel === "courses") {
         const instId = breadcrumbs[0].id;
         const { data } = await supabase.from("courses").select("*").eq("institution_id", instId).order("name");
