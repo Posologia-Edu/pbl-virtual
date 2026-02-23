@@ -1,8 +1,16 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "professor" | "student";
+type AppRole = "admin" | "professor" | "student" | "institution_admin";
+
+interface SubscriptionInfo {
+  subscribed: boolean;
+  productId: string | null;
+  planName: string | null;
+  subscriptionEnd: string | null;
+  institutionId: string | null;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -10,14 +18,25 @@ interface AuthContextType {
   roles: AppRole[];
   profile: { full_name: string } | null;
   loading: boolean;
+  subscription: SubscriptionInfo;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
   isAdmin: boolean;
   isProfessor: boolean;
   isStudent: boolean;
+  isInstitutionAdmin: boolean;
 }
+
+const defaultSubscription: SubscriptionInfo = {
+  subscribed: false,
+  productId: null,
+  planName: null,
+  subscriptionEnd: null,
+  institutionId: null,
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -27,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [profile, setProfile] = useState<{ full_name: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<SubscriptionInfo>(defaultSubscription);
 
   const fetchUserData = async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
@@ -37,8 +57,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profileRes.data) setProfile(profileRes.data);
   };
 
+  const refreshSubscription = useCallback(async () => {
+    if (!session?.access_token) {
+      setSubscription(defaultSubscription);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      setSubscription({
+        subscribed: data?.subscribed ?? false,
+        productId: data?.product_id ?? null,
+        planName: data?.plan_name ?? null,
+        subscriptionEnd: data?.subscription_end ?? null,
+        institutionId: data?.institution_id ?? null,
+      });
+    } catch {
+      setSubscription(defaultSubscription);
+    }
+  }, [session?.access_token]);
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
@@ -47,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setRoles([]);
           setProfile(null);
+          setSubscription(defaultSubscription);
         }
         setLoading(false);
       }
@@ -59,8 +102,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => authSub.unsubscribe();
   }, []);
+
+  // Check subscription when session changes
+  useEffect(() => {
+    if (session?.user) {
+      refreshSubscription();
+    }
+  }, [session?.user?.id, refreshSubscription]);
+
+  // Periodic subscription refresh every 60s
+  useEffect(() => {
+    if (!session?.user) return;
+    const interval = setInterval(refreshSubscription, 60_000);
+    return () => clearInterval(interval);
+  }, [session?.user?.id, refreshSubscription]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -93,11 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user, session, roles, profile, loading,
-        signIn, signUp, signInWithGoogle, signOut,
+        user, session, roles, profile, loading, subscription,
+        signIn, signUp, signInWithGoogle, signOut, refreshSubscription,
         isAdmin: roles.includes("admin"),
         isProfessor: roles.includes("professor"),
         isStudent: roles.includes("student"),
+        isInstitutionAdmin: roles.includes("institution_admin"),
       }}
     >
       {children}
