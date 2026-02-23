@@ -54,7 +54,8 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false }: { 
       return;
     }
 
-    const { error } = await supabase.from("institutions").insert({ name: newName.trim() });
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("institutions").insert({ name: newName.trim(), owner_id: user?.id });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
