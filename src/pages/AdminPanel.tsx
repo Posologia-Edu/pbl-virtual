@@ -130,7 +130,7 @@ export default function AdminPanel() {
 
         <Tabs defaultValue={defaultTab} className="animate-fade-in">
           <TabsList className="mb-6 flex-wrap">
-            {isSuperAdmin && (
+            {(isSuperAdmin || isInstitutionAdmin) && (
               <TabsTrigger value="institutions"><Building2 className="mr-2 h-4 w-4" /> {t("admin.institutions")}</TabsTrigger>
             )}
             <TabsTrigger value="courses"><BookOpen className="mr-2 h-4 w-4" /> {t("admin.courses")}</TabsTrigger>
@@ -151,9 +151,12 @@ export default function AdminPanel() {
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
-          {isSuperAdmin && (
+          {(isSuperAdmin || isInstitutionAdmin) && (
             <TabsContent value="institutions">
-              <InstitutionExplorer onRefresh={fetchAll} readOnly={isSuperAdmin} />
+              <InstitutionExplorer
+                onRefresh={fetchAll}
+                canCreate={isInstitutionAdmin && !isSuperAdmin && !subscription.institutionId}
+              />
             </TabsContent>
           )}
 
