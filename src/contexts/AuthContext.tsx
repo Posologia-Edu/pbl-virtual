@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo>(defaultSubscription);
+  const [initialSessionLoaded, setInitialSessionLoaded] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
@@ -79,31 +80,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.access_token]);
 
+  // Set up auth listener - no await inside callback to avoid Supabase deadlocks
   useEffect(() => {
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchUserData(session.user.id);
-        } else {
+        if (!session?.user) {
           setRoles([]);
           setProfile(null);
           setSubscription(defaultSubscription);
         }
-        setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) await fetchUserData(session.user.id);
-      setLoading(false);
+      setInitialSessionLoaded(true);
     });
 
     return () => authSub.unsubscribe();
   }, []);
+
+  // Fetch user data (roles, profile) whenever user changes
+  useEffect(() => {
+    if (!initialSessionLoaded) return;
+    if (user) {
+      setLoading(true);
+      fetchUserData(user.id).finally(() => setLoading(false));
+    } else {
+      setRoles([]);
+      setProfile(null);
+      setLoading(false);
+    }
+  }, [user?.id, initialSessionLoaded]);
 
   // Check subscription when session changes
   useEffect(() => {
