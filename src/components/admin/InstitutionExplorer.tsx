@@ -26,7 +26,7 @@ interface BreadcrumbItem {
   label: string;
 }
 
-export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => void }) {
+export default function InstitutionExplorer({ onRefresh, readOnly = false }: { onRefresh?: () => void; readOnly?: boolean }) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [adminInstitutions, setAdminInstitutions] = useState<any[]>([]);
@@ -297,7 +297,8 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
           {/* Institutions */}
           {currentLevel === "institutions" && (
             <>
-              {/* Create institution form */}
+              {/* Create institution form - only for institution admins */}
+              {!readOnly && (
               <div className="clinical-card p-6 max-w-lg mb-6">
                 <h4 className="mb-3 text-sm font-semibold text-foreground">Cadastrar Instituição</h4>
                 <div className="flex gap-2">
@@ -307,6 +308,7 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
                   </Button>
                 </div>
               </div>
+              )}
 
               {/* Superadmin-created institutions */}
               <h4 className="mb-3 text-sm font-semibold text-foreground">

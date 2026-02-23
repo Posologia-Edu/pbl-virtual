@@ -153,7 +153,7 @@ export default function AdminPanel() {
 
           {isSuperAdmin && (
             <TabsContent value="institutions">
-              <InstitutionExplorer onRefresh={fetchAll} />
+              <InstitutionExplorer onRefresh={fetchAll} readOnly={isSuperAdmin} />
             </TabsContent>
           )}
 
