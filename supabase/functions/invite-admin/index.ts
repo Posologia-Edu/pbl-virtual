@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
       crypto.getRandomValues(values);
       const randomPassword = Array.from(values, (v) => charset[v % charset.length]).join("");
 
-      // 1. Create auth user
+      // 1. Create auth user (or find existing)
+      let userId: string;
       const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
         email,
         password: randomPassword,
@@ -106,14 +107,27 @@ Deno.serve(async (req) => {
       });
 
       if (createError) {
-        console.error("Create user error:", createError);
-        return new Response(JSON.stringify({ error: `Falha ao criar usuário: ${createError.message}` }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (createError.message?.includes("already been registered")) {
+          // User already exists in auth — look them up
+          const { data: listData } = await adminClient.auth.admin.listUsers();
+          const existingUser = listData?.users?.find((u: any) => u.email === email);
+          if (!existingUser) {
+            return new Response(JSON.stringify({ error: "Usuário existe mas não foi possível localizá-lo." }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          userId = existingUser.id;
+        } else {
+          console.error("Create user error:", createError);
+          return new Response(JSON.stringify({ error: `Falha ao criar usuário: ${createError.message}` }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        userId = newUser.user.id;
       }
-
-      const userId = newUser.user.id;
 
       // 2. Assign institution_admin role
       await adminClient.from("user_roles").insert({ user_id: userId, role: "institution_admin" });
