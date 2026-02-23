@@ -9,9 +9,10 @@ import { Palette, Save, RotateCcw } from "lucide-react";
 interface BrandingTabProps {
   institutions: any[];
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function BrandingTab({ institutions, onRefresh }: BrandingTabProps) {
+export default function BrandingTab({ institutions, onRefresh, readOnly }: BrandingTabProps) {
   const [selectedId, setSelectedId] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [secondaryColor, setSecondaryColor] = useState("");
@@ -110,6 +111,7 @@ export default function BrandingTab({ institutions, onRefresh }: BrandingTabProp
                     placeholder="213 60% 42%"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
+                    disabled={readOnly}
                   />
                   {primaryColor && (
                     <div
@@ -127,6 +129,7 @@ export default function BrandingTab({ institutions, onRefresh }: BrandingTabProp
                     placeholder="214 20% 92%"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
+                    disabled={readOnly}
                   />
                   {secondaryColor && (
                     <div
@@ -144,6 +147,7 @@ export default function BrandingTab({ institutions, onRefresh }: BrandingTabProp
                     placeholder="210 76% 52%"
                     value={accentColor}
                     onChange={(e) => setAccentColor(e.target.value)}
+                    disabled={readOnly}
                   />
                   {accentColor && (
                     <div
@@ -173,6 +177,7 @@ export default function BrandingTab({ institutions, onRefresh }: BrandingTabProp
               </div>
             )}
 
+            {!readOnly && (
             <div className="flex gap-3">
               <Button onClick={handleSave} disabled={saving} className="gap-2 rounded-xl">
                 <Save className="h-4 w-4" /> Salvar
@@ -181,6 +186,7 @@ export default function BrandingTab({ institutions, onRefresh }: BrandingTabProp
                 <RotateCcw className="h-4 w-4" /> Restaurar Padrão
               </Button>
             </div>
+            )}
           </div>
         )}
       </div>
