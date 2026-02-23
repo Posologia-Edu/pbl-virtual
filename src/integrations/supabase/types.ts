@@ -346,6 +346,7 @@ export type Database = {
           id: string
           is_hidden: boolean
           name: string
+          owner_id: string | null
         }
         Insert: {
           brand_accent_color?: string | null
@@ -357,6 +358,7 @@ export type Database = {
           id?: string
           is_hidden?: boolean
           name: string
+          owner_id?: string | null
         }
         Update: {
           brand_accent_color?: string | null
@@ -368,6 +370,7 @@ export type Database = {
           id?: string
           is_hidden?: boolean
           name?: string
+          owner_id?: string | null
         }
         Relationships: []
       }
@@ -938,6 +941,77 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          ai_enabled: boolean | null
+          cancel_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          institution_id: string
+          max_rooms: number | null
+          max_students: number | null
+          owner_id: string
+          plan_name: string | null
+          status: string
+          stripe_customer_id: string
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          whitelabel_enabled: boolean | null
+        }
+        Insert: {
+          ai_enabled?: boolean | null
+          cancel_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          institution_id: string
+          max_rooms?: number | null
+          max_students?: number | null
+          owner_id: string
+          plan_name?: string | null
+          status?: string
+          stripe_customer_id: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          whitelabel_enabled?: boolean | null
+        }
+        Update: {
+          ai_enabled?: boolean | null
+          cancel_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          institution_id?: string
+          max_rooms?: number | null
+          max_students?: number | null
+          owner_id?: string
+          plan_name?: string | null
+          status?: string
+          stripe_customer_id?: string
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          whitelabel_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: true
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tutorial_sessions: {
         Row: {
           coordinator_id: string | null
@@ -1076,6 +1150,10 @@ export type Database = {
       }
       is_group_professor: {
         Args: { _group_id: string; _professor_id: string }
+        Returns: boolean
+      }
+      is_institution_admin: {
+        Args: { _institution_id: string; _user_id: string }
         Returns: boolean
       }
       is_user_effectively_hidden: {
