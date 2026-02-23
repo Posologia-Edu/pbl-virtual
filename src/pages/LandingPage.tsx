@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
@@ -35,8 +35,19 @@ const languages = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const [authOpen, setAuthOpen] = useState(false);
+
+  // Auto-open auth dialog if redirected from /auth
+  useEffect(() => {
+    if (searchParams.get("auth") === "open") {
+      setAuthOpen(true);
+      // Clean the URL param
+      searchParams.delete("auth");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden selection:bg-primary/20">

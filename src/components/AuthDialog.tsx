@@ -239,9 +239,6 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? t("auth.loading") : t("auth.enterRoom")}
                 </Button>
-                <div className="text-center pt-1">
-                  <ForgotPasswordLink email={studentEmail} label={t("auth.forgotAccess")} />
-                </div>
               </form>
             </TabsContent>
 
@@ -267,9 +264,6 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? t("auth.loading") : t("auth.accessSession")}
                 </Button>
-                <div className="text-center pt-1">
-                  <ForgotPasswordLink email={professorEmail} label={t("auth.forgotAccess")} />
-                </div>
               </form>
             </TabsContent>
 

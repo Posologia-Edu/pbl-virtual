@@ -1,6 +1,6 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 export default function Auth() {
-  // Auth is now handled via AuthDialog modal on LandingPage
-  return <Navigate to="/" replace />;
+  // Redirect to landing page with ?auth=open to trigger the AuthDialog
+  return <Navigate to="/?auth=open" replace />;
 }
