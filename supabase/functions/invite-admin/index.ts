@@ -371,14 +371,29 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 1. Get subscription for this institution
+      // 1. Get subscription and institution info
       const { data: sub } = await adminClient
         .from("subscriptions")
         .select("*")
         .eq("institution_id", institution_id)
         .maybeSingle();
 
-      // 2. If Stripe subscription exists, cancel it
+      const { data: institution } = await adminClient
+        .from("institutions")
+        .select("owner_id")
+        .eq("id", institution_id)
+        .single();
+
+      if (!institution) {
+        return new Response(JSON.stringify({ error: "Instituição não encontrada" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const ownerId = institution.owner_id;
+
+      // 2. Cancel Stripe subscription if exists
       if (sub?.stripe_subscription_id && !sub.stripe_subscription_id.startsWith("invited_")) {
         try {
           const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -393,40 +408,102 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3. Update local subscription to revoked
-      if (sub) {
-        await adminClient
-          .from("subscriptions")
-          .update({ status: "revoked", cancel_at: new Date().toISOString() })
-          .eq("id", sub.id);
+      // 3. Get all courses for this institution
+      const { data: courses } = await adminClient
+        .from("courses")
+        .select("id")
+        .eq("institution_id", institution_id);
+      const courseIds = (courses || []).map((c) => c.id);
+
+      // 4. Get all modules for these courses
+      let moduleIds: string[] = [];
+      if (courseIds.length > 0) {
+        const { data: modules } = await adminClient
+          .from("modules")
+          .select("id")
+          .in("course_id", courseIds);
+        moduleIds = (modules || []).map((m) => m.id);
       }
 
-      // 4. Get institution owner
-      const { data: institution } = await adminClient
-        .from("institutions")
-        .select("owner_id")
-        .eq("id", institution_id)
-        .single();
+      // 5. Get all groups for this institution (by course or by professor)
+      let groupIds: string[] = [];
+      if (courseIds.length > 0) {
+        const { data: groups } = await adminClient
+          .from("groups")
+          .select("id")
+          .in("course_id", courseIds);
+        groupIds = (groups || []).map((g) => g.id);
+      }
 
-      if (institution?.owner_id) {
-        // 5. Remove institution_admin role
-        await adminClient
-          .from("user_roles")
-          .delete()
-          .eq("user_id", institution.owner_id)
-          .eq("role", "institution_admin");
+      // 6. Get all rooms for these groups
+      let roomIds: string[] = [];
+      if (groupIds.length > 0) {
+        const { data: rooms } = await adminClient
+          .from("rooms")
+          .select("id")
+          .in("group_id", groupIds);
+        roomIds = (rooms || []).map((r) => r.id);
+      }
 
-        // 6. Hide institution
-        await adminClient
-          .from("institutions")
-          .update({ is_hidden: true })
-          .eq("id", institution_id);
+      // 7. Get all tutorial sessions for these rooms
+      let sessionIds: string[] = [];
+      if (roomIds.length > 0) {
+        const { data: sessions } = await adminClient
+          .from("tutorial_sessions")
+          .select("id")
+          .in("room_id", roomIds);
+        sessionIds = (sessions || []).map((s) => s.id);
+      }
 
-        // 7. Update invite status if exists
-        await adminClient
-          .from("admin_invites")
-          .update({ status: "revoked" })
-          .eq("institution_id", institution_id);
+      // 8. Delete all dependent data bottom-up
+      if (sessionIds.length > 0) {
+        await adminClient.from("objective_sessions").delete().in("session_id", sessionIds);
+        await adminClient.from("session_minutes").delete().in("session_id", sessionIds);
+      }
+      if (roomIds.length > 0) {
+        await adminClient.from("chat_messages").delete().in("room_id", roomIds);
+        await adminClient.from("step_items").delete().in("room_id", roomIds);
+        await adminClient.from("session_references").delete().in("room_id", roomIds);
+        await adminClient.from("evaluations").delete().in("room_id", roomIds);
+        await adminClient.from("peer_evaluations").delete().in("room_id", roomIds);
+        await adminClient.from("evaluation_criteria").delete().in("room_id", roomIds);
+        await adminClient.from("user_badges").delete().in("room_id", roomIds);
+        await adminClient.from("room_scenarios").delete().in("room_id", roomIds);
+        await adminClient.from("tutorial_sessions").delete().in("room_id", roomIds);
+        await adminClient.from("rooms").delete().in("id", roomIds);
+      }
+      if (moduleIds.length > 0) {
+        await adminClient.from("learning_objectives").delete().in("module_id", moduleIds);
+        await adminClient.from("modules").delete().in("id", moduleIds);
+      }
+      if (groupIds.length > 0) {
+        await adminClient.from("group_members").delete().in("group_id", groupIds);
+        await adminClient.from("groups").delete().in("id", groupIds);
+      }
+      if (courseIds.length > 0) {
+        await adminClient.from("course_members").delete().in("course_id", courseIds);
+        await adminClient.from("scenarios").delete().in("course_id", courseIds);
+        await adminClient.from("courses").delete().in("id", courseIds);
+      }
+
+      // 9. Delete subscription
+      if (sub) {
+        await adminClient.from("subscriptions").delete().eq("id", sub.id);
+      }
+
+      // 10. Delete admin invites
+      await adminClient.from("admin_invites").delete().eq("institution_id", institution_id);
+
+      // 11. Delete institution
+      await adminClient.from("institutions").delete().eq("id", institution_id);
+
+      // 12. Delete user role, profile, and auth user
+      if (ownerId) {
+        await adminClient.from("user_roles").delete().eq("user_id", ownerId);
+        await adminClient.from("professor_notes").delete().eq("professor_id", ownerId);
+        await adminClient.from("profiles").delete().eq("user_id", ownerId);
+        await adminClient.auth.admin.deleteUser(ownerId);
+        console.log("Deleted auth user:", ownerId);
       }
 
       return new Response(

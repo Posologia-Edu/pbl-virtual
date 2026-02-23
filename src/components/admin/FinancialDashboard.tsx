@@ -260,7 +260,7 @@ export default function FinancialDashboard() {
                   {subscriptions.map((sub) => {
                     const cfg = statusConfig[sub.status] || statusConfig.incomplete;
                     const StatusIcon = cfg.icon;
-                    const canRevoke = sub.status === "active" || sub.status === "past_due" || sub.status === "trialing";
+                    const canRevoke = true;
                     return (
                       <tr key={sub.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-2">
@@ -312,17 +312,19 @@ export default function FinancialDashboard() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Revogar acesso de "{sub.institution?.name}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação irá:
-                                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                                      {sub.stripe_subscription_id && !sub.stripe_customer_id.startsWith("invited_") && (
-                                        <li>Cancelar a assinatura no Stripe</li>
-                                      )}
-                                      <li>Revogar o papel de administrador institucional</li>
-                                      <li>Ocultar a instituição e seus dados</li>
-                                    </ul>
-                                    <p className="mt-3 font-semibold">Esta ação não pode ser facilmente desfeita.</p>
-                                  </AlertDialogDescription>
+                                   <AlertDialogDescription>
+                                     Esta ação irá <strong>apagar permanentemente</strong> todos os dados deste administrador:
+                                     <ul className="list-disc pl-5 mt-2 space-y-1">
+                                       {sub.stripe_subscription_id && !sub.stripe_customer_id.startsWith("invited_") && (
+                                         <li>Cancelar a assinatura no Stripe</li>
+                                       )}
+                                       <li>Excluir a instituição, cursos, módulos, turmas e salas</li>
+                                       <li>Excluir avaliações, mensagens, cenários e referências</li>
+                                       <li>Excluir o convite e a assinatura</li>
+                                       <li>Excluir a conta do administrador</li>
+                                     </ul>
+                                     <p className="mt-3 font-semibold text-destructive">Esta ação é irreversível!</p>
+                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
