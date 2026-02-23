@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,17 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
     const ext = file.name.split(".").pop();
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Tipo de arquivo não permitido", description: "Apenas PDF e DOC/DOCX são aceitos.", variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
     const { error: uploadError } = await supabase.storage
       .from("references")
       .upload(path, file);
@@ -90,13 +101,12 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("references").getPublicUrl(path);
-
+    // Store the storage path (not a public URL) since the bucket is private
     const { error } = await supabase.from("session_references" as any).insert({
       room_id: roomId,
       author_id: user.id,
       ref_type: "file",
-      url: urlData.publicUrl,
+      url: `storage:references/${path}`,
       title: file.name,
       ...(sessionId ? { session_id: sessionId } : {}),
     });
@@ -109,12 +119,42 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
     }
   };
 
+  const getFileUrl = useCallback(async (ref: any): Promise<string | null> => {
+    if (ref.ref_type !== "file") return ref.url;
+    // Handle new storage path format
+    if (ref.url?.startsWith("storage:references/")) {
+      const path = ref.url.replace("storage:references/", "");
+      const { data } = await supabase.storage.from("references").createSignedUrl(path, 3600);
+      return data?.signedUrl || null;
+    }
+    // Handle legacy public URLs — extract path and create signed URL
+    const pathMatch = ref.url?.split("/references/")[1];
+    if (pathMatch) {
+      const decoded = decodeURIComponent(pathMatch);
+      const { data } = await supabase.storage.from("references").createSignedUrl(decoded, 3600);
+      return data?.signedUrl || null;
+    }
+    return ref.url;
+  }, []);
+
+  const openFile = async (ref: any) => {
+    const url = await getFileUrl(ref);
+    if (url) window.open(url, "_blank");
+    else toast({ title: "Erro ao abrir arquivo", variant: "destructive" });
+  };
+
   const deleteReference = async (ref: any) => {
     // Delete storage file if it's a file type
-    if (ref.ref_type === "file" && ref.url) {
-      const pathMatch = ref.url.split("/references/")[1];
-      if (pathMatch) {
-        await supabase.storage.from("references").remove([decodeURIComponent(pathMatch)]);
+    if (ref.ref_type === "file") {
+      let storagePath: string | undefined;
+      if (ref.url?.startsWith("storage:references/")) {
+        storagePath = ref.url.replace("storage:references/", "");
+      } else {
+        const pathMatch = ref.url?.split("/references/")[1];
+        if (pathMatch) storagePath = decodeURIComponent(pathMatch);
+      }
+      if (storagePath) {
+        await supabase.storage.from("references").remove([storagePath]);
       }
     }
     await supabase.from("session_references" as any).delete().eq("id", ref.id);
@@ -211,26 +251,33 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
                 <FileText className="h-4 w-4 shrink-0 text-primary" />
               )}
               <div className="min-w-0 flex-1">
-                <a
-                  href={ref.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-foreground hover:text-primary hover:underline truncate block"
-                >
-                  {ref.title || ref.url}
-                </a>
+                {ref.ref_type === "file" ? (
+                  <button
+                    onClick={() => openFile(ref)}
+                    className="text-sm text-foreground hover:text-primary hover:underline truncate block text-left w-full"
+                  >
+                    {ref.title || "Arquivo"}
+                  </button>
+                ) : (
+                  <a
+                    href={ref.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-foreground hover:text-primary hover:underline truncate block"
+                  >
+                    {ref.title || ref.url}
+                  </a>
+                )}
                 <p className="text-[10px] text-muted-foreground truncate">
                   {(ref.profiles as any)?.full_name || "—"}
                 </p>
               </div>
-              <a
-                href={ref.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => ref.ref_type === "file" ? openFile(ref) : window.open(ref.url, "_blank")}
                 className="shrink-0 text-muted-foreground hover:text-primary"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              </button>
               {!readOnly && ref.author_id === user?.id && (
                 <button
                   onClick={() => deleteReference(ref)}
