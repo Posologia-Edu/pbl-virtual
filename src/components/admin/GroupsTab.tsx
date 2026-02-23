@@ -16,9 +16,10 @@ interface Props {
   courseMembers: any[];
   selectedCourseId: string;
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function GroupsTab({ groups, groupMembers, profiles, modules, courseMembers, selectedCourseId, onRefresh }: Props) {
+export default function GroupsTab({ groups, groupMembers, profiles, modules, courseMembers, selectedCourseId, onRefresh, readOnly }: Props) {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupProfessor, setNewGroupProfessor] = useState("");
   const [newGroupModule, setNewGroupModule] = useState("");
@@ -140,6 +141,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
 
   return (
     <div>
+      {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Criar Turma</h3>
         <div className="space-y-4">
@@ -180,6 +182,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
           </Button>
         </div>
       </div>
+      )}
 
       <h3 className="mb-4 text-base font-semibold text-foreground">
         Turmas do Curso <span className="ml-2 text-xs font-normal text-muted-foreground">({filteredGroups.length})</span>
@@ -225,6 +228,8 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
                     </div>
                   </button>
                   <div className="flex items-center gap-1">
+                    {!readOnly && (
+                    <>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                       onClick={() => { setEditingGroup(group); setEditGroupName(group.name); setEditGroupProfessor(group.professor_id); setEditGroupModule(group.module_id || ""); }}>
                       <Pencil className="h-3.5 w-3.5" />
@@ -233,6 +238,8 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
                       onClick={() => deleteGroup(group.id, group.name)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
+                    </>
+                    )}
                     <button onClick={() => setExpandedGroupId(isExpanded ? null : group.id)} className="ml-1 p-1">
                       {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </button>
@@ -241,6 +248,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
 
                 {isExpanded && (
                   <div className="border-t border-border bg-muted/20 p-5">
+                    {!readOnly && (
                     <div className="mb-4 flex gap-2">
                       <Select value={addStudentUserId} onValueChange={setAddStudentUserId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecionar aluno para adicionar..." /></SelectTrigger>
@@ -258,6 +266,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
+                    )}
                     {members.length === 0 ? (
                       <p className="text-center py-4 text-xs text-muted-foreground">Nenhum aluno nesta turma.</p>
                     ) : (
@@ -270,9 +279,11 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
                               </div>
                               <span className="text-sm text-foreground">{(m.profiles as any)?.full_name}</span>
                             </div>
+                            {!readOnly && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeStudentFromGroup(m.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                            )}
                           </div>
                         ))}
                       </div>

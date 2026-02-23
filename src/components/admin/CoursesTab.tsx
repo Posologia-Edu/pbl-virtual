@@ -18,9 +18,10 @@ interface Props {
   courseMembers: any[];
   scenarios: any[];
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function CoursesTab({ courses, institutions, modules, groups, groupMembers, profiles, courseMembers, scenarios, onRefresh }: Props) {
+export default function CoursesTab({ courses, institutions, modules, groups, groupMembers, profiles, courseMembers, scenarios, onRefresh, readOnly }: Props) {
   const [name, setName] = useState("");
   const [institutionId, setInstitutionId] = useState("");
   const [editing, setEditing] = useState<any | null>(null);
@@ -222,6 +223,7 @@ export default function CoursesTab({ courses, institutions, modules, groups, gro
   // List view
   return (
     <div>
+      {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Curso</h3>
         <div className="space-y-4">
@@ -245,6 +247,7 @@ export default function CoursesTab({ courses, institutions, modules, groups, gro
           </Button>
         </div>
       </div>
+      )}
 
       <h3 className="mb-4 text-base font-semibold text-foreground">
         Cursos Cadastrados <span className="ml-2 text-xs font-normal text-muted-foreground">({courses.length})</span>
@@ -291,6 +294,7 @@ export default function CoursesTab({ courses, institutions, modules, groups, gro
                                 </p>
                               </div>
                             </div>
+                            {!readOnly && (
                             <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost"
@@ -317,6 +321,7 @@ export default function CoursesTab({ courses, institutions, modules, groups, gro
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
+                            )}
                           </div>
                         </div>
                       );

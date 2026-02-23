@@ -15,9 +15,10 @@ interface Props {
   groupMembers: Record<string, any[]>;
   selectedCourseId: string;
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function ModulesTab({ modules, scenarios, groups, profiles, groupMembers, selectedCourseId, onRefresh }: Props) {
+export default function ModulesTab({ modules, scenarios, groups, profiles, groupMembers, selectedCourseId, onRefresh, readOnly }: Props) {
   const [newModuleName, setNewModuleName] = useState("");
   const [editingModule, setEditingModule] = useState<any | null>(null);
   const [editModuleName, setEditModuleName] = useState("");
@@ -208,6 +209,7 @@ export default function ModulesTab({ modules, scenarios, groups, profiles, group
 
   return (
     <div>
+      {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Criar Módulo</h3>
         <div className="flex gap-2">
@@ -217,6 +219,7 @@ export default function ModulesTab({ modules, scenarios, groups, profiles, group
           </Button>
         </div>
       </div>
+      )}
 
       <h3 className="mb-4 text-base font-semibold text-foreground">
         Módulos do Curso <span className="ml-2 text-xs font-normal text-muted-foreground">({filteredModules.length})</span>
@@ -244,6 +247,7 @@ export default function ModulesTab({ modules, scenarios, groups, profiles, group
                       {scenarioCount} cenário{scenarioCount !== 1 ? "s" : ""} · {groupCount} turma{groupCount !== 1 ? "s" : ""}
                     </p>
                   </div>
+                  {!readOnly && (
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                       onClick={(e) => { e.stopPropagation(); setEditingModule(m); setEditModuleName(m.name); }}>
@@ -254,6 +258,7 @@ export default function ModulesTab({ modules, scenarios, groups, profiles, group
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  )}
                 </div>
               </div>
             );

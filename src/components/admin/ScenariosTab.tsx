@@ -19,9 +19,10 @@ interface Props {
   groups: any[];
   selectedCourseId: string;
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function ScenariosTab({ scenarios, modules, rooms, courses, institutions, groups, selectedCourseId, onRefresh }: Props) {
+export default function ScenariosTab({ scenarios, modules, rooms, courses, institutions, groups, selectedCourseId, onRefresh, readOnly }: Props) {
   const [scenarioTitle, setScenarioTitle] = useState("");
   const [scenarioText, setScenarioText] = useState("");
   const [scenarioModuleId, setScenarioModuleId] = useState("");
@@ -199,6 +200,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
   return (
     <div className="max-w-3xl space-y-6">
       {/* Create scenario */}
+      {!readOnly && (
       <div className="clinical-card p-6">
         <h3 className="mb-4 text-base font-semibold text-foreground">Criar Cenário Clínico</h3>
         <div className="flex gap-2 mb-4">
@@ -342,6 +344,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
           </Button>
         </div>
       </div>
+      )}
 
       {/* Scenario library */}
       <div>
@@ -368,6 +371,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-2 line-clamp-2">{s.content}</p>
                   </div>
+                  {!readOnly && (
                   <div className="flex shrink-0 gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                       title="Copiar para outro curso"
@@ -388,6 +392,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  )}
                 </div>
               </div>
             ))}

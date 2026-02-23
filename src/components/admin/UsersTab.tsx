@@ -16,9 +16,10 @@ interface Props {
   institutions: any[];
   courses: any[];
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
-export default function UsersTab({ profiles, courseMembers, selectedCourseId, selectedInstitutionId, institutions, courses, onRefresh }: Props) {
+export default function UsersTab({ profiles, courseMembers, selectedCourseId, selectedInstitutionId, institutions, courses, onRefresh, readOnly }: Props) {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("");
@@ -148,6 +149,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
 
   return (
     <div>
+      {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Novo Usuário</h3>
         <p className="text-xs text-muted-foreground mb-4">O usuário será vinculado ao curso selecionado.</p>
@@ -175,6 +177,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
           </Button>
         </div>
       </div>
+      )}
 
       <div>
         {(() => {
@@ -251,7 +254,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
                                   ))}
                                 </div>
                               </div>
-                              {!isAdmin && (
+                              {!isAdmin && !readOnly && (
                                 <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Button variant="ghost" size="icon" className={`h-7 w-7 ${p.is_hidden ? "text-destructive" : "text-muted-foreground hover:text-amber-600"}`}
                                     title={p.is_hidden ? "Reativar usuário" : "Ocultar usuário"}
