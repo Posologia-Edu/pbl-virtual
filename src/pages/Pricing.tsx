@@ -4,10 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Check, ArrowRight, GraduationCap, Sparkles, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import AuthDialog from "@/components/AuthDialog";
 
 const TIERS = {
   starter: {
@@ -69,16 +67,9 @@ const rise = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, trans
 export default function Pricing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
 
   const handleSubscribe = async (priceId: string, tierKey: string) => {
-    if (!user) {
-      setAuthOpen(true);
-      return;
-    }
-
     setLoading(tierKey);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -224,7 +215,7 @@ export default function Pricing() {
         </div>
       </footer>
 
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      
     </div>
   );
 }
