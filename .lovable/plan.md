@@ -1,79 +1,41 @@
 
-# Login e Cadastro Flutuante + Login com Google
 
-## Resumo
-Transformar o login/cadastro atual (pagina inteira `/auth`) em um **modal/dialog flutuante** que abre sobre a Landing Page, e adicionar um botao de **Login com Google** via Supabase OAuth.
+## Problema
 
----
+O menu lateral (sidebar) nao mostra nenhum item de navegacao para usuarios com o papel `institution_admin`. Isso acontece porque o array `navItems` no componente `Layout.tsx` so lista os papeis `admin`, `professor` e `student` -- o papel `institution_admin` nao esta incluido em nenhum item.
 
-## Mudancas Planejadas
+## Solucao
 
-### 1. Criar componente `AuthDialog.tsx`
-- Novo componente que encapsula todo o conteudo atual de `Auth.tsx` dentro de um `Dialog` (Radix UI) com overlay translucido e backdrop blur
-- O modal sera centralizado, com animacao suave de entrada (scale + fade)
-- Mantém as 3 abas (Aluno, Professor, Admin) e toda a logica existente
-- Adiciona botao "Entrar com Google" usando `supabase.auth.signInWithOAuth({ provider: 'google' })`
-- O botao Google aparece acima das abas como opcao rapida, com separador "ou"
+Adicionar `institution_admin` aos items de navegacao relevantes no `Layout.tsx`:
 
-### 2. Atualizar `LandingPage.tsx`
-- O botao "Entrar" na navbar e o CTA "Comecar Agora" abrem o `AuthDialog` ao inves de navegar para `/auth`
-- Controle de estado `open/setOpen` local na Landing Page
-- O usuario permanece na Landing Page enquanto o modal esta aberto
+### Alteracoes no arquivo `src/components/Layout.tsx`
 
-### 3. Atualizar `App.tsx`
-- Manter a rota `/auth` funcionando como fallback (redireciona para `/` se acessada diretamente, ou renderiza o dialog)
-- Atualizar `PublicRoute` para redirecionar `/auth` para `/` ja que o login agora e flutuante
+1. **Dashboard** - Adicionar `institution_admin` ao array de roles (institution admins precisam ver o dashboard)
+2. **Reports** - Adicionar `institution_admin` (institution admins precisam ver relatorios)  
+3. **Admin** - Adicionar `institution_admin` (institution admins precisam acessar o painel admin filtrado)
+4. **Rooms** - Adicionar `institution_admin` (institution admins podem precisar ver as salas)
 
-### 4. Adicionar funcao `signInWithGoogle` no `AuthContext.tsx`
-- Nova funcao que chama `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard' } })`
-- Exportada pelo contexto para uso em qualquer lugar
+O array `navItems` ficara assim:
 
-### 5. Atualizar traducoes i18n
-- Adicionar chaves: `auth.orContinueWith`, `auth.googleLogin`, `auth.signUpTab`, `auth.loginTab`
-- Nos 3 arquivos: `pt.json`, `en.json`, `es.json`
-
----
-
-## Detalhes Tecnicos
-
-### Estrutura do AuthDialog
-```text
-+----------------------------------+
-|         [X] Fechar               |
-|                                  |
-|    [G] Entrar com Google         |
-|    ─────── ou ───────            |
-|                                  |
-|  [Aluno] [Professor] [Admin]     |
-|                                  |
-|  (formulario da aba ativa)       |
-|                                  |
-+----------------------------------+
+```typescript
+const navItems = [
+  { label: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student", "institution_admin"] },
+  { label: t("nav.reports"), path: "/reports", icon: BarChart3, roles: ["admin", "professor", "institution_admin"] },
+  { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin", "institution_admin"] },
+  { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student", "institution_admin"] },
+];
 ```
 
-### Google OAuth
-- Usa `supabase.auth.signInWithOAuth({ provider: 'google' })` que redireciona para o Google e volta para a aplicacao
-- O usuario precisa configurar o Google Provider no Supabase Dashboard (Authentication > Providers > Google) com Client ID e Secret do Google Cloud Console
-- O `redirectTo` sera `window.location.origin/dashboard`
+5. **Role label** - Atualizar a logica do `roleLabel` para incluir `institution_admin`:
 
-### Arquivos modificados
-| Arquivo | Acao |
-|---------|------|
-| `src/components/AuthDialog.tsx` | Criar - dialog flutuante com login/cadastro + Google |
-| `src/pages/LandingPage.tsx` | Editar - abrir dialog ao inves de navegar |
-| `src/pages/Auth.tsx` | Editar - redirecionar para `/` com dialog aberto |
-| `src/contexts/AuthContext.tsx` | Editar - adicionar `signInWithGoogle` |
-| `src/App.tsx` | Editar - ajustar rota `/auth` |
-| `src/i18n/locales/pt.json` | Editar - novas chaves |
-| `src/i18n/locales/en.json` | Editar - novas chaves |
-| `src/i18n/locales/es.json` | Editar - novas chaves |
+```typescript
+const roleLabel = isAdmin ? t("roles.admin") 
+  : isInstitutionAdmin ? t("roles.institutionAdmin", "Admin Institucional")
+  : isProfessor ? t("roles.professor") 
+  : t("roles.student");
+```
 
----
+### Resumo
 
-## Pre-requisito: Configuracao do Google no Supabase
-Apos a implementacao, voce precisara:
-1. Criar um projeto no Google Cloud Console
-2. Configurar a tela de consentimento OAuth
-3. Criar credenciais OAuth (Client ID + Secret)
-4. Adicionar no Supabase Dashboard em Authentication > Providers > Google
-5. Configurar as URLs de redirect autorizadas
+Apenas um arquivo sera editado (`Layout.tsx`) com alteracoes minimas: adicionar `"institution_admin"` nos arrays de roles dos nav items e ajustar o label do papel exibido no sidebar.
+
