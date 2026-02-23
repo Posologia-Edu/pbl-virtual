@@ -8,6 +8,7 @@ interface Props {
   selectedCourseId: string;
   onInstitutionChange: (id: string) => void;
   onCourseChange: (id: string) => void;
+  lockInstitution?: boolean;
 }
 
 export default function CourseContextSelector({
@@ -17,6 +18,7 @@ export default function CourseContextSelector({
   selectedCourseId,
   onInstitutionChange,
   onCourseChange,
+  lockInstitution,
 }: Props) {
   const filteredCourses = selectedInstitutionId
     ? courses.filter((c) => c.institution_id === selectedInstitutionId)
@@ -28,7 +30,7 @@ export default function CourseContextSelector({
         <Building2 className="h-4 w-4" />
         <span>Contexto:</span>
       </div>
-      <Select value={selectedInstitutionId} onValueChange={(v) => { onInstitutionChange(v); onCourseChange(""); }}>
+      <Select value={selectedInstitutionId} onValueChange={(v) => { onInstitutionChange(v); onCourseChange(""); }} disabled={lockInstitution}>
         <SelectTrigger className="w-[220px] bg-card">
           <SelectValue placeholder="Selecionar instituição" />
         </SelectTrigger>
