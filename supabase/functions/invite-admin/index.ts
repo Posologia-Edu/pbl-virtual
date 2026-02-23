@@ -458,7 +458,10 @@ Deno.serve(async (req) => {
         await adminClient.from("subscriptions").delete().eq("id", sub.id);
       }
 
-      // 10. Delete admin invites
+      // 10. Delete admin invites (by user_id to catch all, including those with null institution_id)
+      if (ownerId) {
+        await adminClient.from("admin_invites").delete().eq("user_id", ownerId);
+      }
       await adminClient.from("admin_invites").delete().eq("institution_id", institution_id);
 
       // 11. Delete institution

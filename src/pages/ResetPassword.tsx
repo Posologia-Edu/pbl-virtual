@@ -41,9 +41,12 @@ export default function ResetPassword() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({ password, nonce: undefined });
     if (error) {
-      toast({ title: "Erro", description: "Não foi possível atualizar a senha. Tente novamente.", variant: "destructive" });
+      const msg = error.message?.toLowerCase().includes("same")
+        ? "Esta senha já foi utilizada recentemente. Escolha uma senha diferente."
+        : "Não foi possível atualizar a senha. Tente novamente.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
       setLoading(false);
       return;
     }
