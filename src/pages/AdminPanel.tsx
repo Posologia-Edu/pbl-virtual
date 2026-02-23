@@ -166,24 +166,22 @@ export default function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="users">
-            {isSuperAdmin && (
-              <CourseContextSelector
-                institutions={visibleInstitutions} courses={visibleCourses}
-                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-              />
-            )}
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
             <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={isSuperAdmin} />
           </TabsContent>
 
           <TabsContent value="groups">
-            {isSuperAdmin && (
-              <CourseContextSelector
-                institutions={visibleInstitutions} courses={visibleCourses}
-                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-              />
-            )}
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
             <GroupsTab
               groups={groups} groupMembers={groupMembers} profiles={profiles}
               modules={modules} courseMembers={courseMembers}
@@ -192,24 +190,22 @@ export default function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="modules">
-            {isSuperAdmin && (
-              <CourseContextSelector
-                institutions={visibleInstitutions} courses={visibleCourses}
-                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-              />
-            )}
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
             <ModulesTab modules={modules} scenarios={scenarios} groups={groups} profiles={profiles} groupMembers={groupMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={isSuperAdmin} />
           </TabsContent>
 
           <TabsContent value="scenarios">
-            {isSuperAdmin && (
-              <CourseContextSelector
-                institutions={visibleInstitutions} courses={visibleCourses}
-                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-              />
-            )}
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
             <ScenariosTab
               scenarios={scenarios} modules={modules} rooms={rooms}
               courses={visibleCourses} institutions={visibleInstitutions} groups={groups}
