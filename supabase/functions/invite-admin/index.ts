@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
         type: "recovery",
         email,
         options: {
-          redirectTo: `${supabaseUrl.replace('.supabase.co', '.supabase.co')}/auth/v1/verify?redirect_to=https://pbl-flow-nexus.lovable.app/reset-password`,
+          redirectTo: `https://pbl-flow-nexus.lovable.app/auth/reset-password`,
         },
       });
 
@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
         type: "recovery",
         email: invite.email,
         options: {
-          redirectTo: `${supabaseUrl.replace('.supabase.co', '.supabase.co')}/auth/v1/verify?redirect_to=https://pbl-flow-nexus.lovable.app/reset-password`,
+          redirectTo: `https://pbl-flow-nexus.lovable.app/auth/reset-password`,
         },
       });
 
