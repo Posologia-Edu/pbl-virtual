@@ -11,17 +11,17 @@ import { useState } from "react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function Layout({ children }: {children: ReactNode;}) {
-  const { user, profile, roles, signOut, isAdmin, isProfessor } = useAuth();
+  const { user, profile, roles, signOut, isAdmin, isProfessor, isInstitutionAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
-    { label: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student"] },
-    { label: t("nav.reports"), path: "/reports", icon: BarChart3, roles: ["admin", "professor"] },
-    { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin"] },
-    { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student"] },
+    { label: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard, roles: ["admin", "professor", "student", "institution_admin"] },
+    { label: t("nav.reports"), path: "/reports", icon: BarChart3, roles: ["admin", "professor", "institution_admin"] },
+    { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin", "institution_admin"] },
+    { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student", "institution_admin"] },
   ];
 
   const handleSignOut = async () => {
@@ -33,7 +33,7 @@ export default function Layout({ children }: {children: ReactNode;}) {
     item.roles.some((r) => roles.includes(r as any))
   );
 
-  const roleLabel = isAdmin ? t("roles.admin") : isProfessor ? t("roles.professor") : t("roles.student");
+  const roleLabel = isAdmin ? t("roles.admin") : isInstitutionAdmin ? t("roles.institutionAdmin", "Admin Institucional") : isProfessor ? t("roles.professor") : t("roles.student");
 
   return (
     <div className="flex min-h-screen w-full">
