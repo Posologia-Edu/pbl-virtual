@@ -47,20 +47,40 @@ Deno.serve(async (req) => {
 
     const caller = { id: callerId };
 
-    // Check admin role
+    // Check admin or institution_admin role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleCheck } = await adminClient
+    const { data: roleChecks } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "admin")
-      .single();
+      .in("role", ["admin", "institution_admin"]);
 
-    if (!roleCheck) {
+    const callerRoles = (roleChecks || []).map((r: any) => r.role);
+    const isSuperAdmin = callerRoles.includes("admin");
+    const isInstitutionAdmin = callerRoles.includes("institution_admin");
+
+    if (!isSuperAdmin && !isInstitutionAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // For institution_admin, get their institution_id for scoping
+    let callerInstitutionId: string | null = null;
+    if (isInstitutionAdmin && !isSuperAdmin) {
+      const { data: inst } = await adminClient
+        .from("institutions")
+        .select("id")
+        .eq("owner_id", caller.id)
+        .single();
+      callerInstitutionId = inst?.id || null;
+      if (!callerInstitutionId) {
+        return new Response(JSON.stringify({ error: "Institution not found for this admin" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const body = await req.json();
