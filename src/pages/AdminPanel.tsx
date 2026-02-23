@@ -156,13 +156,13 @@ export default function AdminPanel() {
               <InstitutionExplorer
                 onRefresh={fetchAll}
                 canCreate={isInstitutionAdmin && !isSuperAdmin && !subscription.institutionId}
-                readOnly={isSuperAdmin}
+                readOnly={false}
               />
             </TabsContent>
           )}
 
           <TabsContent value="courses">
-            <CoursesTab courses={visibleCourses} institutions={visibleInstitutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} readOnly={isSuperAdmin} />
+            <CoursesTab courses={visibleCourses} institutions={visibleInstitutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} readOnly={false} />
           </TabsContent>
 
           <TabsContent value="users">
@@ -172,7 +172,7 @@ export default function AdminPanel() {
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
-            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={isSuperAdmin} />
+            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={false} />
           </TabsContent>
 
           <TabsContent value="groups">
@@ -185,7 +185,7 @@ export default function AdminPanel() {
             <GroupsTab
               groups={groups} groupMembers={groupMembers} profiles={profiles}
               modules={modules} courseMembers={courseMembers}
-              selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={isSuperAdmin}
+              selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={false}
             />
           </TabsContent>
 
@@ -196,7 +196,7 @@ export default function AdminPanel() {
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
-            <ModulesTab modules={modules} scenarios={scenarios} groups={groups} profiles={profiles} groupMembers={groupMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={isSuperAdmin} />
+            <ModulesTab modules={modules} scenarios={scenarios} groups={groups} profiles={profiles} groupMembers={groupMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={false} />
           </TabsContent>
 
           <TabsContent value="scenarios">
@@ -209,12 +209,12 @@ export default function AdminPanel() {
             <ScenariosTab
               scenarios={scenarios} modules={modules} rooms={rooms}
               courses={visibleCourses} institutions={visibleInstitutions} groups={groups}
-              selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={isSuperAdmin}
+              selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={false}
             />
           </TabsContent>
 
           <TabsContent value="branding">
-            <BrandingTab institutions={visibleInstitutions} onRefresh={fetchAll} readOnly={isSuperAdmin} />
+            <BrandingTab institutions={visibleInstitutions} onRefresh={fetchAll} readOnly={false} />
           </TabsContent>
 
           {isSuperAdmin && (
