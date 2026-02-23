@@ -1185,6 +1185,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_course_in_admin_institution: {
+        Args: { _admin_id: string; _course_id: string }
+        Returns: boolean
+      }
+      is_course_member: {
+        Args: { _course_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_in_admin_institution: {
+        Args: { _admin_id: string; _group_id: string }
+        Returns: boolean
+      }
       is_group_member: {
         Args: { _group_id: string; _student_id: string }
         Returns: boolean
@@ -1197,8 +1209,16 @@ export type Database = {
         Args: { _institution_id: string; _user_id: string }
         Returns: boolean
       }
+      is_institution_member: {
+        Args: { _institution_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_user_effectively_hidden: {
         Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_user_in_admin_institution: {
+        Args: { _admin_id: string; _user_id: string }
         Returns: boolean
       }
     }
