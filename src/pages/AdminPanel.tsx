@@ -157,6 +157,7 @@ export default function AdminPanel() {
                 onRefresh={fetchAll}
                 canCreate={isSuperAdmin || (isInstitutionAdmin && !subscription.institutionId)}
                 readOnly={false}
+                isSuperAdmin={isSuperAdmin}
               />
             </TabsContent>
           )}
