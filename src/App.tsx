@@ -20,11 +20,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
+function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string | string[] }) {
   const { user, loading, roles } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
   if (!user) return <Navigate to="/auth" replace />;
-  if (requiredRole && !roles.includes(requiredRole as any)) return <Navigate to="/dashboard" replace />;
+  if (requiredRole) {
+    const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!allowed.some((r) => roles.includes(r as any))) return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -51,7 +54,7 @@ const App = () => (
               <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute requiredRole={["admin", "institution_admin"]}><AdminPanel /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute requiredRole="professor"><Reports /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/session/:roomId" element={<ProtectedRoute><PBLSession /></ProtectedRoute>} />

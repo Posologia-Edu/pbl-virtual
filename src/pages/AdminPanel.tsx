@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
 import CoursesTab from "@/components/admin/CoursesTab";
@@ -13,9 +14,13 @@ import ModulesTab from "@/components/admin/ModulesTab";
 import ScenariosTab from "@/components/admin/ScenariosTab";
 import SecurityTab from "@/components/admin/SecurityTab";
 import BrandingTab from "@/components/admin/BrandingTab";
+import FinancialDashboard from "@/components/admin/FinancialDashboard";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
+  const { isAdmin, isInstitutionAdmin, subscription } = useAuth();
+  const isSuperAdmin = isAdmin;
+
   const [profiles, setProfiles] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, any[]>>({});
@@ -28,6 +33,13 @@ export default function AdminPanel() {
 
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
+
+  // For institution_admin, lock to their institution
+  useEffect(() => {
+    if (isInstitutionAdmin && subscription.institutionId) {
+      setSelectedInstitutionId(subscription.institutionId);
+    }
+  }, [isInstitutionAdmin, subscription.institutionId]);
 
   useEffect(() => {
     fetchAll();
@@ -76,49 +88,75 @@ export default function AdminPanel() {
     if (cmRes.data) setCourseMembers(cmRes.data);
   };
 
+  // For institution_admin, filter data to their institution
+  const visibleInstitutions = isInstitutionAdmin && subscription.institutionId
+    ? institutions.filter((i) => i.id === subscription.institutionId)
+    : institutions;
+
+  const visibleCourses = isInstitutionAdmin && subscription.institutionId
+    ? courses.filter((c) => c.institution_id === subscription.institutionId)
+    : courses;
+
+  const defaultTab = isSuperAdmin ? "institutions" : "courses";
+
   return (
     <Layout>
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="mb-8 animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">{t("admin.title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("admin.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isSuperAdmin ? t("admin.title") : "Painel da Instituição"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isSuperAdmin ? t("admin.subtitle") : visibleInstitutions[0]?.name || "Gerencie sua instituição"}
+          </p>
         </div>
 
-        <Tabs defaultValue="institutions" className="animate-fade-in">
+        <Tabs defaultValue={defaultTab} className="animate-fade-in">
           <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="institutions"><Building2 className="mr-2 h-4 w-4" /> {t("admin.institutions")}</TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="institutions"><Building2 className="mr-2 h-4 w-4" /> {t("admin.institutions")}</TabsTrigger>
+            )}
             <TabsTrigger value="courses"><BookOpen className="mr-2 h-4 w-4" /> {t("admin.courses")}</TabsTrigger>
             <TabsTrigger value="users"><UserPlus className="mr-2 h-4 w-4" /> {t("admin.users")}</TabsTrigger>
             <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> {t("admin.groups")}</TabsTrigger>
             <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> {t("admin.modules")}</TabsTrigger>
             <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> {t("admin.scenarios")}</TabsTrigger>
             <TabsTrigger value="branding"><Palette className="mr-2 h-4 w-4" /> {t("admin.branding")}</TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="financial"><CreditCard className="mr-2 h-4 w-4" /> Financeiro</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="institutions">
-            <InstitutionExplorer onRefresh={fetchAll} />
-          </TabsContent>
+          {isSuperAdmin && (
+            <TabsContent value="institutions">
+              <InstitutionExplorer onRefresh={fetchAll} />
+            </TabsContent>
+          )}
 
           <TabsContent value="courses">
-            <CoursesTab courses={courses} institutions={institutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} />
+            <CoursesTab courses={visibleCourses} institutions={visibleInstitutions} modules={modules} groups={groups} groupMembers={groupMembers} profiles={profiles} courseMembers={courseMembers} scenarios={scenarios} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="users">
-            <CourseContextSelector
-              institutions={institutions} courses={courses}
-              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-              onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-            />
-            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={selectedInstitutionId} institutions={institutions} courses={courses} onRefresh={fetchAll} />
+            {isSuperAdmin && (
+              <CourseContextSelector
+                institutions={visibleInstitutions} courses={visibleCourses}
+                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
+              />
+            )}
+            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="groups">
-            <CourseContextSelector
-              institutions={institutions} courses={courses}
-              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-              onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-            />
+            {isSuperAdmin && (
+              <CourseContextSelector
+                institutions={visibleInstitutions} courses={visibleCourses}
+                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
+              />
+            )}
             <GroupsTab
               groups={groups} groupMembers={groupMembers} profiles={profiles}
               modules={modules} courseMembers={courseMembers}
@@ -127,30 +165,40 @@ export default function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="modules">
-            <CourseContextSelector
-              institutions={institutions} courses={courses}
-              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-              onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-            />
+            {isSuperAdmin && (
+              <CourseContextSelector
+                institutions={visibleInstitutions} courses={visibleCourses}
+                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
+              />
+            )}
             <ModulesTab modules={modules} scenarios={scenarios} groups={groups} profiles={profiles} groupMembers={groupMembers} selectedCourseId={selectedCourseId} onRefresh={fetchAll} />
           </TabsContent>
 
           <TabsContent value="scenarios">
-            <CourseContextSelector
-              institutions={institutions} courses={courses}
-              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
-              onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
-            />
+            {isSuperAdmin && (
+              <CourseContextSelector
+                institutions={visibleInstitutions} courses={visibleCourses}
+                selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+                onInstitutionChange={setSelectedInstitutionId} onCourseChange={setSelectedCourseId}
+              />
+            )}
             <ScenariosTab
               scenarios={scenarios} modules={modules} rooms={rooms}
-              courses={courses} institutions={institutions} groups={groups}
+              courses={visibleCourses} institutions={visibleInstitutions} groups={groups}
               selectedCourseId={selectedCourseId} onRefresh={fetchAll}
             />
           </TabsContent>
 
           <TabsContent value="branding">
-            <BrandingTab institutions={institutions} onRefresh={fetchAll} />
+            <BrandingTab institutions={visibleInstitutions} onRefresh={fetchAll} />
           </TabsContent>
+
+          {isSuperAdmin && (
+            <TabsContent value="financial">
+              <FinancialDashboard />
+            </TabsContent>
+          )}
 
           <TabsContent value="security">
             <SecurityTab />
