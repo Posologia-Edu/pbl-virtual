@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
     // ACTION: invite
     if (action === "invite") {
-      const { email, institution_name } = body;
+      const { email } = body;
       if (!email) {
         return new Response(JSON.stringify({ error: "email is required" }), {
           status: 400,
@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
 
       if (createError) {
         if (createError.message?.includes("already been registered")) {
-          // User already exists in auth — look them up
           const { data: listData } = await adminClient.auth.admin.listUsers();
           const existingUser = listData?.users?.find((u: any) => u.email === email);
           if (!existingUser) {
@@ -132,42 +131,10 @@ Deno.serve(async (req) => {
       // 2. Assign institution_admin role
       await adminClient.from("user_roles").insert({ user_id: userId, role: "institution_admin" });
 
-      // 3. Create institution
-      const instName = institution_name || `Instituição de ${email.split("@")[0]}`;
-      const { data: institution, error: instError } = await adminClient
-        .from("institutions")
-        .insert({ name: instName, owner_id: userId })
-        .select("id")
-        .single();
-
-      if (instError) {
-        console.error("Institution creation error:", instError);
-        return new Response(JSON.stringify({ error: "Falha ao criar instituição." }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // 4. Create free subscription (generous limits, no Stripe)
-      await adminClient.from("subscriptions").insert({
-        institution_id: institution.id,
-        owner_id: userId,
-        stripe_customer_id: `invited_${userId}`,
-        status: "active",
-        plan_name: "Convidado (Cortesia)",
-        max_students: 999,
-        max_rooms: 999,
-        ai_enabled: true,
-        whitelabel_enabled: true,
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-
-      // 5. Record invite
+      // 3. Record invite (no institution yet - admin will create on first login)
       await adminClient.from("admin_invites").insert({
         email,
         invited_by: callerId,
-        institution_id: institution.id,
         user_id: userId,
         status: "pending",
       });

@@ -51,8 +51,8 @@ serve(async (req) => {
       });
     }
 
-    // Action 2: Setup institution (requires auth)
-    if (action === "setup") {
+    // Action 2: Setup institution (requires auth) - for both subscribers and invited admins
+    if (action === "setup" || action === "setup-invited") {
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) throw new Error("No authorization header");
 
@@ -70,7 +70,21 @@ serve(async (req) => {
         throw new Error("Institution name too long");
       }
 
-      logStep("Setting up institution", { userId: user.id, name: institutionName });
+      logStep("Setting up institution", { userId: user.id, name: institutionName, action });
+
+      // Check for duplicate institution name
+      const { data: duplicateInst } = await supabaseAdmin
+        .from("institutions")
+        .select("id")
+        .ilike("name", institutionName.trim())
+        .maybeSingle();
+
+      if (duplicateInst) {
+        return new Response(JSON.stringify({ error: "Já existe uma instituição com este nome. Escolha outro nome." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
 
       // Check if user already has an institution
       const { data: existing } = await supabaseAdmin
@@ -97,7 +111,7 @@ serve(async (req) => {
       if (instError) throw new Error(`Failed to create institution: ${instError.message}`);
       logStep("Institution created", { id: institution.id });
 
-      // 2. Assign institution_admin role
+      // 2. Assign institution_admin role (if not already assigned)
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .insert({ user_id: user.id, role: "institution_admin" });
@@ -107,8 +121,32 @@ serve(async (req) => {
       }
       logStep("Role assigned: institution_admin");
 
-      // 3. If we have a Stripe session, sync subscription
-      if (stripeSessionId) {
+      // 3. Handle subscription based on flow
+      if (action === "setup-invited") {
+        // Invited admin: create free courtesy subscription
+        await supabaseAdmin.from("subscriptions").insert({
+          institution_id: institution.id,
+          owner_id: user.id,
+          stripe_customer_id: `invited_${user.id}`,
+          status: "active",
+          plan_name: "Convidado (Cortesia)",
+          max_students: 999,
+          max_rooms: 999,
+          ai_enabled: true,
+          whitelabel_enabled: true,
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        logStep("Courtesy subscription created for invited admin");
+
+        // Update invite record with institution_id and mark as active
+        await supabaseAdmin
+          .from("admin_invites")
+          .update({ institution_id: institution.id, status: "active", activated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+        logStep("Invite record updated");
+      } else if (stripeSessionId) {
+        // Subscriber: sync with Stripe
         try {
           const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
           if (stripeKey) {
@@ -144,13 +182,49 @@ serve(async (req) => {
           }
         } catch (stripeErr) {
           logStep("Warning: Could not sync Stripe subscription", { error: String(stripeErr) });
-          // Don't fail the whole setup if Stripe sync fails
         }
       }
 
       return new Response(JSON.stringify({ success: true, institutionId: institution.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
+      });
+    }
+
+    // Action 3: Check if user is invited admin without institution
+    if (action === "check-invited-status") {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("No authorization header");
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+      if (userError) throw new Error(`Auth error: ${userError.message}`);
+      const user = userData.user;
+      if (!user) throw new Error("User not authenticated");
+
+      // Check if user has institution_admin role
+      const { data: role } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "institution_admin")
+        .maybeSingle();
+
+      if (!role) {
+        return new Response(JSON.stringify({ needsInstitution: false }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if user has an institution
+      const { data: inst } = await supabaseAdmin
+        .from("institutions")
+        .select("id")
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      return new Response(JSON.stringify({ needsInstitution: !inst }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

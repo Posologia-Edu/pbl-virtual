@@ -18,7 +18,6 @@ interface Invite {
 
 export default function InviteAdminTab() {
   const [email, setEmail] = useState("");
-  const [institutionName, setInstitutionName] = useState("");
   const [sending, setSending] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +43,7 @@ export default function InviteAdminTab() {
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("invite-admin", {
-        body: { action: "invite", email, institution_name: institutionName || undefined },
+        body: { action: "invite", email },
       });
       if (error || data?.error) {
         toast({ title: "Erro", description: data?.error || error?.message || "Falha ao enviar convite.", variant: "destructive" });
@@ -55,7 +54,6 @@ export default function InviteAdminTab() {
           toast({ title: "Convite enviado!", description: `Email de convite enviado para ${email}` });
         }
         setEmail("");
-        setInstitutionName("");
         fetchInvites();
       }
     } catch {
@@ -102,16 +100,6 @@ export default function InviteAdminTab() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invite-inst">Nome da Instituição (opcional)</Label>
-            <Input
-              id="invite-inst"
-              type="text"
-              placeholder="Se vazio, será gerado automaticamente"
-              value={institutionName}
-              onChange={(e) => setInstitutionName(e.target.value)}
             />
           </div>
           <Button type="submit" disabled={sending || !email}>

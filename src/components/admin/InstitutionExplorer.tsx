@@ -3,7 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Building2, BookOpen, FolderOpen, Users, ChevronRight, ArrowLeft, GraduationCap, User, Eye, EyeOff, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Building2, BookOpen, FolderOpen, Users, ChevronRight, ArrowLeft, GraduationCap, User, Eye, EyeOff, Plus, Trash2, UserCircle, CreditCard, Mail } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Level = "institutions" | "courses" | "modules" | "groups" | "members";
 
@@ -16,6 +29,7 @@ interface BreadcrumbItem {
 export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => void }) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
+  const [adminInstitutions, setAdminInstitutions] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [modules, setModules] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
@@ -23,15 +37,40 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
   const [professorProfile, setProfessorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState("");
+  const [selectedAdminInst, setSelectedAdminInst] = useState<any | null>(null);
 
   const createInstitution = async () => {
     if (!newName.trim()) return;
+
+    // Check for duplicate name
+    const { data: existing } = await supabase
+      .from("institutions")
+      .select("id")
+      .ilike("name", newName.trim())
+      .maybeSingle();
+
+    if (existing) {
+      toast({ title: "Erro", description: "Já existe uma instituição com este nome.", variant: "destructive" });
+      return;
+    }
+
     const { error } = await supabase.from("institutions").insert({ name: newName.trim() });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Instituição criada!" });
       setNewName("");
+      loadData();
+      onRefresh?.();
+    }
+  };
+
+  const deleteInstitution = async (id: string, name: string) => {
+    const { error } = await supabase.from("institutions").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Instituição excluída!" });
       loadData();
       onRefresh?.();
     }
@@ -61,7 +100,33 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
         (allCourses || []).forEach((c) => {
           courseCounts[c.institution_id] = (courseCounts[c.institution_id] || 0) + 1;
         });
-        setInstitutions((data || []).map((i) => ({ ...i, courseCount: courseCounts[i.id] || 0 })));
+
+        const allInsts = (data || []).map((i) => ({ ...i, courseCount: courseCounts[i.id] || 0 }));
+
+        // Separate superadmin-created (no owner_id) from admin-owned institutions
+        const superadminInsts = allInsts.filter((i) => !i.owner_id);
+        const adminInsts = allInsts.filter((i) => i.owner_id);
+
+        // Fetch admin profiles and subscriptions for admin institutions
+        if (adminInsts.length > 0) {
+          const ownerIds = [...new Set(adminInsts.map((i) => i.owner_id))];
+          const [profilesRes, subsRes] = await Promise.all([
+            supabase.from("profiles").select("user_id, full_name").in("user_id", ownerIds),
+            supabase.from("subscriptions").select("*").in("institution_id", adminInsts.map((i) => i.id)),
+          ]);
+          const profileMap = Object.fromEntries((profilesRes.data || []).map((p) => [p.user_id, p]));
+          const subMap = Object.fromEntries((subsRes.data || []).map((s) => [s.institution_id, s]));
+
+          setAdminInstitutions(adminInsts.map((i) => ({
+            ...i,
+            ownerProfile: profileMap[i.owner_id],
+            subscription: subMap[i.id],
+          })));
+        } else {
+          setAdminInstitutions([]);
+        }
+
+        setInstitutions(superadminInsts);
       } else if (currentLevel === "courses") {
         const instId = breadcrumbs[0].id;
         const { data } = await supabase.from("courses").select("*").eq("institution_id", instId).order("name");
@@ -169,6 +234,17 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
     }
   };
 
+  const statusLabel = (status: string) => {
+    const map: Record<string, { label: string; className: string }> = {
+      active: { label: "Ativo", className: "bg-green-100 text-green-700 border-green-200" },
+      canceled: { label: "Cancelado", className: "bg-red-100 text-red-700 border-red-200" },
+      revoked: { label: "Revogado", className: "bg-red-100 text-red-700 border-red-200" },
+      incomplete: { label: "Incompleto", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+      past_due: { label: "Atrasado", className: "bg-orange-100 text-orange-700 border-orange-200" },
+    };
+    return map[status] || { label: status, className: "bg-muted text-muted-foreground" };
+  };
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -221,6 +297,7 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
           {/* Institutions */}
           {currentLevel === "institutions" && (
             <>
+              {/* Create institution form */}
               <div className="clinical-card p-6 max-w-lg mb-6">
                 <h4 className="mb-3 text-sm font-semibold text-foreground">Cadastrar Instituição</h4>
                 <div className="flex gap-2">
@@ -230,23 +307,183 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
                   </Button>
                 </div>
               </div>
+
+              {/* Superadmin-created institutions */}
+              <h4 className="mb-3 text-sm font-semibold text-foreground">
+                Minhas Instituições <span className="text-xs font-normal text-muted-foreground">({institutions.length})</span>
+              </h4>
               {institutions.length === 0 ? (
-                <EmptyState icon={<Building2 />} message="Nenhuma instituição cadastrada" />
+                <EmptyState icon={<Building2 />} message="Nenhuma instituição cadastrada pelo superadmin" />
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-8">
                   {institutions.map((inst) => (
-                    <DrillCard
-                      key={inst.id}
-                      icon={<Building2 className="h-5 w-5" />}
-                      title={inst.name}
-                      subtitle={`${inst.courseCount} curso${inst.courseCount !== 1 ? "s" : ""}`}
-                      isHidden={inst.is_hidden}
-                      onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
-                      onClick={() => navigateTo("courses", inst.id, inst.name)}
-                    />
+                    <div key={inst.id} className="group relative">
+                      <DrillCard
+                        icon={<Building2 className="h-5 w-5" />}
+                        title={inst.name}
+                        subtitle={`${inst.courseCount} curso${inst.courseCount !== 1 ? "s" : ""}`}
+                        isHidden={inst.is_hidden}
+                        onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
+                        onClick={() => navigateTo("courses", inst.id, inst.name)}
+                        extraAction={
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir "{inst.name}"?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Todos os cursos vinculados a esta instituição serão removidos. Esta ação é irreversível.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteInstitution(inst.id, inst.name)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        }
+                      />
+                    </div>
                   ))}
                 </div>
               )}
+
+              {/* Admin-owned institutions */}
+              <h4 className="mb-3 text-sm font-semibold text-foreground mt-8">
+                Instituições de Administradores <span className="text-xs font-normal text-muted-foreground">({adminInstitutions.length})</span>
+              </h4>
+              {adminInstitutions.length === 0 ? (
+                <EmptyState icon={<UserCircle />} message="Nenhum administrador institucional cadastrado" />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {adminInstitutions.map((inst) => {
+                    const sub = inst.subscription;
+                    const sLabel = sub ? statusLabel(sub.status) : null;
+                    return (
+                      <button
+                        key={inst.id}
+                        onClick={() => setSelectedAdminInst(inst)}
+                        className="group flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30 text-left w-full"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground truncate">{inst.name}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <UserCircle className="h-3 w-3" />
+                              {inst.ownerProfile?.full_name || "Admin não identificado"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {sLabel && (
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${sLabel.className}`}>
+                              {sLabel.label}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">
+                            {inst.courseCount} curso{inst.courseCount !== 1 ? "s" : ""}
+                          </span>
+                          {sub && (
+                            <Badge variant="outline" className="text-[10px] capitalize">
+                              {sub.plan_name || "—"}
+                            </Badge>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Admin institution detail dialog */}
+              <Dialog open={!!selectedAdminInst} onOpenChange={(open) => !open && setSelectedAdminInst(null)}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      {selectedAdminInst?.name}
+                    </DialogTitle>
+                  </DialogHeader>
+                  {selectedAdminInst && (
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-3">
+                        <InfoRow
+                          icon={<UserCircle className="h-4 w-4 text-muted-foreground" />}
+                          label="Administrador"
+                          value={selectedAdminInst.ownerProfile?.full_name || "—"}
+                        />
+                        {selectedAdminInst.subscription && (
+                          <>
+                            <InfoRow
+                              icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+                              label="Plano"
+                              value={selectedAdminInst.subscription.plan_name || "—"}
+                            />
+                            <InfoRow
+                              icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+                              label="Status"
+                              value={statusLabel(selectedAdminInst.subscription.status).label}
+                            />
+                            <InfoRow
+                              icon={<Users className="h-4 w-4 text-muted-foreground" />}
+                              label="Limite de alunos"
+                              value={selectedAdminInst.subscription.max_students >= 99999 ? "Ilimitado" : String(selectedAdminInst.subscription.max_students)}
+                            />
+                            <InfoRow
+                              icon={<Users className="h-4 w-4 text-muted-foreground" />}
+                              label="Limite de salas"
+                              value={selectedAdminInst.subscription.max_rooms >= 99999 ? "Ilimitado" : String(selectedAdminInst.subscription.max_rooms)}
+                            />
+                            {selectedAdminInst.subscription.current_period_end && (
+                              <InfoRow
+                                icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+                                label="Vencimento"
+                                value={new Date(selectedAdminInst.subscription.current_period_end).toLocaleDateString("pt-BR")}
+                              />
+                            )}
+                          </>
+                        )}
+                        <InfoRow
+                          icon={<BookOpen className="h-4 w-4 text-muted-foreground" />}
+                          label="Cursos"
+                          value={`${selectedAdminInst.courseCount} curso${selectedAdminInst.courseCount !== 1 ? "s" : ""}`}
+                        />
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setSelectedAdminInst(null);
+                            navigateTo("courses", selectedAdminInst.id, selectedAdminInst.name);
+                          }}
+                        >
+                          <ChevronRight className="mr-2 h-4 w-4" />
+                          Explorar cursos desta instituição
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </>
           )}
 
@@ -410,13 +647,24 @@ export default function InstitutionExplorer({ onRefresh }: { onRefresh?: () => v
   );
 }
 
-function DrillCard({ icon, title, subtitle, isHidden, onToggleHidden, onClick }: {
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      {icon}
+      <span className="text-sm text-muted-foreground w-32 shrink-0">{label}</span>
+      <span className="text-sm font-medium text-foreground capitalize">{value}</span>
+    </div>
+  );
+}
+
+function DrillCard({ icon, title, subtitle, isHidden, onToggleHidden, onClick, extraAction }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   isHidden?: boolean;
   onToggleHidden?: (e: React.MouseEvent) => void;
   onClick: () => void;
+  extraAction?: React.ReactNode;
 }) {
   return (
     <button
@@ -437,6 +685,7 @@ function DrillCard({ icon, title, subtitle, isHidden, onToggleHidden, onClick }:
         <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
         {isHidden && <p className="text-[10px] text-destructive font-medium mt-0.5">Ocultado</p>}
       </div>
+      {extraAction}
       {onToggleHidden && (
         <Button
           variant="ghost"
