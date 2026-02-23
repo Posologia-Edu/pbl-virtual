@@ -8,14 +8,14 @@ import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
   Plus, Users, DoorOpen, BookOpen, ChevronRight, Activity,
-  GraduationCap, Building2,
+  GraduationCap, Building2, AlertTriangle, Settings,
 } from "lucide-react";
 import CreateRoomDialog from "@/components/CreateRoomDialog";
 import BadgesPanel from "@/components/BadgesPanel";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function Dashboard() {
-  const { user, isAdmin, isProfessor, isStudent, profile } = useAuth();
+  const { user, isAdmin, isProfessor, isStudent, isInstitutionAdmin, profile, subscription } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<any[]>([]);
@@ -135,6 +135,25 @@ export default function Dashboard() {
 
         {/* Content */}
         <div className="px-6 py-6 lg:px-10 lg:py-8 max-w-7xl mx-auto">
+          {/* Setup banner for institution_admin without institution */}
+          {isInstitutionAdmin && !subscription.institutionId && rooms.length === 0 && (
+            <div className="clinical-card p-6 mb-6 border-primary/30 bg-primary/5 animate-fade-in">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <AlertTriangle className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-foreground mb-1">{t("dashboard.setupBannerTitle")}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{t("dashboard.setupBannerDesc")}</p>
+                  <Button size="sm" onClick={() => navigate("/admin")} className="rounded-xl gap-2">
+                    <Settings className="h-4 w-4" />
+                    {t("dashboard.setupBannerAction")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {rooms.length === 0 ? (
             <div className="clinical-card flex flex-col items-center justify-center py-16 text-center animate-fade-in">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">

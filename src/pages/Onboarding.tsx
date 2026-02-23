@@ -236,6 +236,16 @@ export default function Onboarding() {
                   </>
                 )}
               </Button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/?auth=open")}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Já tenho uma conta
+                </button>
+              </div>
             </form>
           )}
 

@@ -156,6 +156,7 @@ export default function AdminPanel() {
               <InstitutionExplorer
                 onRefresh={fetchAll}
                 canCreate={isInstitutionAdmin && !isSuperAdmin && !subscription.institutionId}
+                readOnly={isSuperAdmin}
               />
             </TabsContent>
           )}

@@ -55,7 +55,7 @@ const App = () => (
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requiredRole={["admin", "institution_admin"]}><AdminPanel /></ProtectedRoute>} />
-              <Route path="/reports" element={<ProtectedRoute requiredRole="professor"><Reports /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute requiredRole={["professor", "institution_admin"]}><Reports /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/session/:roomId" element={<ProtectedRoute><PBLSession /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />

@@ -26,7 +26,7 @@ interface BreadcrumbItem {
   label: string;
 }
 
-export default function InstitutionExplorer({ onRefresh, canCreate = false }: { onRefresh?: () => void; canCreate?: boolean }) {
+export default function InstitutionExplorer({ onRefresh, canCreate = false, readOnly = false }: { onRefresh?: () => void; canCreate?: boolean; readOnly?: boolean }) {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [adminInstitutions, setAdminInstitutions] = useState<any[]>([]);
@@ -326,9 +326,9 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false }: { 
                         title={inst.name}
                         subtitle={`${inst.courseCount} curso${inst.courseCount !== 1 ? "s" : ""}`}
                         isHidden={inst.is_hidden}
-                        onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
+                        onToggleHidden={readOnly ? undefined : (e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
                         onClick={() => navigateTo("courses", inst.id, inst.name)}
-                        extraAction={
+                        extraAction={readOnly ? undefined :
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -503,7 +503,7 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false }: { 
                     title={c.name}
                     subtitle={`${c.moduleCount} módulo${c.moduleCount !== 1 ? "s" : ""}`}
                     isHidden={c.is_hidden}
-                    onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("courses", c.id, c.is_hidden); }}
+                    onToggleHidden={readOnly ? undefined : (e) => { e.stopPropagation(); toggleHidden("courses", c.id, c.is_hidden); }}
                     onClick={() => navigateTo("modules", c.id, c.name)}
                   />
                 ))}
@@ -524,7 +524,7 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false }: { 
                     title={m.name}
                     subtitle={`${m.groupCount} turma${m.groupCount !== 1 ? "s" : ""}`}
                     isHidden={m.is_hidden}
-                    onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("modules", m.id, m.is_hidden); }}
+                    onToggleHidden={readOnly ? undefined : (e) => { e.stopPropagation(); toggleHidden("modules", m.id, m.is_hidden); }}
                     onClick={() => navigateTo("groups", m.id, m.name)}
                   />
                 ))}
@@ -545,7 +545,7 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false }: { 
                     title={g.name}
                     subtitle={`Prof. ${(g.profiles as any)?.full_name || "—"} · ${g.memberCount} aluno${g.memberCount !== 1 ? "s" : ""}`}
                     isHidden={g.is_hidden}
-                    onToggleHidden={(e) => { e.stopPropagation(); toggleHidden("groups", g.id, g.is_hidden); }}
+                    onToggleHidden={readOnly ? undefined : (e) => { e.stopPropagation(); toggleHidden("groups", g.id, g.is_hidden); }}
                     onClick={() => navigateTo("members", g.id, g.name)}
                   />
                 ))}

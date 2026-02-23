@@ -124,7 +124,11 @@
     "step": "Step",
     "scenarioVisible": "Scenario visible",
     "scenarioHidden": "Scenario hidden",
-    "noScenario": "No scenario"
+    "noScenario": "No scenario",
+    "setupBannerTitle": "Set up your institution",
+    "setupBannerDesc": "To get started, go to the admin panel and create your institution.",
+    "setupBannerAction": "Go to Administration",
+    "institutionAdminSubtitle": "Manage your institution and track progress"
   },
   "session": {
     "opening": "Opening",
