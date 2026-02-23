@@ -16,6 +16,7 @@ import SecurityTab from "@/components/admin/SecurityTab";
 import BrandingTab from "@/components/admin/BrandingTab";
 import FinancialDashboard from "@/components/admin/FinancialDashboard";
 import InviteAdminTab from "@/components/admin/InviteAdminTab";
+import SubscriptionTab from "@/components/admin/SubscriptionTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -31,6 +32,7 @@ export default function AdminPanel() {
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [courseMembers, setCourseMembers] = useState<any[]>([]);
+  const [mySubscription, setMySubscription] = useState<any>(null);
 
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
@@ -45,6 +47,20 @@ export default function AdminPanel() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  // Fetch subscription for institution_admin
+  useEffect(() => {
+    if (isInstitutionAdmin && subscription.institutionId) {
+      supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("institution_id", subscription.institutionId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setMySubscription(data);
+        });
+    }
+  }, [isInstitutionAdmin, subscription.institutionId]);
 
   const fetchAll = async () => {
     const [profilesRes, rolesRes, groupsRes, roomsRes, modulesRes, scenariosRes, instRes, coursesRes, cmRes] = await Promise.all([
@@ -129,6 +145,9 @@ export default function AdminPanel() {
             {isSuperAdmin && (
               <TabsTrigger value="invites"><MailPlus className="mr-2 h-4 w-4" /> Convites</TabsTrigger>
             )}
+            {isInstitutionAdmin && !isSuperAdmin && (
+              <TabsTrigger value="subscription"><CreditCard className="mr-2 h-4 w-4" /> Assinatura</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
@@ -207,6 +226,12 @@ export default function AdminPanel() {
           {isSuperAdmin && (
             <TabsContent value="invites">
               <InviteAdminTab />
+            </TabsContent>
+          )}
+
+          {isInstitutionAdmin && !isSuperAdmin && (
+            <TabsContent value="subscription">
+              <SubscriptionTab subscription={mySubscription} onRefresh={fetchAll} />
             </TabsContent>
           )}
 

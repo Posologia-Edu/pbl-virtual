@@ -361,6 +361,80 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ACTION: revoke_access
+    if (action === "revoke_access") {
+      const { institution_id } = body;
+      if (!institution_id) {
+        return new Response(JSON.stringify({ error: "institution_id required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // 1. Get subscription for this institution
+      const { data: sub } = await adminClient
+        .from("subscriptions")
+        .select("*")
+        .eq("institution_id", institution_id)
+        .maybeSingle();
+
+      // 2. If Stripe subscription exists, cancel it
+      if (sub?.stripe_subscription_id && !sub.stripe_subscription_id.startsWith("invited_")) {
+        try {
+          const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+          if (stripeKey) {
+            const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
+            const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+            await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+            console.log("Stripe subscription canceled:", sub.stripe_subscription_id);
+          }
+        } catch (stripeErr) {
+          console.error("Stripe cancel error (continuing):", stripeErr);
+        }
+      }
+
+      // 3. Update local subscription to revoked
+      if (sub) {
+        await adminClient
+          .from("subscriptions")
+          .update({ status: "revoked", cancel_at: new Date().toISOString() })
+          .eq("id", sub.id);
+      }
+
+      // 4. Get institution owner
+      const { data: institution } = await adminClient
+        .from("institutions")
+        .select("owner_id")
+        .eq("id", institution_id)
+        .single();
+
+      if (institution?.owner_id) {
+        // 5. Remove institution_admin role
+        await adminClient
+          .from("user_roles")
+          .delete()
+          .eq("user_id", institution.owner_id)
+          .eq("role", "institution_admin");
+
+        // 6. Hide institution
+        await adminClient
+          .from("institutions")
+          .update({ is_hidden: true })
+          .eq("id", institution_id);
+
+        // 7. Update invite status if exists
+        await adminClient
+          .from("admin_invites")
+          .update({ status: "revoked" })
+          .eq("institution_id", institution_id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
