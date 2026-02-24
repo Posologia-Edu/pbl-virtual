@@ -376,35 +376,52 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
                         onToggleHidden={readOnly ? undefined : (e) => { e.stopPropagation(); toggleHidden("institutions", inst.id, inst.is_hidden); }}
                         onClick={() => navigateTo("courses", inst.id, inst.name)}
                         extraAction={readOnly ? undefined :
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                          <div className="flex items-center gap-1">
+                            {/* Assign admin button */}
+                            {isSuperAdmin && availableAdmins.length > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                onClick={(e) => e.stopPropagation()}
+                                className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                                title="Atribuir administrador"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAdminInst({ ...inst, ownerProfile: null, subscription: null });
+                                }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <UserCircle className="h-4 w-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir "{inst.name}"?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Todos os cursos vinculados a esta instituição serão removidos. Esta ação é irreversível.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteInstitution(inst.id, inst.name)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir "{inst.name}"?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Todos os cursos vinculados a esta instituição serão removidos. Esta ação é irreversível.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteInstitution(inst.id, inst.name)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         }
                       />
                     </div>
@@ -516,6 +533,45 @@ export default function InstitutionExplorer({ onRefresh, canCreate = false, read
                           value={`${selectedAdminInst.courseCount} curso${selectedAdminInst.courseCount !== 1 ? "s" : ""}`}
                         />
                       </div>
+
+                      {/* Owner management for superadmin */}
+                      {isSuperAdmin && (
+                        <div className="pt-2 border-t">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                            Gerenciar Proprietário
+                          </label>
+                          <Select
+                            value={selectedAdminInst.owner_id || "__superadmin__"}
+                            onValueChange={async (value) => {
+                              const newOwnerId = value === "__superadmin__" ? null : value;
+                              const { error } = await supabase
+                                .from("institutions")
+                                .update({ owner_id: newOwnerId })
+                                .eq("id", selectedAdminInst.id);
+                              if (error) {
+                                toast({ title: "Erro", description: error.message, variant: "destructive" });
+                              } else {
+                                toast({ title: "Proprietário atualizado!" });
+                                setSelectedAdminInst(null);
+                                loadData();
+                                onRefresh?.();
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__superadmin__">Superadmin (minha instituição)</SelectItem>
+                              {availableAdmins.map((admin) => (
+                                <SelectItem key={admin.user_id} value={admin.user_id}>
+                                  {admin.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       <div className="pt-2 border-t">
                         <Button
