@@ -6,6 +6,167 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Provider endpoints (all OpenAI-compatible except Anthropic)
+const PROVIDER_ENDPOINTS: Record<string, { url: string; format: string; defaultModel: string }> = {
+  openai: {
+    url: "https://api.openai.com/v1/chat/completions",
+    format: "openai",
+    defaultModel: "gpt-4o-mini",
+  },
+  groq: {
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    format: "openai",
+    defaultModel: "llama-3.3-70b-versatile",
+  },
+  anthropic: {
+    url: "https://api.anthropic.com/v1/messages",
+    format: "anthropic",
+    defaultModel: "claude-sonnet-4-20250514",
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    format: "openai",
+    defaultModel: "google/gemini-2.5-flash",
+  },
+  google: {
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    format: "openai",
+    defaultModel: "gemini-2.5-flash",
+  },
+};
+
+interface AIMessage {
+  role: string;
+  content: string;
+}
+
+async function callExternalProvider(
+  provider: string,
+  apiKey: string,
+  messages: AIMessage[]
+): Promise<string | null> {
+  const config = PROVIDER_ENDPOINTS[provider];
+  if (!config) return null;
+
+  try {
+    console.log(`[AI] Trying provider: ${provider}`);
+
+    if (config.format === "anthropic") {
+      const systemMsg = messages.find((m) => m.role === "system");
+      const nonSystemMsgs = messages.filter((m) => m.role !== "system");
+
+      const res = await fetch(config.url, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: config.defaultModel,
+          max_tokens: 4096,
+          system: systemMsg?.content || "",
+          messages: nonSystemMsgs,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[AI] ${provider} error ${res.status}:`, errText);
+        return null;
+      }
+
+      const data = await res.json();
+      return data.content?.[0]?.text || null;
+    }
+
+    // OpenAI-compatible format
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+
+    const res = await fetch(config.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: config.defaultModel,
+        messages,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[AI] ${provider} error ${res.status}:`, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.error(`[AI] ${provider} exception:`, err);
+    return null;
+  }
+}
+
+async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<string> {
+  console.log("[AI] Using Lovable AI (fallback)");
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[AI] Lovable AI error:", res.status, errText);
+    if (res.status === 429) throw { status: 429, message: "Rate limit exceeded." };
+    if (res.status === 402) throw { status: 402, message: "Payment required." };
+    throw { status: 500, message: "AI gateway error" };
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
+async function callAIWithFallback(
+  adminClient: any,
+  institutionId: string | null,
+  lovableApiKey: string,
+  messages: AIMessage[]
+): Promise<string> {
+  // Try external providers first if institution has keys configured
+  if (institutionId) {
+    const { data: providerKeys } = await adminClient
+      .from("ai_provider_keys")
+      .select("provider, api_key, is_active")
+      .eq("institution_id", institutionId)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false });
+
+    if (providerKeys && providerKeys.length > 0) {
+      for (const pk of providerKeys) {
+        if (!pk.api_key) continue;
+        const result = await callExternalProvider(pk.provider, pk.api_key, messages);
+        if (result) {
+          console.log(`[AI] Success with provider: ${pk.provider}`);
+          return result;
+        }
+        console.log(`[AI] Provider ${pk.provider} failed, trying next...`);
+      }
+    }
+  }
+
+  // Fallback to Lovable AI
+  return callLovableAI(lovableApiKey, messages);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,7 +198,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify professor role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roleCheck } = await adminClient
       .from("user_roles")
@@ -49,10 +209,15 @@ Deno.serve(async (req) => {
     if (!roleCheck || roleCheck.length === 0) {
       return new Response(
         JSON.stringify({ error: "Professor access required" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -61,22 +226,31 @@ Deno.serve(async (req) => {
     if (!room_id || !session_id) {
       return new Response(
         JSON.stringify({ error: "room_id and session_id are required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    // Resolve institution_id from room -> group -> course -> institution
+    let institutionId: string | null = null;
+    const { data: roomData } = await adminClient
+      .from("rooms")
+      .select("group_id")
+      .eq("id", room_id)
+      .single();
+    if (roomData) {
+      const { data: groupData } = await adminClient
+        .from("groups")
+        .select("course_id")
+        .eq("id", roomData.group_id)
+        .single();
+      if (groupData?.course_id) {
+        const { data: courseData } = await adminClient
+          .from("courses")
+          .select("institution_id")
+          .eq("id", groupData.course_id)
+          .single();
+        institutionId = courseData?.institution_id || null;
+      }
     }
 
     // Fetch session data
@@ -107,7 +281,6 @@ Deno.serve(async (req) => {
     const scenario = scenarioRes.data;
     const recentChat = (chatRes.data || []).reverse();
 
-    // Group step items by step
     const stepGroups: Record<number, string[]> = {};
     for (const item of stepItems) {
       if (!stepGroups[item.step]) stepGroups[item.step] = [];
@@ -134,23 +307,18 @@ Deno.serve(async (req) => {
       .join("\n");
 
     if (mode === "gap_analysis" && module_id) {
-      // Fetch learning objectives for the module
       const { data: objectives } = await adminClient
         .from("learning_objectives")
         .select("content, is_essential")
         .eq("module_id", module_id);
 
-      // Fetch covered objectives for this session
       const { data: covered } = await adminClient
         .from("objective_sessions")
         .select("objective_id, learning_objectives(content)")
         .eq("session_id", session_id);
 
       const allObjectives = (objectives || [])
-        .map(
-          (o: any) =>
-            `${o.is_essential ? "⭐ [ESSENCIAL] " : ""}${o.content}`
-        )
+        .map((o: any) => `${o.is_essential ? "⭐ [ESSENCIAL] " : ""}${o.content}`)
         .join("\n");
 
       const coveredList = (covered || [])
@@ -187,69 +355,34 @@ ${contributionsSummary || "Nenhuma contribuição ainda."}
 ## Chat Recente
 ${chatSummary || "Sem mensagens."}`;
 
-      const aiResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-          }),
-        }
-      );
+      try {
+        const content = await callAIWithFallback(
+          adminClient,
+          institutionId,
+          LOVABLE_API_KEY,
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ]
+        );
 
-      if (!aiResponse.ok) {
-        if (aiResponse.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-            {
-              status: 429,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
+        let parsed;
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+        } catch {
+          parsed = { summary: content, gaps: [], essential_gaps: [], suggested_questions: [], addressed: [] };
         }
-        if (aiResponse.status === 402) {
-          return new Response(
-            JSON.stringify({ error: "Payment required. Add credits." }),
-            {
-              status: 402,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-        const errText = await aiResponse.text();
-        console.error("AI gateway error:", aiResponse.status, errText);
+
+        return new Response(JSON.stringify({ mode: "gap_analysis", ...parsed }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err: any) {
         return new Response(
-          JSON.stringify({ error: "AI gateway error" }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: err.message || "AI error" }),
+          { status: err.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      const aiData = await aiResponse.json();
-      const content = aiData.choices?.[0]?.message?.content || "";
-
-      let parsed;
-      try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-      } catch {
-        console.error("Failed to parse AI gap analysis:", content);
-        parsed = { summary: content, gaps: [], essential_gaps: [], suggested_questions: [], addressed: [] };
-      }
-
-      return new Response(JSON.stringify({ mode: "gap_analysis", ...parsed }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     // Default mode: suggest questions
@@ -257,11 +390,11 @@ ${chatSummary || "Sem mensagens."}`;
 
 Analise as contribuições dos alunos e o andamento da sessão para sugerir ao tutor/professor:
 
-1. **Perguntas Socráticas** (3-5): Perguntas que estimulem pensamento crítico, baseadas no que os alunos já discutiram. Foque em aprofundar o raciocínio, não em dar respostas.
+1. **Perguntas Socráticas** (3-5): Perguntas que estimulem pensamento crítico, baseadas no que os alunos já discutiram.
 
-2. **Menções importantes** (0-3): Alunos que merecem atenção especial — seja por contribuições excepcionais que podem ser destacadas, ou por possíveis equívocos que podem ser redirecionados gentilmente.
+2. **Menções importantes** (0-3): Alunos que merecem atenção especial.
 
-3. **Observações pedagógicas** (1-2): Insights sobre a dinâmica da sessão — se há alunos dominando a discussão, se a turma está presa em um ponto, etc.
+3. **Observações pedagógicas** (1-2): Insights sobre a dinâmica da sessão.
 
 Responda em JSON:
 {
@@ -279,82 +412,40 @@ ${contributionsSummary || "Nenhuma contribuição ainda."}
 ## Chat Recente (últimas 30 mensagens)
 ${chatSummary || "Sem mensagens."}`;
 
-    const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      }
-    );
+    try {
+      const content = await callAIWithFallback(
+        adminClient,
+        institutionId,
+        LOVABLE_API_KEY,
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ]
+      );
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+      let parsed;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      } catch {
+        parsed = { questions: [], mentions: [], observations: [content] };
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Add credits." }),
-          {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
+
       return new Response(
-        JSON.stringify({ error: "AI gateway error" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ mode: "suggestions", ...parsed }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (err: any) {
+      return new Response(
+        JSON.stringify({ error: err.message || "AI error" }),
+        { status: err.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
-
-    let parsed;
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-    } catch {
-      console.error("Failed to parse AI cotutor response:", content);
-      parsed = { questions: [], mentions: [], observations: [content] };
-    }
-
-    return new Response(
-      JSON.stringify({ mode: "suggestions", ...parsed }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
   } catch (err) {
     console.error("ai-cotutor error:", err);
     return new Response(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : "Internal error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

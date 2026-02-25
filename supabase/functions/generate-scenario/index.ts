@@ -5,77 +5,84 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Simple in-memory rate limiting (per user, max 3 requests per minute)
+const PROVIDER_ENDPOINTS: Record<string, { url: string; format: string; defaultModel: string }> = {
+  openai: { url: "https://api.openai.com/v1/chat/completions", format: "openai", defaultModel: "gpt-4o-mini" },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", format: "openai", defaultModel: "llama-3.3-70b-versatile" },
+  anthropic: { url: "https://api.anthropic.com/v1/messages", format: "anthropic", defaultModel: "claude-sonnet-4-20250514" },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", format: "openai", defaultModel: "google/gemini-2.5-flash" },
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", format: "openai", defaultModel: "gemini-2.5-flash" },
+};
+
+interface AIMsg { role: string; content: string; }
+
+async function callExternalProvider(provider: string, apiKey: string, messages: AIMsg[]): Promise<string | null> {
+  const c = PROVIDER_ENDPOINTS[provider];
+  if (!c) return null;
+  try {
+    console.log(`[AI] Trying ${provider}`);
+    if (c.format === "anthropic") {
+      const sys = messages.find(m => m.role === "system");
+      const res = await fetch(c.url, { method: "POST", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" }, body: JSON.stringify({ model: c.defaultModel, max_tokens: 4096, system: sys?.content || "", messages: messages.filter(m => m.role !== "system") }) });
+      if (!res.ok) { console.error(`[AI] ${provider} ${res.status}`); await res.text(); return null; }
+      const d = await res.json(); return d.content?.[0]?.text || null;
+    }
+    const res = await fetch(c.url, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: c.defaultModel, messages }) });
+    if (!res.ok) { console.error(`[AI] ${provider} ${res.status}`); await res.text(); return null; }
+    const d = await res.json(); return d.choices?.[0]?.message?.content || null;
+  } catch (e) { console.error(`[AI] ${provider} error:`, e); return null; }
+}
+
+async function callAIWithFallback(adminClient: any, institutionId: string | null, lovableKey: string, messages: AIMsg[]): Promise<string> {
+  if (institutionId) {
+    const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("institution_id", institutionId).eq("is_active", true);
+    for (const pk of (keys || [])) {
+      if (!pk.api_key) continue;
+      const r = await callExternalProvider(pk.provider, pk.api_key, messages);
+      if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
+    }
+  }
+  console.log("[AI] Using Lovable AI fallback");
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }) });
+  if (!res.ok) { const t = await res.text(); console.error("[AI] Lovable error:", res.status, t); if (res.status === 429) throw { status: 429, message: "Rate limit exceeded." }; if (res.status === 402) throw { status: 402, message: "Payment required." }; throw { status: 500, message: "AI error" }; }
+  const d = await res.json(); return d.choices?.[0]?.message?.content || "";
+}
+
+// Rate limiting
 const rateLimitMap = new Map<string, number[]>();
 function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const windowMs = 60_000;
-  const maxRequests = 3;
-  const timestamps = (rateLimitMap.get(userId) || []).filter(t => now - t < windowMs);
-  if (timestamps.length >= maxRequests) return false;
-  timestamps.push(now);
-  rateLimitMap.set(userId, timestamps);
-  return true;
+  const now = Date.now(); const w = 60_000; const max = 3;
+  const ts = (rateLimitMap.get(userId) || []).filter(t => now - t < w);
+  if (ts.length >= max) return false; ts.push(now); rateLimitMap.set(userId, ts); return true;
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Verify caller is admin
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No auth header" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!authHeader) return new Response(JSON.stringify({ error: "No auth header" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? serviceRoleKey;
 
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleCheck } = await adminClient
-      .from("user_roles").select("role")
-      .eq("user_id", caller.id).eq("role", "admin").single();
-    if (!roleCheck) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { data: roleCheck } = await adminClient.from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").single();
+    if (!roleCheck) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // Rate limit: max 3 requests per minute per user
-    if (!checkRateLimit(caller.id)) {
-      return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { objectives } = await req.json();
+    const { objectives, institution_id } = await req.json();
     if (!objectives || typeof objectives !== "string" || objectives.trim().length < 5) {
-      return new Response(JSON.stringify({ error: "Objetivos de aprendizagem são obrigatórios (mínimo 5 caracteres)" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Objetivos de aprendizagem são obrigatórios (mínimo 5 caracteres)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const systemPrompt = `Você é um especialista em educação médica e metodologia PBL (Problem-Based Learning).
 Sua tarefa é criar um cenário clínico (caso problema) para uma sessão tutorial de PBL.
@@ -98,70 +105,33 @@ Responda EXATAMENTE no formato JSON abaixo, sem markdown:
   "questions": ["pergunta 1", "pergunta 2"]
 }`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
+    try {
+      const content = await callAIWithFallback(
+        adminClient,
+        institution_id || null,
+        LOVABLE_API_KEY,
+        [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Objetivos de aprendizagem:\n${objectives.trim()}` },
-        ],
-      }),
-    });
+        ]
+      );
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      let parsed;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        else throw new Error("No JSON found");
+      } catch {
+        console.error("Failed to parse AI response:", content);
+        return new Response(JSON.stringify({ error: "Erro ao processar resposta da IA. Tente novamente." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes para IA. Adicione créditos no workspace." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      return new Response(JSON.stringify({ error: "Erro ao gerar cenário com IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+      return new Response(JSON.stringify({ scenario: parsed.scenario || "", glossary: parsed.glossary || [], questions: parsed.questions || [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || "Erro ao gerar cenário" }), { status: err.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
-
-    // Parse JSON from the AI response
-    let parsed;
-    try {
-      // Try to extract JSON from possible markdown code blocks
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found");
-      }
-    } catch {
-      console.error("Failed to parse AI response:", content);
-      return new Response(JSON.stringify({ error: "Erro ao processar resposta da IA. Tente novamente." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({
-      scenario: parsed.scenario || "",
-      glossary: parsed.glossary || [],
-      questions: parsed.questions || [],
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (err) {
     console.error("generate-scenario error:", err);
-    return new Response(JSON.stringify({ error: "Erro interno do servidor" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Erro interno do servidor" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

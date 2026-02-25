@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
@@ -17,6 +17,7 @@ import BrandingTab from "@/components/admin/BrandingTab";
 import FinancialDashboard from "@/components/admin/FinancialDashboard";
 import InviteAdminTab from "@/components/admin/InviteAdminTab";
 import SubscriptionTab from "@/components/admin/SubscriptionTab";
+import AIKeysTab from "@/components/admin/AIKeysTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -148,6 +149,7 @@ export default function AdminPanel() {
             {isInstitutionAdmin && !isSuperAdmin && (
               <TabsTrigger value="subscription"><CreditCard className="mr-2 h-4 w-4" /> Assinatura</TabsTrigger>
             )}
+            <TabsTrigger value="ai-keys"><Bot className="mr-2 h-4 w-4" /> API Keys IA</TabsTrigger>
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
@@ -235,6 +237,10 @@ export default function AdminPanel() {
               <SubscriptionTab subscription={mySubscription} onRefresh={fetchAll} />
             </TabsContent>
           )}
+
+          <TabsContent value="ai-keys">
+            <AIKeysTab institutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : (visibleInstitutions[0]?.id || "")} />
+          </TabsContent>
 
           <TabsContent value="security">
             <SecurityTab />
