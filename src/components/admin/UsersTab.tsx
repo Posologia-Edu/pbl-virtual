@@ -51,8 +51,23 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
       const res = await supabase.functions.invoke("manage-users", {
         body: { action: "create_user", email: newUserEmail, full_name: newUserName, role: newUserRole },
       });
-      if (res.error || res.data?.error) {
-        toast({ title: "Erro", description: res.data?.error || res.error?.message, variant: "destructive" });
+      if (res.error) {
+        // Try to extract the detailed error message from the edge function response
+        let errorMsg = "Falha ao criar usuário.";
+        try {
+          if (res.error.context?.body) {
+            const text = await new Response(res.error.context.body).text();
+            const parsed = JSON.parse(text);
+            if (parsed.error) errorMsg = parsed.error;
+          } else if (res.data?.error) {
+            errorMsg = res.data.error;
+          } else if (res.error.message) {
+            errorMsg = res.error.message;
+          }
+        } catch {}
+        toast({ title: "Erro", description: errorMsg, variant: "destructive" });
+      } else if (res.data?.error) {
+        toast({ title: "Erro", description: res.data.error, variant: "destructive" });
       } else {
         // Link user to course
         const userId = res.data?.user_id;
