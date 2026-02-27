@@ -120,24 +120,47 @@ Deno.serve(async (req) => {
       const userPassword = password || generateRandomPassword();
 
       // Check if user already exists - use listUsers with filter for reliability
-      const { data: existingUsers } = await adminClient.auth.admin.listUsers({
+      const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers({
         perPage: 1000,
       });
+      
+      if (listError) {
+        console.error("listUsers error:", listError);
+      }
+      
       let existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      console.log("Existing user found:", existingUser ? existingUser.id : "none", "banned_until:", existingUser?.banned_until);
 
       if (existingUser) {
+        // If user was soft-deleted (banned_until = year 2100+), we need to unban them first
+        if (existingUser.banned_until) {
+          console.log("User was soft-deleted, unbanning...");
+          const { error: updateErr } = await adminClient.auth.admin.updateUserById(existingUser.id, {
+            ban_duration: "none",
+          });
+          if (updateErr) {
+            console.error("Unban error:", updateErr);
+          }
+        }
+
         // Check if user already has ANY role
         const { data: existingRoles } = await adminClient
           .from("user_roles")
           .select("role")
           .eq("user_id", existingUser.id);
 
+        console.log("Existing roles:", JSON.stringify(existingRoles));
+
         if (existingRoles && existingRoles.length > 0) {
           const currentRole = existingRoles[0].role;
           if (currentRole === role) {
             // Same role, just link to course
             if (full_name) {
-              await adminClient.from("profiles").update({ full_name }).eq("user_id", existingUser.id);
+              await adminClient.from("profiles").upsert(
+                { user_id: existingUser.id, full_name },
+                { onConflict: "user_id" }
+              );
             }
             return new Response(
               JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
@@ -152,14 +175,21 @@ Deno.serve(async (req) => {
         }
 
         // No roles yet, assign the requested one
-        await adminClient.from("user_roles").insert({ user_id: existingUser.id, role });
-        if (full_name) {
-          // Upsert profile in case it was deleted
-          await adminClient.from("profiles").upsert(
-            { user_id: existingUser.id, full_name },
-            { onConflict: "user_id" }
+        const { error: roleInsertErr } = await adminClient.from("user_roles").insert({ user_id: existingUser.id, role });
+        if (roleInsertErr) {
+          console.error("Role insert error:", roleInsertErr);
+          return new Response(
+            JSON.stringify({ error: "Falha ao atribuir papel ao usuário." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+        
+        // Upsert profile in case it was deleted
+        await adminClient.from("profiles").upsert(
+          { user_id: existingUser.id, full_name: full_name || email },
+          { onConflict: "user_id" }
+        );
+        
         return new Response(
           JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
