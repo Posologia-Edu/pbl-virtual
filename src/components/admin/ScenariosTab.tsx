@@ -285,11 +285,21 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                   if (!aiObjectives.trim()) return;
                   setGeneratingScenario(true);
                   try {
+                    // Determine institution_id from the selected course
+                    const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+                    const instId = selectedCourse?.institution_id || institutions[0]?.id || null;
+
                     const { data, error } = await supabase.functions.invoke("generate-scenario", {
-                      body: { objectives: aiObjectives },
+                      body: { objectives: aiObjectives, institution_id: instId },
                     });
-                    if (error || data?.error) {
-                      toast({ title: "Erro", description: data?.error || error?.message, variant: "destructive" });
+                    if (error) {
+                      // supabase.functions.invoke wraps non-2xx as error; try to parse the body
+                      let msg = "Falha ao gerar cenário.";
+                      if (data?.error) msg = data.error;
+                      else if (error.message) msg = error.message;
+                      toast({ title: "Erro", description: msg, variant: "destructive" });
+                    } else if (data?.error) {
+                      toast({ title: "Erro", description: data.error, variant: "destructive" });
                     } else {
                       setScenarioText(data.scenario || "");
                       setAiGlossary(data.glossary || []);
