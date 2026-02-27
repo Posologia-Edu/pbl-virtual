@@ -8,10 +8,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const TIERS: Record<string, { plan_name: string; max_students: number; max_rooms: number; ai_enabled: boolean; whitelabel_enabled: boolean }> = {
-  "prod_U22MNDlQOLbcmr": { plan_name: "starter", max_students: 30, max_rooms: 3, ai_enabled: true, whitelabel_enabled: false },
-  "prod_U22Mmhx6hjqTAQ": { plan_name: "professional", max_students: 150, max_rooms: 999, ai_enabled: true, whitelabel_enabled: false },
-  "prod_U22M2hz40qmRsN": { plan_name: "enterprise", max_students: 99999, max_rooms: 99999, ai_enabled: true, whitelabel_enabled: true },
+const TIERS: Record<string, {
+  plan_name: string; max_students: number; max_rooms: number; ai_enabled: boolean; whitelabel_enabled: boolean;
+  max_ai_interactions: number; ai_scenario_generation: boolean; peer_evaluation_enabled: boolean; badges_enabled: boolean; full_reports_enabled: boolean;
+}> = {
+  "prod_U22MNDlQOLbcmr": { plan_name: "starter", max_students: 30, max_rooms: 3, ai_enabled: true, whitelabel_enabled: false, max_ai_interactions: 50, ai_scenario_generation: false, peer_evaluation_enabled: false, badges_enabled: false, full_reports_enabled: false },
+  "prod_U22Mmhx6hjqTAQ": { plan_name: "professional", max_students: 150, max_rooms: 999, ai_enabled: true, whitelabel_enabled: false, max_ai_interactions: 500, ai_scenario_generation: true, peer_evaluation_enabled: true, badges_enabled: true, full_reports_enabled: true },
+  "prod_U22M2hz40qmRsN": { plan_name: "enterprise", max_students: 99999, max_rooms: 99999, ai_enabled: true, whitelabel_enabled: true, max_ai_interactions: 99999, ai_scenario_generation: true, peer_evaluation_enabled: true, badges_enabled: true, full_reports_enabled: true },
 };
 
 const logStep = (step: string, details?: any) => {
@@ -135,6 +138,11 @@ serve(async (req) => {
           max_rooms: 999,
           ai_enabled: true,
           whitelabel_enabled: true,
+          max_ai_interactions: 99999,
+          ai_scenario_generation: true,
+          peer_evaluation_enabled: true,
+          badges_enabled: true,
+          full_reports_enabled: true,
           current_period_start: new Date().toISOString(),
           current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
         });
@@ -175,6 +183,11 @@ serve(async (req) => {
                 max_rooms: tier?.max_rooms ?? 3,
                 ai_enabled: tier?.ai_enabled ?? false,
                 whitelabel_enabled: tier?.whitelabel_enabled ?? false,
+                max_ai_interactions: tier?.max_ai_interactions ?? 50,
+                ai_scenario_generation: tier?.ai_scenario_generation ?? false,
+                peer_evaluation_enabled: tier?.peer_evaluation_enabled ?? false,
+                badges_enabled: tier?.badges_enabled ?? false,
+                full_reports_enabled: tier?.full_reports_enabled ?? false,
                 current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
                 current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
               });

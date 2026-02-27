@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Bot, HelpCircle, Eye, AlertTriangle, RefreshCw, Target,
   ChevronDown, ChevronRight, Lightbulb, Users, Sparkles,
@@ -28,11 +29,16 @@ interface GapData {
 }
 
 export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotutorPanelProps) {
+  const { subscription, refreshSubscription } = useAuth();
   const [suggestions, setSuggestions] = useState<SuggestionData | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState<GapData | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [loadingGaps, setLoadingGaps] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("questions");
+
+  const maxInteractions = subscription.maxAiInteractions;
+  const usedInteractions = subscription.aiInteractionsUsed;
+  const limitReached = maxInteractions !== 99999 && usedInteractions >= maxInteractions;
 
   const fetchSuggestions = async () => {
     if (!sessionId) return;
@@ -44,6 +50,7 @@ export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotuto
       if (error) throw error;
       setSuggestions(data);
       setExpandedSection("questions");
+      refreshSubscription(); // Update usage count
     } catch (err: any) {
       toast({
         title: "Erro ao gerar sugestões",
@@ -72,6 +79,7 @@ export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotuto
       if (error) throw error;
       setGapAnalysis(data);
       setExpandedSection("gaps");
+      refreshSubscription(); // Update usage count
     } catch (err: any) {
       toast({
         title: "Erro na análise de lacunas",
@@ -93,9 +101,22 @@ export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotuto
       <div className="border-b border-border px-4 py-3 flex items-center gap-2">
         <Bot className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">Co-tutor IA</h3>
-        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-          🔒 Professor
-        </span>
+        {maxInteractions !== 99999 && (
+          <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            limitReached
+              ? "bg-destructive/10 text-destructive"
+              : usedInteractions >= maxInteractions * 0.8
+                ? "bg-[hsl(var(--clinical-warning))]/10 text-[hsl(var(--clinical-warning))]"
+                : "bg-primary/10 text-primary"
+          }`}>
+            {usedInteractions}/{maxInteractions} interações
+          </span>
+        )}
+        {maxInteractions === 99999 && (
+          <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            🔒 Professor
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
@@ -103,7 +124,7 @@ export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotuto
         <div className="space-y-2">
           <Button
             onClick={fetchSuggestions}
-            disabled={loadingSuggestions || !sessionId}
+            disabled={loadingSuggestions || !sessionId || limitReached}
             className="w-full justify-start gap-2"
             size="sm"
           >
@@ -115,9 +136,20 @@ export default function AICotutorPanel({ roomId, sessionId, moduleId }: AICotuto
             {loadingSuggestions ? "Analisando..." : "Sugerir Perguntas"}
           </Button>
 
+          {limitReached && (
+            <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-center">
+              <p className="text-xs font-medium text-destructive">
+                Limite de interações atingido ({maxInteractions}/mês)
+              </p>
+              <a href="/pricing" className="text-[10px] text-primary hover:underline mt-1 inline-block">
+                Fazer Upgrade →
+              </a>
+            </div>
+          )}
+
           <Button
             onClick={fetchGapAnalysis}
-            disabled={loadingGaps || !sessionId}
+            disabled={loadingGaps || !sessionId || limitReached}
             variant="outline"
             className="w-full justify-start gap-2"
             size="sm"

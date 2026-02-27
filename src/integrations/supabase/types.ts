@@ -55,6 +55,38 @@ export type Database = {
           },
         ]
       }
+      ai_interaction_counts: {
+        Row: {
+          id: string
+          institution_id: string
+          interaction_count: number
+          month_year: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          institution_id: string
+          interaction_count?: number
+          month_year: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          institution_id?: string
+          interaction_count?: number
+          month_year?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_counts_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_provider_keys: {
         Row: {
           api_key: string
@@ -1026,15 +1058,20 @@ export type Database = {
       subscriptions: {
         Row: {
           ai_enabled: boolean | null
+          ai_scenario_generation: boolean | null
+          badges_enabled: boolean | null
           cancel_at: string | null
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
+          full_reports_enabled: boolean | null
           id: string
           institution_id: string
+          max_ai_interactions: number | null
           max_rooms: number | null
           max_students: number | null
           owner_id: string
+          peer_evaluation_enabled: boolean | null
           plan_name: string | null
           status: string
           stripe_customer_id: string
@@ -1046,15 +1083,20 @@ export type Database = {
         }
         Insert: {
           ai_enabled?: boolean | null
+          ai_scenario_generation?: boolean | null
+          badges_enabled?: boolean | null
           cancel_at?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          full_reports_enabled?: boolean | null
           id?: string
           institution_id: string
+          max_ai_interactions?: number | null
           max_rooms?: number | null
           max_students?: number | null
           owner_id: string
+          peer_evaluation_enabled?: boolean | null
           plan_name?: string | null
           status?: string
           stripe_customer_id: string
@@ -1066,15 +1108,20 @@ export type Database = {
         }
         Update: {
           ai_enabled?: boolean | null
+          ai_scenario_generation?: boolean | null
+          badges_enabled?: boolean | null
           cancel_at?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          full_reports_enabled?: boolean | null
           id?: string
           institution_id?: string
+          max_ai_interactions?: number | null
           max_rooms?: number | null
           max_students?: number | null
           owner_id?: string
+          peer_evaluation_enabled?: boolean | null
           plan_name?: string | null
           status?: string
           stripe_customer_id?: string

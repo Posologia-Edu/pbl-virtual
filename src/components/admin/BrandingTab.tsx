@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Palette, Save, RotateCcw } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import UpgradeOverlay from "@/components/UpgradeOverlay";
 
 interface BrandingTabProps {
   institutions: any[];
@@ -13,6 +15,8 @@ interface BrandingTabProps {
 }
 
 export default function BrandingTab({ institutions, onRefresh, readOnly }: BrandingTabProps) {
+  const { subscription, isAdmin } = useAuth();
+  const whitelabelAllowed = subscription.whitelabelEnabled || isAdmin;
   const [selectedId, setSelectedId] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [secondaryColor, setSecondaryColor] = useState("");
@@ -74,6 +78,15 @@ export default function BrandingTab({ institutions, onRefresh, readOnly }: Brand
     "--preview-secondary": secondaryColor || "214 20% 92%",
     "--preview-accent": accentColor || "210 76% 52%",
   } as React.CSSProperties;
+
+  if (!whitelabelAllowed) {
+    return (
+      <UpgradeOverlay
+        feature="White-label e Branding"
+        description="Personalize as cores da plataforma com o plano Enterprise."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

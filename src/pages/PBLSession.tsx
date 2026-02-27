@@ -35,7 +35,7 @@ const PBL_STEPS = [
 
 export default function PBLSession() {
   const { roomId } = useParams<{ roomId: string }>();
-  const { user, isProfessor } = useAuth();
+  const { user, isProfessor, subscription, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState<any>(null);
@@ -548,7 +548,7 @@ export default function PBLSession() {
               <ClipboardList className="h-4 w-4" /> Avaliação
             </button>
           )}
-          {!isViewingHistory && activeSession && (
+          {!isViewingHistory && activeSession && (subscription.peerEvaluationEnabled || isAdmin) && (
             <button
               onClick={() => togglePanel("peer-eval")}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${

@@ -10,6 +10,13 @@ interface SubscriptionInfo {
   planName: string | null;
   subscriptionEnd: string | null;
   institutionId: string | null;
+  maxAiInteractions: number;
+  aiScenarioGeneration: boolean;
+  peerEvaluationEnabled: boolean;
+  badgesEnabled: boolean;
+  fullReportsEnabled: boolean;
+  whitelabelEnabled: boolean;
+  aiInteractionsUsed: number;
 }
 
 interface AuthContextType {
@@ -36,6 +43,13 @@ const defaultSubscription: SubscriptionInfo = {
   planName: null,
   subscriptionEnd: null,
   institutionId: null,
+  maxAiInteractions: 50,
+  aiScenarioGeneration: false,
+  peerEvaluationEnabled: false,
+  badgesEnabled: false,
+  fullReportsEnabled: false,
+  whitelabelEnabled: false,
+  aiInteractionsUsed: 0,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,13 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         planName: data?.plan_name ?? null,
         subscriptionEnd: data?.subscription_end ?? null,
         institutionId: data?.institution_id ?? null,
+        maxAiInteractions: data?.max_ai_interactions ?? 50,
+        aiScenarioGeneration: data?.ai_scenario_generation ?? false,
+        peerEvaluationEnabled: data?.peer_evaluation_enabled ?? false,
+        badgesEnabled: data?.badges_enabled ?? false,
+        fullReportsEnabled: data?.full_reports_enabled ?? false,
+        whitelabelEnabled: data?.whitelabel_enabled ?? false,
+        aiInteractionsUsed: data?.ai_interactions_used ?? 0,
       });
     } catch {
       setSubscription(defaultSubscription);
     }
   }, [session?.access_token]);
 
-  // Set up auth listener - no await inside callback to avoid Supabase deadlocks
+  // Set up auth listener
   useEffect(() => {
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
@@ -103,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => authSub.unsubscribe();
   }, []);
 
-  // Fetch user data (roles, profile) whenever user changes
+  // Fetch user data whenever user changes
   useEffect(() => {
     if (!initialSessionLoaded) return;
     if (user) {
