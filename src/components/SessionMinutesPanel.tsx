@@ -31,6 +31,29 @@ export default function SessionMinutesPanel({ roomId, sessionId, sessionLabel }:
       setLoading(false);
     };
     fetchMinutes();
+
+    // Realtime: listen for inserts/updates so students see the ATA instantly when released
+    const channel = supabase
+      .channel(`session-minutes-${sessionId}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "*",
+          schema: "public",
+          table: "session_minutes",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload: any) => {
+          if (payload.new) {
+            setMinutes(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [sessionId]);
 
   const generateMinutes = async () => {

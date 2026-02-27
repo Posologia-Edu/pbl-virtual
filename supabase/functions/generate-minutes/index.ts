@@ -99,6 +99,27 @@ Deno.serve(async (req) => {
 
     const participantNames = members?.map((m: any) => m.profiles?.full_name).filter(Boolean) || [];
 
+    // Fetch references for this session
+    const { data: references } = await adminClient
+      .from("session_references")
+      .select("title, url, ref_type, profiles!session_references_author_id_profiles_fkey(full_name)")
+      .eq("room_id", room_id)
+      .eq("session_id", session_id)
+      .order("created_at");
+
+    const refsGrouped: Record<string, { title: string; url: string; ref_type: string }[]> = {};
+    for (const ref of (references || [])) {
+      const author = (ref.profiles as any)?.full_name || "Anônimo";
+      if (!refsGrouped[author]) refsGrouped[author] = [];
+      refsGrouped[author].push({ title: ref.title, url: ref.url, ref_type: ref.ref_type });
+    }
+
+    const referencesText = Object.entries(refsGrouped).length > 0
+      ? Object.entries(refsGrouped).map(([author, refs]) =>
+          `**${author}**:\n${refs.map((r, i) => `${i + 1}. [${r.ref_type === 'file' ? '📎 Arquivo' : '🔗 Link'}] ${r.title || r.url}`).join("\n")}`
+        ).join("\n\n")
+      : "(Nenhuma referência adicionada)";
+
     const stepLabels: Record<number, string> = {
       0: "Cenário", 1: "Termos Desconhecidos", 2: "Definição do Problema",
       3: "Brainstorming / Hipóteses", 5: "Objetivos de Aprendizagem", 7: "Síntese / Fechamento",
@@ -130,6 +151,9 @@ ${scenarioContent || "(Não disponível)"}
 ## Contribuições por Etapa
 ${Object.entries(stepData).map(([step, items]) => `### ${step}\n${items.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}`).join("\n\n")}
 
+## Referências Bibliográficas (por estudante)
+${referencesText}
+
 ## Instruções para a Ata
 Gere a ata com as seguintes seções, em formato formal acadêmico:
 
@@ -139,7 +163,8 @@ Gere a ata com as seguintes seções, em formato formal acadêmico:
 4. **HIPÓTESES LEVANTADAS**: Hipóteses formuladas durante o brainstorming
 5. **OBJETIVOS DE APRENDIZAGEM**: Objetivos definidos pelo grupo
 6. **SÍNTESE**: Resumo das conclusões e discussões do fechamento
-7. **CONSIDERAÇÕES FINAIS**: Breve análise do progresso do grupo
+7. **REFERÊNCIAS**: Lista das referências bibliográficas trazidas pelos estudantes, agrupadas por autor
+8. **CONSIDERAÇÕES FINAIS**: Breve análise do progresso do grupo
 
 A ata deve ser formal, objetiva e adequada para documentação acadêmica.
 Use linguagem formal em português brasileiro.`;
