@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, ExternalLink, Loader2, CheckCircle2, Users, DoorOpen, AlertTriangle } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2, CheckCircle2, Users, DoorOpen, AlertTriangle, XCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SubscriptionData {
@@ -28,6 +28,7 @@ interface SubscriptionData {
   whitelabel_enabled: boolean | null;
   current_period_end: string | null;
   stripe_customer_id: string;
+  cancel_at: string | null;
 }
 
 interface SubscriptionTabProps {
@@ -38,8 +39,10 @@ interface SubscriptionTabProps {
 export default function SubscriptionTab({ subscription, onRefresh }: SubscriptionTabProps) {
   const { refreshSubscription } = useAuth();
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingCancel, setLoadingCancel] = useState(false);
 
   const isInvited = subscription?.stripe_customer_id?.startsWith("invited_");
+  const isCanceled = subscription?.status === "canceled" || !!subscription?.cancel_at;
 
   const handleManageSubscription = async () => {
     setLoadingPortal(true);
@@ -54,6 +57,23 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
       toast({ title: "Erro", description: "Falha ao abrir portal de assinatura.", variant: "destructive" });
     }
     setLoadingPortal(false);
+  };
+
+  const handleCancelSubscription = async () => {
+    setLoadingCancel(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("cancel-subscription");
+      if (error || data?.error) {
+        toast({ title: "Erro", description: data?.error || "Falha ao cancelar assinatura.", variant: "destructive" });
+      } else {
+        toast({ title: "Assinatura cancelada", description: "Sua assinatura continuará ativa até o fim do período atual." });
+        onRefresh();
+        refreshSubscription();
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao cancelar assinatura.", variant: "destructive" });
+    }
+    setLoadingCancel(false);
   };
 
   if (!subscription) {
@@ -84,15 +104,37 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
             <Badge
               variant="outline"
               className={
-                subscription.status === "active"
-                  ? "border-green-300 bg-green-50 text-green-700"
-                  : "border-red-300 bg-red-50 text-red-700"
+                isCanceled
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : subscription.status === "active"
+                    ? "border-green-300 bg-green-50 text-green-700"
+                    : "border-red-300 bg-red-50 text-red-700"
               }
             >
-              <CheckCircle2 className="mr-1 h-3 w-3" />
-              {subscription.status === "active" ? "Ativo" : subscription.status}
+              {isCanceled ? (
+                <><AlertTriangle className="mr-1 h-3 w-3" /> Cancelamento agendado</>
+              ) : (
+                <><CheckCircle2 className="mr-1 h-3 w-3" /> {subscription.status === "active" ? "Ativo" : subscription.status}</>
+              )}
             </Badge>
           </div>
+
+          {/* Cancel notice */}
+          {isCanceled && subscription.cancel_at && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Cancelamento agendado</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Sua assinatura permanecerá ativa até{" "}
+                    <strong>{new Date(subscription.cancel_at).toLocaleDateString("pt-BR")}</strong>.
+                    Após essa data, o acesso será suspenso.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Limits */}
           <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/50 p-4">
@@ -127,14 +169,14 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
           </div>
 
           {/* Period end */}
-          {subscription.current_period_end && (
+          {subscription.current_period_end && !isCanceled && (
             <p className="text-sm text-muted-foreground">
               Próximo vencimento: {new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}
             </p>
           )}
 
           {/* Actions */}
-          {!isInvited && subscription.status === "active" && (
+          {!isInvited && (subscription.status === "active" || subscription.status === "trialing") && (
             <div className="pt-4 border-t border-border/50 space-y-3">
               <Button
                 variant="outline"
@@ -148,8 +190,46 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
                   <><ExternalLink className="mr-2 h-4 w-4" /> Gerenciar Assinatura (Stripe)</>
                 )}
               </Button>
+
+              {!isCanceled && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <XCircle className="mr-2 h-4 w-4" /> Cancelar Assinatura
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Sua assinatura <strong className="capitalize">{subscription.plan_name}</strong> continuará
+                        ativa até o fim do período atual
+                        {subscription.current_period_end && (
+                          <> (<strong>{new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</strong>)</>
+                        )}
+                        . Após essa data, você perderá acesso aos recursos do plano.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancelSubscription}
+                        disabled={loadingCancel}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {loadingCancel ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cancelando...</>
+                        ) : (
+                          "Confirmar cancelamento"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
               <p className="text-xs text-muted-foreground text-center">
-                No portal do Stripe você pode alterar forma de pagamento, trocar de plano ou cancelar sua assinatura.
+                No portal do Stripe você pode alterar forma de pagamento ou trocar de plano.
               </p>
             </div>
           )}

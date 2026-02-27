@@ -177,7 +177,7 @@ export default function AdminPanel() {
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
-            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={false} />
+            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={false} subscription={mySubscription} />
           </TabsContent>
 
           <TabsContent value="groups">
@@ -191,6 +191,7 @@ export default function AdminPanel() {
               groups={groups} groupMembers={groupMembers} profiles={profiles}
               modules={modules} courseMembers={courseMembers}
               selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={false}
+              subscription={mySubscription}
             />
           </TabsContent>
 

@@ -6,7 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2, EyeOff, Eye } from "lucide-react";
+import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2, EyeOff, Eye, AlertTriangle } from "lucide-react";
+
+interface SubscriptionLimits {
+  max_students: number | null;
+  max_rooms: number | null;
+}
 
 interface Props {
   profiles: any[];
@@ -17,9 +22,10 @@ interface Props {
   courses: any[];
   onRefresh: () => void;
   readOnly?: boolean;
+  subscription?: SubscriptionLimits | null;
 }
 
-export default function UsersTab({ profiles, courseMembers, selectedCourseId, selectedInstitutionId, institutions, courses, onRefresh, readOnly }: Props) {
+export default function UsersTab({ profiles, courseMembers, selectedCourseId, selectedInstitutionId, institutions, courses, onRefresh, readOnly, subscription }: Props) {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("");
@@ -30,6 +36,21 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Count students across all courses of the institution for limit check
+  const allInstitutionCourseIds = courses
+    .filter((c) => c.institution_id === selectedInstitutionId)
+    .map((c) => c.id);
+  const uniqueStudentIds = new Set(
+    courseMembers
+      .filter((cm) => allInstitutionCourseIds.includes(cm.course_id))
+      .map((cm) => cm.user_id)
+      .filter((uid) => profiles.some((p) => p.user_id === uid && p.user_roles?.some((r: any) => r.role === "student")))
+  );
+  const studentCount = uniqueStudentIds.size;
+  const maxStudents = subscription?.max_students ?? null;
+  const studentLimitReached = maxStudents !== null && maxStudents < 99999 && studentCount >= maxStudents;
+  const studentLimitNear = maxStudents !== null && maxStudents < 99999 && studentCount >= maxStudents * 0.8 && !studentLimitReached;
 
   // Filter profiles to show only course members when a course is selected
   const courseMemberIds = courseMembers
@@ -44,6 +65,15 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
     if (!newUserEmail || !newUserRole || !newUserName) return;
     if (!selectedCourseId) {
       toast({ title: "Erro", description: "Selecione um curso antes de cadastrar.", variant: "destructive" });
+      return;
+    }
+    // Enforce student limit
+    if (newUserRole === "student" && studentLimitReached) {
+      toast({
+        title: "Limite de alunos atingido",
+        description: `Seu plano permite no máximo ${maxStudents} alunos. Faça upgrade para cadastrar mais.`,
+        variant: "destructive",
+      });
       return;
     }
     setCreating(true);
@@ -168,6 +198,34 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Novo Usuário</h3>
         <p className="text-xs text-muted-foreground mb-4">O usuário será vinculado ao curso selecionado.</p>
+
+        {/* Student limit banner */}
+        {studentLimitReached && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Limite de alunos atingido</p>
+                <p className="text-xs text-destructive/80 mt-1">
+                  Seu plano permite no máximo <strong>{maxStudents}</strong> alunos ({studentCount} cadastrados). Faça upgrade para cadastrar mais.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {studentLimitNear && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Próximo do limite de alunos</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {studentCount} de {maxStudents} alunos cadastrados.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Nome Completo</Label>
@@ -187,7 +245,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole}>
+          <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole || (newUserRole === "student" && studentLimitReached)}>
             <UserPlus className="mr-2 h-4 w-4" />{creating ? "Criando..." : "Cadastrar Usuário"}
           </Button>
         </div>
