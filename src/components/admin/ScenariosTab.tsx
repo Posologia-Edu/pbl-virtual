@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ interface Props {
 }
 
 export default function ScenariosTab({ scenarios, modules, rooms, courses, institutions, groups, selectedCourseId, onRefresh, readOnly }: Props) {
+  const { subscription, isAdmin } = useAuth();
+  const canGenerateAI = subscription.aiScenarioGeneration || isAdmin;
   const [scenarioTitle, setScenarioTitle] = useState("");
   const [scenarioText, setScenarioText] = useState("");
   const [scenarioModuleId, setScenarioModuleId] = useState("");
@@ -207,9 +210,11 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
           <Button variant={scenarioMode === "manual" ? "default" : "outline"} size="sm" onClick={() => setScenarioMode("manual")}>
             <Pencil className="mr-2 h-4 w-4" /> Inserir Manualmente
           </Button>
-          <Button variant={scenarioMode === "ai" ? "default" : "outline"} size="sm" onClick={() => setScenarioMode("ai")}>
-            <Sparkles className="mr-2 h-4 w-4" /> Gerar com IA
-          </Button>
+          {canGenerateAI && (
+            <Button variant={scenarioMode === "ai" ? "default" : "outline"} size="sm" onClick={() => setScenarioMode("ai")}>
+              <Sparkles className="mr-2 h-4 w-4" /> Gerar com IA
+            </Button>
+          )}
         </div>
 
         <div className="space-y-4">
