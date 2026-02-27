@@ -64,6 +64,7 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
       setLinkTitle("");
       setShowAddLink(false);
       toast({ title: "Referência adicionada!" });
+      fetchReferences();
     } else {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
@@ -114,6 +115,7 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
     setUploading(false);
     if (!error) {
       toast({ title: "Arquivo enviado!" });
+      fetchReferences();
     } else {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
@@ -157,8 +159,11 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
         await supabase.storage.from("references").remove([storagePath]);
       }
     }
-    await supabase.from("session_references" as any).delete().eq("id", ref.id);
-    toast({ title: "Referência removida" });
+    const { error } = await supabase.from("session_references" as any).delete().eq("id", ref.id);
+    if (!error) {
+      toast({ title: "Referência removida" });
+      fetchReferences();
+    }
   };
 
   return (
