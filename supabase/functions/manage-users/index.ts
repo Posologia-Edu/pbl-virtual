@@ -283,19 +283,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Delete group memberships, roles, profile, then auth user
-      await adminClient.from("group_members").delete().eq("student_id", user_id);
-      await adminClient.from("user_roles").delete().eq("user_id", user_id);
-      await adminClient.from("profiles").delete().eq("user_id", user_id);
+      console.log("Deleting user:", user_id);
+      
+      // Delete related data in correct order
+      const { error: gmErr } = await adminClient.from("group_members").delete().eq("student_id", user_id);
+      if (gmErr) console.error("Delete group_members error:", gmErr);
+      
+      const { error: cmErr } = await adminClient.from("course_members").delete().eq("user_id", user_id);
+      if (cmErr) console.error("Delete course_members error:", cmErr);
+      
+      const { error: roleErr } = await adminClient.from("user_roles").delete().eq("user_id", user_id);
+      if (roleErr) console.error("Delete user_roles error:", roleErr);
+      
+      const { error: profErr } = await adminClient.from("profiles").delete().eq("user_id", user_id);
+      if (profErr) console.error("Delete profiles error:", profErr);
+      
       const { error } = await adminClient.auth.admin.deleteUser(user_id);
 
       if (error) {
-        console.error("Delete user error:", error);
+        console.error("Delete auth user error:", error);
         return new Response(JSON.stringify({ error: "Falha ao excluir usuário." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      
+      console.log("User deleted successfully:", user_id);
 
       return new Response(
         JSON.stringify({ success: true }),
