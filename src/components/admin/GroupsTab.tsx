@@ -6,7 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Users, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BookOpen, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+
+interface SubscriptionLimits {
+  max_students: number | null;
+  max_rooms: number | null;
+}
 
 interface Props {
   groups: any[];
@@ -17,9 +22,10 @@ interface Props {
   selectedCourseId: string;
   onRefresh: () => void;
   readOnly?: boolean;
+  subscription?: SubscriptionLimits | null;
 }
 
-export default function GroupsTab({ groups, groupMembers, profiles, modules, courseMembers, selectedCourseId, onRefresh, readOnly }: Props) {
+export default function GroupsTab({ groups, groupMembers, profiles, modules, courseMembers, selectedCourseId, onRefresh, readOnly, subscription }: Props) {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupProfessor, setNewGroupProfessor] = useState("");
   const [newGroupModule, setNewGroupModule] = useState("");
@@ -36,6 +42,12 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
   const filteredGroups = selectedCourseId
     ? groups.filter((g) => g.course_id === selectedCourseId)
     : groups;
+
+  // Room/group limits
+  const totalGroups = groups.length; // all groups in institution (already filtered by RLS)
+  const maxRooms = subscription?.max_rooms ?? null;
+  const roomLimitReached = maxRooms !== null && maxRooms < 99999 && totalGroups >= maxRooms;
+  const roomLimitNear = maxRooms !== null && maxRooms < 99999 && totalGroups >= maxRooms * 0.8 && !roomLimitReached;
 
   const filteredModules = selectedCourseId
     ? modules.filter((m) => m.course_id === selectedCourseId)
@@ -62,6 +74,15 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
 
   const createGroup = async () => {
     if (!newGroupName || !newGroupProfessor) return;
+    // Enforce room limit
+    if (roomLimitReached) {
+      toast({
+        title: "Limite de salas atingido",
+        description: `Seu plano permite no máximo ${maxRooms} salas/turmas (${totalGroups} criadas). Faça upgrade para criar mais.`,
+        variant: "destructive",
+      });
+      return;
+    }
     const { error } = await supabase.from("groups").insert({
       name: newGroupName,
       professor_id: newGroupProfessor,
@@ -144,6 +165,35 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
       {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
         <h3 className="mb-4 text-base font-semibold text-foreground">Criar Turma</h3>
+
+        {/* Room limit banner */}
+        {roomLimitReached && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Limite de salas atingido</p>
+                <p className="text-xs text-destructive/80 mt-1">
+                  Seu plano permite no máximo <strong>{maxRooms}</strong> salas/turmas ({totalGroups} criadas). Faça upgrade para criar mais.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {roomLimitNear && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Próximo do limite de salas</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {totalGroups} de {maxRooms} salas criadas.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Nome da Turma</Label>
@@ -177,7 +227,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={createGroup} disabled={!newGroupName || !newGroupProfessor}>
+          <Button onClick={createGroup} disabled={!newGroupName || !newGroupProfessor || roomLimitReached}>
             <Plus className="mr-2 h-4 w-4" /> Criar Turma
           </Button>
         </div>
