@@ -402,7 +402,7 @@ export default function Dashboard() {
           )}
 
           {/* Badges section for students */}
-          {isStudent && (
+          {isStudent && subscription.badgesEnabled && (
             <div className="clinical-card p-6 animate-fade-in">
               <BadgesPanel />
             </div>
