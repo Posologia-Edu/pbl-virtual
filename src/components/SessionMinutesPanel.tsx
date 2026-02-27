@@ -43,10 +43,14 @@ export default function SessionMinutesPanel({ roomId, sessionId, sessionLabel }:
           table: "session_minutes",
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload: any) => {
-          if (payload.new) {
-            setMinutes(payload.new);
-          }
+        async () => {
+          // Re-fetch the full row to avoid truncated JSONB payloads
+          const { data } = await (supabase as any)
+            .from("session_minutes")
+            .select("*")
+            .eq("session_id", sessionId)
+            .maybeSingle();
+          if (data) setMinutes(data);
         }
       )
       .subscribe();
