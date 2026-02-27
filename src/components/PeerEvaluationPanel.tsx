@@ -323,14 +323,14 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Abertura</p>
                         <div className="grid grid-cols-3 gap-2 mb-2">
                           <ScoreCell label="Auto" score={opening.selfAvg} colorClass="text-primary" />
-                          <ScoreCell label="Pares" score={opening.peerAvg} colorClass="text-accent-foreground" />
+                          <ScoreCell label="Pares" score={opening.peerAvg} colorClass="text-primary" />
                           <ScoreCell label="Tutor" score={opening.profAvg} colorClass="text-primary" />
                         </div>
                         {/* Closing */}
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Fechamento</p>
                         <div className="grid grid-cols-3 gap-2">
                           <ScoreCell label="Auto" score={closing.selfAvg} colorClass="text-primary" />
-                          <ScoreCell label="Pares" score={closing.peerAvg} colorClass="text-accent-foreground" />
+                          <ScoreCell label="Pares" score={closing.peerAvg} colorClass="text-primary" />
                           <ScoreCell label="Tutor" score={closing.profAvg} colorClass="text-primary" />
                         </div>
                       </div>
@@ -417,7 +417,7 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                       </div>
                       <div className="rounded-lg bg-secondary/50 p-2 text-center">
                         <span className="text-[10px] text-muted-foreground block">Pares ({row.peerCount})</span>
-                        <span className="text-sm font-bold text-accent-foreground">
+                        <span className="text-sm font-bold text-primary">
                           {row.peerAvg != null ? `${row.peerAvg}%` : "—"}
                         </span>
                       </div>
@@ -449,7 +449,7 @@ export default function PeerEvaluationPanel({ roomId, sessionId, isProfessor }: 
                       </div>
                       <div>
                         <span className="text-[10px] text-muted-foreground block">Pares</span>
-                        <span className="text-sm font-bold text-accent-foreground">{avg(peerScores) != null ? `${avg(peerScores)}%` : "—"}</span>
+                        <span className="text-sm font-bold text-primary">{avg(peerScores) != null ? `${avg(peerScores)}%` : "—"}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-muted-foreground block">Tutor</span>
