@@ -274,59 +274,72 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
         </div>
       )}
 
-      {/* References list */}
+      {/* References list grouped by author */}
       {references.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-3">
           Nenhuma referência adicionada ainda.
         </p>
       ) : (
-        <div className="space-y-2">
-          {references.map((ref) => (
-            <div
-              key={ref.id}
-              className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5 group"
-            >
-              {ref.ref_type === "link" ? (
-                <Link2 className="h-4 w-4 shrink-0 text-primary" />
-              ) : (
-                <FileText className="h-4 w-4 shrink-0 text-primary" />
-              )}
-              <div className="min-w-0 flex-1">
-                {ref.ref_type === "file" ? (
-                  <button
-                    onClick={() => openFile(ref)}
-                    className="text-sm text-foreground hover:text-primary hover:underline truncate block text-left w-full"
+        <div className="space-y-4">
+          {Object.entries(
+            references.reduce((acc: Record<string, any[]>, ref) => {
+              const name = (ref.profiles as any)?.full_name || "Desconhecido";
+              if (!acc[name]) acc[name] = [];
+              acc[name].push(ref);
+              return acc;
+            }, {} as Record<string, any[]>)
+          ).map(([authorName, refs]) => (
+            <div key={authorName}>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 px-1">
+                {authorName}
+              </p>
+              <div className="space-y-1.5">
+                {(refs as any[]).map((ref: any) => (
+                  <div
+                    key={ref.id}
+                    className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5 group"
                   >
-                    {ref.title || "Arquivo"}
-                  </button>
-                ) : (
-                  <a
-                    href={ref.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-foreground hover:text-primary hover:underline truncate block"
-                  >
-                    {ref.title || ref.url}
-                  </a>
-                )}
-                <p className="text-[10px] text-muted-foreground truncate">
-                  {(ref.profiles as any)?.full_name || "—"}
-                </p>
+                    {ref.ref_type === "link" ? (
+                      <Link2 className="h-4 w-4 shrink-0 text-primary" />
+                    ) : (
+                      <FileText className="h-4 w-4 shrink-0 text-primary" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {ref.ref_type === "file" ? (
+                        <button
+                          onClick={() => openFile(ref)}
+                          className="text-sm text-foreground hover:text-primary hover:underline truncate block text-left w-full"
+                        >
+                          {ref.title || "Arquivo"}
+                        </button>
+                      ) : (
+                        <a
+                          href={ref.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-foreground hover:text-primary hover:underline truncate block"
+                        >
+                          {ref.title || ref.url}
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => ref.ref_type === "file" ? openFile(ref) : window.open(ref.url, "_blank")}
+                      className="shrink-0 text-muted-foreground hover:text-primary"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                    {!readOnly && ref.author_id === user?.id && (
+                      <button
+                        onClick={() => deleteReference(ref)}
+                        className="shrink-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-              <button
-                onClick={() => ref.ref_type === "file" ? openFile(ref) : window.open(ref.url, "_blank")}
-                className="shrink-0 text-muted-foreground hover:text-primary"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-              {!readOnly && ref.author_id === user?.id && (
-                <button
-                  onClick={() => deleteReference(ref)}
-                  className="shrink-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
           ))}
         </div>

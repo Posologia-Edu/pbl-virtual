@@ -874,6 +874,7 @@ export type Database = {
           created_at: string
           generated_by: string
           id: string
+          is_released: boolean
           room_id: string
           session_id: string
           updated_at: string
@@ -883,6 +884,7 @@ export type Database = {
           created_at?: string
           generated_by: string
           id?: string
+          is_released?: boolean
           room_id: string
           session_id: string
           updated_at?: string
@@ -892,6 +894,7 @@ export type Database = {
           created_at?: string
           generated_by?: string
           id?: string
+          is_released?: boolean
           room_id?: string
           session_id?: string
           updated_at?: string
