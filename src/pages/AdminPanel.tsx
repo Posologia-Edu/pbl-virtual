@@ -149,7 +149,9 @@ export default function AdminPanel() {
             {isInstitutionAdmin && !isSuperAdmin && (
               <TabsTrigger value="subscription"><CreditCard className="mr-2 h-4 w-4" /> Assinatura</TabsTrigger>
             )}
-            <TabsTrigger value="ai-keys"><Bot className="mr-2 h-4 w-4" /> API Keys IA</TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="ai-keys"><Bot className="mr-2 h-4 w-4" /> API Keys IA</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
@@ -238,9 +240,11 @@ export default function AdminPanel() {
             </TabsContent>
           )}
 
-          <TabsContent value="ai-keys">
-            <AIKeysTab institutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : (visibleInstitutions[0]?.id || "")} />
-          </TabsContent>
+          {isSuperAdmin && (
+            <TabsContent value="ai-keys">
+              <AIKeysTab />
+            </TabsContent>
+          )}
 
           <TabsContent value="security">
             <SecurityTab />

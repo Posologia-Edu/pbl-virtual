@@ -30,11 +30,7 @@ interface KeyData {
   updated_at: string;
 }
 
-interface AIKeysTabProps {
-  institutionId: string;
-}
-
-export default function AIKeysTab({ institutionId }: AIKeysTabProps) {
+export default function AIKeysTab() {
   const [keys, setKeys] = useState<KeyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
@@ -45,7 +41,7 @@ export default function AIKeysTab({ institutionId }: AIKeysTabProps) {
   const fetchKeys = async () => {
     try {
       const { data, error } = await supabase.functions.invoke("manage-ai-keys", {
-        body: { action: "list", institution_id: institutionId },
+        body: { action: "list" },
       });
       if (error) throw error;
       setKeys(data.keys || []);
@@ -57,8 +53,8 @@ export default function AIKeysTab({ institutionId }: AIKeysTabProps) {
   };
 
   useEffect(() => {
-    if (institutionId) fetchKeys();
-  }, [institutionId]);
+    fetchKeys();
+  }, []);
 
   const saveKey = async (provider: string) => {
     setSaving(true);
