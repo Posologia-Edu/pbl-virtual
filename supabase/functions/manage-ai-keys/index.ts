@@ -40,38 +40,21 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check if user is admin or institution_admin
+    // Only superadmin (role='admin') can manage AI keys
     const { data: roles } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .in("role", ["admin", "institution_admin"]);
+      .eq("role", "admin");
 
     if (!roles || roles.length === 0) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
+      return new Response(JSON.stringify({ error: "Superadmin access required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const isAdmin = roles.some((r: any) => r.role === "admin");
-
     const { action, institution_id, provider, api_key, key_id } = await req.json();
-
-    // Validate institution access for non-admin
-    if (!isAdmin && institution_id) {
-      const { data: inst } = await adminClient
-        .from("institutions")
-        .select("owner_id")
-        .eq("id", institution_id)
-        .single();
-      if (!inst || inst.owner_id !== caller.id) {
-        return new Response(JSON.stringify({ error: "Not your institution" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
 
     if (action === "list") {
       let query = adminClient
