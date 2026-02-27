@@ -50,22 +50,22 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
     if (!user || !linkUrl.trim()) return;
     const url = linkUrl.trim().startsWith("http") ? linkUrl.trim() : `https://${linkUrl.trim()}`;
 
-    const { error } = await supabase.from("session_references" as any).insert({
+    const { data: inserted, error } = await supabase.from("session_references" as any).insert({
       room_id: roomId,
       author_id: user.id,
       ref_type: "link",
       url,
       title: linkTitle.trim() || url,
       ...(sessionId ? { session_id: sessionId } : {}),
-    });
+    }).select("*, profiles!session_references_author_id_profiles_fkey(full_name)").single();
 
-    if (!error) {
+    if (!error && inserted) {
+      setReferences(prev => [...prev, inserted as any]);
       setLinkUrl("");
       setLinkTitle("");
       setShowAddLink(false);
       toast({ title: "Referência adicionada!" });
-      fetchReferences();
-    } else {
+    } else if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
@@ -102,21 +102,20 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
       return;
     }
 
-    // Store the storage path (not a public URL) since the bucket is private
-    const { error } = await supabase.from("session_references" as any).insert({
+    const { data: inserted, error } = await supabase.from("session_references" as any).insert({
       room_id: roomId,
       author_id: user.id,
       ref_type: "file",
       url: `storage:references/${path}`,
       title: file.name,
       ...(sessionId ? { session_id: sessionId } : {}),
-    });
+    }).select("*, profiles!session_references_author_id_profiles_fkey(full_name)").single();
 
     setUploading(false);
-    if (!error) {
+    if (!error && inserted) {
+      setReferences(prev => [...prev, inserted as any]);
       toast({ title: "Arquivo enviado!" });
-      fetchReferences();
-    } else {
+    } else if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
@@ -159,10 +158,12 @@ export default function ReferencesPanel({ roomId, sessionId, readOnly }: Props) 
         await supabase.storage.from("references").remove([storagePath]);
       }
     }
+    setReferences(prev => prev.filter(r => r.id !== ref.id));
     const { error } = await supabase.from("session_references" as any).delete().eq("id", ref.id);
     if (!error) {
       toast({ title: "Referência removida" });
-      fetchReferences();
+    } else {
+      fetchReferences(); // rollback on error
     }
   };
 
