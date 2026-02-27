@@ -210,8 +210,8 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
               { key: "admin", label: "Administradores", icon: <User className="h-4 w-4" /> },
             ]
               .map((section) => {
-                const users = filteredProfiles.filter(
-                  (p) => (p.user_roles?.[0]?.role || "unknown") === section.key
+              const users = filteredProfiles.filter(
+                  (p) => p.user_roles?.some((r: any) => r.role === section.key)
                 );
                 if (users.length === 0) return null;
                 return (
