@@ -1,63 +1,81 @@
 
+# Plano: Cancelamento direto na plataforma + Travas de limites do plano
 
-## Plano de Correção: Fluxo de Assinatura e Papéis
+## Resumo
 
-### Problema 1: Cadastro normal nao atribui papel de "student"
-Quando um usuario se cadastra pelo Google ou pelo formulario de login, ele entra no sistema sem nenhum papel. Precisa-se criar um trigger ou logica que atribua automaticamente o papel `student` a usuarios que se cadastram sem passar pelo fluxo de compra.
-
-**Solucao:** Criar uma migracao SQL com um trigger `after insert on auth.users` que insere automaticamente o papel `student` na tabela `user_roles`, apenas se o usuario nao tiver nenhum papel ainda. Isso garante que quem entra pelo onboarding de assinatura (que recebe `institution_admin`) nao seja sobrescrito.
-
-### Problema 2: Trial de 14 dias nao implementado
-A pagina de Pricing promete "14 dias de teste gratis" mas o checkout do Stripe cobra imediatamente.
-
-**Solucao:** Adicionar `subscription_data: { trial_period_days: 14 }` na criacao da sessao de checkout em `supabase/functions/create-checkout/index.ts`. Isso faz com que o Stripe so cobre apos 14 dias.
-
-### Problema 3: AI Co-tutor no plano Starter
-A feature list mostra "AI Co-tutor basico (50 interacoes/mes)" para o Starter, mas no codigo `ai_enabled: false`.
-
-**Solucao:** Alterar `ai_enabled` para `true` no tier Starter em `supabase/functions/setup-institution/index.ts`. O limite de 50 interacoes/mes pode ser controlado por um campo adicional ou pela logica do co-tutor (que ja pode ter esse controle).
+Duas funcionalidades serão implementadas:
+1. **Cancelamento de assinatura** direto pela plataforma (sem redirecionar ao Stripe)
+2. **Validacao de limites** de alunos e salas antes de permitir cadastro/criacao
 
 ---
 
-### Alteracoes tecnicas
+## 1. Cancelamento direto na plataforma
 
-**Arquivo 1: `supabase/functions/create-checkout/index.ts`**
-- Adicionar `subscription_data: { trial_period_days: 14 }` ao objeto `stripe.checkout.sessions.create()`
+Atualmente o botao "Gerenciar Assinatura" redireciona para o Stripe Customer Portal. Vamos adicionar um botao dedicado "Cancelar Assinatura" com dialogo de confirmacao que cancela diretamente via edge function.
 
-**Arquivo 2: `supabase/functions/setup-institution/index.ts`**
-- Alterar o tier Starter de `ai_enabled: false` para `ai_enabled: true`
+### Alteracoes:
 
-**Arquivo 3: Nova migracao SQL**
-- Criar funcao `handle_new_user_default_role()` que insere o papel `student` automaticamente
-- Criar trigger `on_auth_user_created` na tabela `auth.users` (after insert)
-- A funcao verifica se ja existe um papel para o usuario antes de inserir, evitando conflitos
+**Nova edge function `cancel-subscription/index.ts`:**
+- Recebe o token do usuario autenticado
+- Busca o customer no Stripe pelo email
+- Lista assinaturas ativas do customer
+- Cancela a assinatura via `stripe.subscriptions.cancel()` (cancelamento imediato) ou `stripe.subscriptions.update({ cancel_at_period_end: true })` (cancela no fim do periodo -- recomendado)
+- Atualiza a tabela `subscriptions` local com `status: 'canceled'` e `cancel_at`
+- Retorna sucesso
 
+**Atualizacao do `SubscriptionTab.tsx`:**
+- Adicionar botao "Cancelar Assinatura" com estilo destrutivo
+- Usar `AlertDialog` para confirmacao com mensagem clara ("Sua assinatura continuara ativa ate o fim do periodo atual")
+- Apos cancelamento, chamar `onRefresh()` e `refreshSubscription()` para atualizar o estado
+
+**Atualizacao do `supabase/config.toml`:**
+- Adicionar entrada `[functions.cancel-subscription]` com `verify_jwt = false`
+
+---
+
+## 2. Travas de limites (alunos e salas)
+
+Atualmente nenhuma validacao de limites e feita no frontend. Vamos adicionar validacoes antes de criar alunos e turmas.
+
+### Alteracoes:
+
+**`UsersTab.tsx` -- Limite de alunos:**
+- Receber a `subscription` (dados de `mySubscription`) como prop
+- Antes de criar um usuario com role "student", contar quantos alunos ja existem na instituicao (via `course_members` ou `profiles` com role `student` vinculados a instituicao)
+- Se `count >= max_students`, mostrar toast de erro informando o limite e sugerindo upgrade de plano
+- Desabilitar o botao de criar quando o limite for atingido
+
+**`GroupsTab.tsx` -- Limite de salas:**
+- Receber a `subscription` como prop
+- Antes de criar uma turma, contar quantas turmas/salas ja existem na instituicao (via `rooms` ou `groups` vinculados aos cursos da instituicao)
+- Se `count >= max_rooms`, mostrar toast de erro informando o limite e sugerindo upgrade de plano
+- Desabilitar o botao de criar quando o limite for atingido
+
+**`AdminPanel.tsx`:**
+- Passar `mySubscription` como prop para `UsersTab` e `GroupsTab`
+
+---
+
+## Detalhes tecnicos
+
+### Edge function `cancel-subscription`:
 ```text
-Fluxo corrigido:
+POST /cancel-subscription
+Authorization: Bearer <token>
 
-Cadastro normal (Google/email)
-    |
-    v
-Trigger auto-atribui papel "student"
-    |
-    v
-Usuario entra como Aluno no Dashboard
-
-
-Compra de plano (Pricing -> Stripe -> Onboarding)
-    |
-    v
-setup-institution atribui "institution_admin"
-(trigger nao sobrescreve pois ja tem papel)
-    |
-    v
-Usuario entra como Admin Institucional
-com limites do plano comprado
-e 14 dias de trial antes da cobranca
+Fluxo:
+1. Autenticar usuario via token
+2. Buscar Stripe customer por email
+3. Listar subscriptions ativas
+4. stripe.subscriptions.update(subId, { cancel_at_period_end: true })
+5. Atualizar tabela subscriptions: status -> 'canceled', cancel_at -> period_end
+6. Retornar { success: true }
 ```
 
-### Observacao sobre sequencia no fluxo de compra
-No fluxo atual, o usuario pode comprar um plano SEM estar logado. Ele e redirecionado para o onboarding onde cria a conta. Nesse caso, o trigger ira inserir `student` primeiro, e o `setup-institution` tentara inserir `institution_admin` depois. Como a tabela `user_roles` tem restricao de unicidade em `(user_id, role)` mas nao em `user_id` sozinho (o constraint `unique(user_id)` impede multiplos papeis), sera necessario que o `setup-institution` faca um DELETE do papel antigo antes de inserir `institution_admin`, o que ja e tratado pela logica existente (ele faz insert e ignora duplicata). Precisaremos ajustar para que ele remova o papel `student` antes de atribuir `institution_admin`.
+### Contagem de limites:
+- **Alunos**: Contar usuarios distintos com role `student` que sao `course_members` em cursos da instituicao selecionada
+- **Salas/Turmas**: Contar `groups` que pertencem a cursos da instituicao selecionada (cada grupo gera uma sala automaticamente via trigger)
 
-**Ajuste adicional em `setup-institution`:** Antes de inserir o papel `institution_admin`, deletar qualquer papel existente do usuario.
-
+### Alertas visuais:
+- Banner de aviso quando proximo do limite (>80%)
+- Mensagem clara no toast com o limite do plano e um link/sugestao para fazer upgrade
