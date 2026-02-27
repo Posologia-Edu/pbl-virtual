@@ -1,0 +1,1 @@
+ALTER TABLE public.session_minutes ADD COLUMN is_released boolean NOT NULL DEFAULT false;
