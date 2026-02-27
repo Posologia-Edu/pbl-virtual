@@ -137,33 +137,29 @@ async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<str
 
 async function callAIWithFallback(
   adminClient: any,
-  institutionId: string | null,
   lovableApiKey: string,
   messages: AIMessage[]
 ): Promise<string> {
-  // Try external providers first if institution has keys configured
-  if (institutionId) {
-    const { data: providerKeys } = await adminClient
-      .from("ai_provider_keys")
-      .select("provider, api_key, is_active")
-      .eq("institution_id", institutionId)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false });
+  // Always try external provider keys first (global keys set by superadmin)
+  const { data: providerKeys } = await adminClient
+    .from("ai_provider_keys")
+    .select("provider, api_key, is_active")
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false });
 
-    if (providerKeys && providerKeys.length > 0) {
-      for (const pk of providerKeys) {
-        if (!pk.api_key) continue;
-        const result = await callExternalProvider(pk.provider, pk.api_key, messages);
-        if (result) {
-          console.log(`[AI] Success with provider: ${pk.provider}`);
-          return result;
-        }
-        console.log(`[AI] Provider ${pk.provider} failed, trying next...`);
+  if (providerKeys && providerKeys.length > 0) {
+    for (const pk of providerKeys) {
+      if (!pk.api_key) continue;
+      const result = await callExternalProvider(pk.provider, pk.api_key, messages);
+      if (result) {
+        console.log(`[AI] Success with provider: ${pk.provider}`);
+        return result;
       }
+      console.log(`[AI] Provider ${pk.provider} failed, trying next...`);
     }
   }
 
-  // Fallback to Lovable AI
+  // Fallback to Lovable AI only if all external providers failed
   return callLovableAI(lovableApiKey, messages);
 }
 
@@ -228,29 +224,6 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "room_id and session_id are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    // Resolve institution_id from room -> group -> course -> institution
-    let institutionId: string | null = null;
-    const { data: roomData } = await adminClient
-      .from("rooms")
-      .select("group_id")
-      .eq("id", room_id)
-      .single();
-    if (roomData) {
-      const { data: groupData } = await adminClient
-        .from("groups")
-        .select("course_id")
-        .eq("id", roomData.group_id)
-        .single();
-      if (groupData?.course_id) {
-        const { data: courseData } = await adminClient
-          .from("courses")
-          .select("institution_id")
-          .eq("id", groupData.course_id)
-          .single();
-        institutionId = courseData?.institution_id || null;
-      }
     }
 
     // Fetch session data
@@ -358,7 +331,6 @@ ${chatSummary || "Sem mensagens."}`;
       try {
         const content = await callAIWithFallback(
           adminClient,
-          institutionId,
           LOVABLE_API_KEY,
           [
             { role: "system", content: systemPrompt },
@@ -415,7 +387,6 @@ ${chatSummary || "Sem mensagens."}`;
     try {
       const content = await callAIWithFallback(
         adminClient,
-        institutionId,
         LOVABLE_API_KEY,
         [
           { role: "system", content: systemPrompt },

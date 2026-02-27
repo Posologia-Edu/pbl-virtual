@@ -60,7 +60,7 @@ export type Database = {
           api_key: string
           created_at: string
           id: string
-          institution_id: string
+          institution_id: string | null
           is_active: boolean
           provider: string
           updated_at: string
@@ -69,7 +69,7 @@ export type Database = {
           api_key?: string
           created_at?: string
           id?: string
-          institution_id: string
+          institution_id?: string | null
           is_active?: boolean
           provider: string
           updated_at?: string
@@ -78,7 +78,7 @@ export type Database = {
           api_key?: string
           created_at?: string
           id?: string
-          institution_id?: string
+          institution_id?: string | null
           is_active?: boolean
           provider?: string
           updated_at?: string

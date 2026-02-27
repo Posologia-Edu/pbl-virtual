@@ -54,29 +54,15 @@ serve(async (req) => {
       });
     }
 
-    const { action, institution_id, provider, api_key, key_id } = await req.json();
+    const { action, provider, api_key, key_id } = await req.json();
 
     if (action === "list") {
-      let query = adminClient
+      const { data, error } = await adminClient
         .from("ai_provider_keys")
-        .select("id, institution_id, provider, api_key, is_active, updated_at")
+        .select("id, provider, api_key, is_active, updated_at")
+        .is("institution_id", null)
         .order("provider");
 
-      if (institution_id) {
-        query = query.eq("institution_id", institution_id);
-      } else if (!isAdmin) {
-        // Get their institution
-        const { data: inst } = await adminClient
-          .from("institutions")
-          .select("id")
-          .eq("owner_id", caller.id)
-          .single();
-        if (inst) {
-          query = query.eq("institution_id", inst.id);
-        }
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
 
       // Mask API keys - show only first 4 and last 4 chars
@@ -101,30 +87,40 @@ serve(async (req) => {
     }
 
     if (action === "upsert") {
-      if (!institution_id || !provider) {
+      if (!provider) {
         return new Response(
-          JSON.stringify({ error: "institution_id and provider required" }),
+          JSON.stringify({ error: "provider required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const { data, error } = await adminClient
+      // Check if global key already exists for this provider
+      const { data: existing } = await adminClient
         .from("ai_provider_keys")
-        .upsert(
-          {
-            institution_id,
-            provider,
-            api_key: api_key || "",
-            is_active: !!api_key,
-          },
-          { onConflict: "institution_id,provider" }
-        )
-        .select("id, provider, is_active")
-        .single();
+        .select("id")
+        .is("institution_id", null)
+        .eq("provider", provider)
+        .maybeSingle();
 
-      if (error) throw error;
+      let result;
+      if (existing) {
+        result = await adminClient
+          .from("ai_provider_keys")
+          .update({ api_key: api_key || "", is_active: !!api_key })
+          .eq("id", existing.id)
+          .select("id, provider, is_active")
+          .single();
+      } else {
+        result = await adminClient
+          .from("ai_provider_keys")
+          .insert({ institution_id: null, provider, api_key: api_key || "", is_active: !!api_key })
+          .select("id, provider, is_active")
+          .single();
+      }
 
-      return new Response(JSON.stringify({ success: true, key: data }), {
+      if (result.error) throw result.error;
+
+      return new Response(JSON.stringify({ success: true, key: result.data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
