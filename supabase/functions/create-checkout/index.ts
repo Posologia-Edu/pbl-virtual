@@ -51,6 +51,7 @@ serve(async (req) => {
       success_url: `${origin}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?subscription=canceled`,
       allow_promotion_codes: true,
+      subscription_data: { trial_period_days: 14 },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

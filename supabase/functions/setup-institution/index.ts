@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const TIERS: Record<string, { plan_name: string; max_students: number; max_rooms: number; ai_enabled: boolean; whitelabel_enabled: boolean }> = {
-  "prod_U22MNDlQOLbcmr": { plan_name: "starter", max_students: 30, max_rooms: 3, ai_enabled: false, whitelabel_enabled: false },
+  "prod_U22MNDlQOLbcmr": { plan_name: "starter", max_students: 30, max_rooms: 3, ai_enabled: true, whitelabel_enabled: false },
   "prod_U22Mmhx6hjqTAQ": { plan_name: "professional", max_students: 150, max_rooms: 999, ai_enabled: true, whitelabel_enabled: false },
   "prod_U22M2hz40qmRsN": { plan_name: "enterprise", max_students: 99999, max_rooms: 99999, ai_enabled: true, whitelabel_enabled: true },
 };
@@ -111,12 +111,13 @@ serve(async (req) => {
       if (instError) throw new Error(`Failed to create institution: ${instError.message}`);
       logStep("Institution created", { id: institution.id });
 
-      // 2. Assign institution_admin role (if not already assigned)
+      // 2. Remove any existing role (e.g. auto-assigned 'student') then assign institution_admin
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", user.id);
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .insert({ user_id: user.id, role: "institution_admin" });
 
-      if (roleError && !roleError.message.includes("duplicate")) {
+      if (roleError) {
         throw new Error(`Failed to assign role: ${roleError.message}`);
       }
       logStep("Role assigned: institution_admin");
