@@ -11,8 +11,9 @@ import {
   ResponsiveContainer, BarChart, Bar, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
-import { Download, TrendingUp, Users, BarChart3, ArrowLeft } from "lucide-react";
+import { Download, TrendingUp, Users, BarChart3, ArrowLeft, Lock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import UpgradeOverlay from "@/components/UpgradeOverlay";
 
 const GRADES: Record<string, number> = {
   O: 0, I: 25, PS: 50, S: 75, MS: 100,
@@ -39,7 +40,8 @@ interface CriterionRow {
 }
 
 export default function Reports() {
-  const { user, isProfessor, isAdmin } = useAuth();
+  const { user, isProfessor, isAdmin, subscription } = useAuth();
+  const hasFullReports = subscription.fullReportsEnabled || isAdmin;
   const [rooms, setRooms] = useState<any[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string>("");
   const [students, setStudents] = useState<StudentData[]>([]);
@@ -338,6 +340,7 @@ export default function Reports() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Bar chart - comparison */}
+                {hasFullReports ? (
                 <Card className="rounded-2xl border-border/60">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -369,8 +372,12 @@ export default function Reports() {
                     </div>
                   </CardContent>
                 </Card>
+                ) : (
+                  <UpgradeOverlay feature="Comparativo entre Alunos" description="Gráfico comparativo disponível no plano Professional ou superior." />
+                )}
 
                 {/* Radar chart - criteria breakdown */}
+                {hasFullReports ? (
                 <Card className="rounded-2xl border-border/60">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -407,6 +414,9 @@ export default function Reports() {
                     )}
                   </CardContent>
                 </Card>
+                ) : (
+                  <UpgradeOverlay feature="Radar de Critérios" description="Gráfico radar disponível no plano Professional ou superior." />
+                )}
               </div>
 
               {/* Detailed table */}

@@ -76,6 +76,27 @@ Deno.serve(async (req) => {
 
     if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // Check if user's institution has AI scenario generation enabled
+    // Find institution via user -> institution owner or course membership
+    const { data: instData } = await adminClient
+      .from("institutions")
+      .select("id")
+      .eq("owner_id", caller.id)
+      .maybeSingle();
+
+    if (instData) {
+      const { data: sub } = await adminClient
+        .from("subscriptions")
+        .select("ai_scenario_generation")
+        .eq("institution_id", instData.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (sub && !sub.ai_scenario_generation) {
+        return new Response(JSON.stringify({ error: "A geração de cenários com IA não está disponível no seu plano atual. Faça upgrade para o plano Professional ou superior." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     const { objectives } = await req.json();
     if (!objectives || typeof objectives !== "string" || objectives.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Objetivos de aprendizagem são obrigatórios (mínimo 5 caracteres)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

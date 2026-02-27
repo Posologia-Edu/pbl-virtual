@@ -77,7 +77,7 @@ serve(async (req) => {
 
     const { data: localSub } = await serviceClient
       .from("subscriptions")
-      .select("plan_name, institution_id")
+      .select("plan_name, institution_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
       .eq("owner_id", userId)
       .limit(1)
       .maybeSingle();
@@ -97,12 +97,32 @@ serve(async (req) => {
       if (inst) institutionId = inst.id;
     }
 
+    // Fetch AI interaction count for current month
+    let aiInteractionsUsed = 0;
+    if (institutionId) {
+      const monthYear = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+      const { data: aiCount } = await serviceClient
+        .from("ai_interaction_counts")
+        .select("interaction_count")
+        .eq("institution_id", institutionId)
+        .eq("month_year", monthYear)
+        .maybeSingle();
+      aiInteractionsUsed = aiCount?.interaction_count ?? 0;
+    }
+
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       product_id: productId,
       plan_name: planName,
       subscription_end: subscriptionEnd,
       institution_id: institutionId,
+      max_ai_interactions: localSub?.max_ai_interactions ?? 50,
+      ai_scenario_generation: localSub?.ai_scenario_generation ?? false,
+      peer_evaluation_enabled: localSub?.peer_evaluation_enabled ?? false,
+      badges_enabled: localSub?.badges_enabled ?? false,
+      full_reports_enabled: localSub?.full_reports_enabled ?? false,
+      whitelabel_enabled: localSub?.whitelabel_enabled ?? false,
+      ai_interactions_used: aiInteractionsUsed,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -126,18 +146,36 @@ async function getLocalSubscription(userId: string) {
   // Check if user owns a subscription
   const { data: sub } = await serviceClient
     .from("subscriptions")
-    .select("plan_name, institution_id, status, current_period_end, stripe_product_id")
+    .select("plan_name, institution_id, status, current_period_end, stripe_product_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
     .eq("owner_id", userId)
     .eq("status", "active")
     .maybeSingle();
 
   if (sub) {
+    // Fetch AI interaction count
+    let aiInteractionsUsed = 0;
+    const monthYear = new Date().toISOString().slice(0, 7);
+    const { data: aiCount } = await serviceClient
+      .from("ai_interaction_counts")
+      .select("interaction_count")
+      .eq("institution_id", sub.institution_id)
+      .eq("month_year", monthYear)
+      .maybeSingle();
+    aiInteractionsUsed = aiCount?.interaction_count ?? 0;
+
     return {
       subscribed: true,
       product_id: sub.stripe_product_id,
       plan_name: sub.plan_name,
       subscription_end: sub.current_period_end,
       institution_id: sub.institution_id,
+      max_ai_interactions: sub.max_ai_interactions ?? 50,
+      ai_scenario_generation: sub.ai_scenario_generation ?? false,
+      peer_evaluation_enabled: sub.peer_evaluation_enabled ?? false,
+      badges_enabled: sub.badges_enabled ?? false,
+      full_reports_enabled: sub.full_reports_enabled ?? false,
+      whitelabel_enabled: sub.whitelabel_enabled ?? false,
+      ai_interactions_used: aiInteractionsUsed,
     };
   }
 

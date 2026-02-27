@@ -226,6 +226,69 @@ Deno.serve(async (req) => {
       );
     }
 
+    // --- Check AI interaction limits ---
+    // Find the institution for this room
+    const { data: roomData } = await adminClient
+      .from("rooms")
+      .select("group_id")
+      .eq("id", room_id)
+      .single();
+
+    let institutionId: string | null = null;
+    let maxAiInteractions = 99999;
+
+    if (roomData) {
+      const { data: groupData } = await adminClient
+        .from("groups")
+        .select("course_id")
+        .eq("id", roomData.group_id)
+        .single();
+
+      if (groupData?.course_id) {
+        const { data: courseData } = await adminClient
+          .from("courses")
+          .select("institution_id")
+          .eq("id", groupData.course_id)
+          .single();
+
+        if (courseData?.institution_id) {
+          institutionId = courseData.institution_id;
+
+          // Fetch subscription limits
+          const { data: sub } = await adminClient
+            .from("subscriptions")
+            .select("max_ai_interactions")
+            .eq("institution_id", institutionId)
+            .limit(1)
+            .maybeSingle();
+
+          maxAiInteractions = sub?.max_ai_interactions ?? 99999;
+
+          // Check current month usage
+          const monthYear = new Date().toISOString().slice(0, 7);
+          const { data: usage } = await adminClient
+            .from("ai_interaction_counts")
+            .select("interaction_count")
+            .eq("institution_id", institutionId)
+            .eq("month_year", monthYear)
+            .maybeSingle();
+
+          const currentCount = usage?.interaction_count ?? 0;
+          if (currentCount >= maxAiInteractions) {
+            return new Response(
+              JSON.stringify({
+                error: `Limite de ${maxAiInteractions} interações IA/mês atingido. Faça upgrade do seu plano para continuar usando o Co-tutor IA.`,
+                limit_reached: true,
+                current: currentCount,
+                max: maxAiInteractions,
+              }),
+              { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
     // Fetch session data
     const [stepItemsRes, scenarioRes, chatRes] = await Promise.all([
       adminClient
@@ -346,6 +409,22 @@ ${chatSummary || "Sem mensagens."}`;
           parsed = { summary: content, gaps: [], essential_gaps: [], suggested_questions: [], addressed: [] };
         }
 
+        // Increment AI interaction count
+        if (institutionId) {
+          const monthYear = new Date().toISOString().slice(0, 7);
+          const { data: existing } = await adminClient
+            .from("ai_interaction_counts")
+            .select("id, interaction_count")
+            .eq("institution_id", institutionId)
+            .eq("month_year", monthYear)
+            .maybeSingle();
+          if (existing) {
+            await adminClient.from("ai_interaction_counts").update({ interaction_count: existing.interaction_count + 1, updated_at: new Date().toISOString() }).eq("id", existing.id);
+          } else {
+            await adminClient.from("ai_interaction_counts").insert({ institution_id: institutionId, month_year: monthYear, interaction_count: 1 });
+          }
+        }
+
         return new Response(JSON.stringify({ mode: "gap_analysis", ...parsed }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -400,6 +479,22 @@ ${chatSummary || "Sem mensagens."}`;
         parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
       } catch {
         parsed = { questions: [], mentions: [], observations: [content] };
+      }
+
+      // Increment AI interaction count
+      if (institutionId) {
+        const monthYear = new Date().toISOString().slice(0, 7);
+        const { data: existing } = await adminClient
+          .from("ai_interaction_counts")
+          .select("id, interaction_count")
+          .eq("institution_id", institutionId)
+          .eq("month_year", monthYear)
+          .maybeSingle();
+        if (existing) {
+          await adminClient.from("ai_interaction_counts").update({ interaction_count: existing.interaction_count + 1, updated_at: new Date().toISOString() }).eq("id", existing.id);
+        } else {
+          await adminClient.from("ai_interaction_counts").insert({ institution_id: institutionId, month_year: monthYear, interaction_count: 1 });
+        }
       }
 
       return new Response(
