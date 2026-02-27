@@ -111,29 +111,36 @@ Deno.serve(async (req) => {
       const existingUser = existingUsers?.users?.find(u => u.email === email);
 
       if (existingUser) {
-        // User exists — just ensure role is assigned
-        const { data: existingRole } = await adminClient
+        // Check if user already has ANY role
+        const { data: existingRoles } = await adminClient
           .from("user_roles")
           .select("role")
-          .eq("user_id", existingUser.id)
-          .eq("role", role)
-          .maybeSingle();
+          .eq("user_id", existingUser.id);
 
-        if (!existingRole) {
-          await adminClient.from("user_roles").insert({
-            user_id: existingUser.id,
-            role,
-          });
+        if (existingRoles && existingRoles.length > 0) {
+          const currentRole = existingRoles[0].role;
+          if (currentRole === role) {
+            // Same role, just link to course
+            if (full_name) {
+              await adminClient.from("profiles").update({ full_name }).eq("user_id", existingUser.id);
+            }
+            return new Response(
+              JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          const roleLabel = currentRole === "professor" ? "Professor" : currentRole === "student" ? "Aluno" : currentRole;
+          return new Response(
+            JSON.stringify({ error: `Usuário já cadastrado como ${roleLabel}. Cada usuário só pode ter um papel.` }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
-        // Update profile name if provided
+        // No roles yet, assign the requested one
+        await adminClient.from("user_roles").insert({ user_id: existingUser.id, role });
         if (full_name) {
-          await adminClient
-            .from("profiles")
-            .update({ full_name })
-            .eq("user_id", existingUser.id);
+          await adminClient.from("profiles").update({ full_name }).eq("user_id", existingUser.id);
         }
-
         return new Response(
           JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
