@@ -116,7 +116,12 @@ Deno.serve(async (req) => {
 
     const referencesText = Object.entries(refsGrouped).length > 0
       ? Object.entries(refsGrouped).map(([author, refs]) =>
-          `**${author}**:\n${refs.map((r, i) => `${i + 1}. [${r.ref_type === 'file' ? '📎 Arquivo' : '🔗 Link'}] ${r.title || r.url}`).join("\n")}`
+          `**${author}**:\n${refs.map((r, i) => {
+            const displayTitle = r.title && r.title.trim() ? r.title : (r.ref_type === 'file' ? 'Arquivo enviado' : r.url);
+            // Decode URL-encoded file names
+            const cleanTitle = decodeURIComponent(displayTitle).replace(/^.*\//, '');
+            return `${i + 1}. [${r.ref_type === 'file' ? 'Arquivo' : 'Link'}] ${cleanTitle}`;
+          }).join("\n")}`
         ).join("\n\n")
       : "(Nenhuma referência adicionada)";
 
