@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
     if (!caller) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleCheck } = await adminClient.from("user_roles").select("role").eq("user_id", caller.id).eq("role", "admin").single();
-    if (!roleCheck) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: roleCheck } = await adminClient.from("user_roles").select("role").eq("user_id", caller.id).in("role", ["admin", "professor", "institution_admin"]);
+    if (!roleCheck || roleCheck.length === 0) return new Response(JSON.stringify({ error: "Acesso não autorizado" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
