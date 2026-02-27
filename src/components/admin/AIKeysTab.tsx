@@ -60,7 +60,7 @@ export default function AIKeysTab() {
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-ai-keys", {
-        body: { action: "upsert", institution_id: institutionId, provider, api_key: editValue },
+        body: { action: "upsert", provider, api_key: editValue },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast({ title: "Chave salva com sucesso!" });

@@ -32,15 +32,15 @@ async function callExternalProvider(provider: string, apiKey: string, messages: 
   } catch (e) { console.error(`[AI] ${provider} error:`, e); return null; }
 }
 
-async function callAIWithFallback(adminClient: any, institutionId: string | null, lovableKey: string, messages: AIMsg[]): Promise<string> {
-  if (institutionId) {
-    const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("institution_id", institutionId).eq("is_active", true);
-    for (const pk of (keys || [])) {
-      if (!pk.api_key) continue;
-      const r = await callExternalProvider(pk.provider, pk.api_key, messages);
-      if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
-    }
+async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<string> {
+  // Always try external provider keys first (global keys set by superadmin)
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of (keys || [])) {
+    if (!pk.api_key) continue;
+    const r = await callExternalProvider(pk.provider, pk.api_key, messages);
+    if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
   }
+  // Fallback to Lovable AI only if all external providers failed
   console.log("[AI] Using Lovable AI fallback");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }) });
   if (!res.ok) { const t = await res.text(); console.error("[AI] Lovable error:", res.status, t); if (res.status === 429) throw { status: 429, message: "Rate limit exceeded." }; if (res.status === 402) throw { status: 402, message: "Payment required." }; throw { status: 500, message: "AI error" }; }
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 
     if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { objectives, institution_id } = await req.json();
+    const { objectives } = await req.json();
     if (!objectives || typeof objectives !== "string" || objectives.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Objetivos de aprendizagem são obrigatórios (mínimo 5 caracteres)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -108,7 +108,6 @@ Responda EXATAMENTE no formato JSON abaixo, sem markdown:
     try {
       const content = await callAIWithFallback(
         adminClient,
-        institution_id || null,
         LOVABLE_API_KEY,
         [
           { role: "system", content: systemPrompt },

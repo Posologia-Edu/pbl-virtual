@@ -32,15 +32,15 @@ async function callExternalProvider(provider: string, apiKey: string, messages: 
   } catch { return null; }
 }
 
-async function callAIWithFallback(adminClient: any, institutionId: string | null, lovableKey: string, messages: AIMsg[]): Promise<string> {
-  if (institutionId) {
-    const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("institution_id", institutionId).eq("is_active", true);
-    for (const pk of (keys || [])) {
-      if (!pk.api_key) continue;
-      const r = await callExternalProvider(pk.provider, pk.api_key, messages);
-      if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
-    }
+async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<string> {
+  // Always try external provider keys first (global keys set by superadmin)
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of (keys || [])) {
+    if (!pk.api_key) continue;
+    const r = await callExternalProvider(pk.provider, pk.api_key, messages);
+    if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
   }
+  // Fallback to Lovable AI only if all external providers failed
   console.log("[AI] Using Lovable AI fallback");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }) });
   if (!res.ok) { const t = await res.text(); console.error("[AI] Lovable error:", res.status, t); if (res.status === 429) throw { status: 429, message: "Rate limit exceeded." }; if (res.status === 402) throw { status: 402, message: "Payment required." }; throw { status: 500, message: "AI error" }; }
@@ -74,14 +74,6 @@ Deno.serve(async (req) => {
 
     const { data: room } = await adminClient.from("rooms").select("professor_id, name, group_id").eq("id", room_id).single();
     if (!room || room.professor_id !== userId) return new Response(JSON.stringify({ error: "Only the professor can generate minutes" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-    // Resolve institution_id
-    let institutionId: string | null = null;
-    const { data: groupData } = await adminClient.from("groups").select("course_id").eq("id", room.group_id).single();
-    if (groupData?.course_id) {
-      const { data: courseData } = await adminClient.from("courses").select("institution_id").eq("id", groupData.course_id).single();
-      institutionId = courseData?.institution_id || null;
-    }
 
     // Fetch session info
     const { data: session } = await adminClient
@@ -155,7 +147,6 @@ Use linguagem formal em português brasileiro.`;
     try {
       const minutesText = await callAIWithFallback(
         adminClient,
-        institutionId,
         lovableApiKey,
         [
           { role: "system", content: "Você é um assistente acadêmico que gera atas formais de sessões PBL. Responda apenas com o texto da ata, sem comentários adicionais." },
