@@ -28,16 +28,29 @@ Deno.serve(async (req) => {
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
+    
+    // Try getClaims first, fall back to getUser
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let callerId: string | null = null;
+    
+    if (typeof callerClient.auth.getClaims === 'function') {
+      const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
+      if (!claimsError && claimsData?.claims) {
+        callerId = claimsData.claims.sub as string;
+      }
+    }
+    
+    if (!callerId) {
+      const { data: { user: callerUser }, error: userError } = await callerClient.auth.getUser();
+      if (userError || !callerUser) {
+        return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      callerId = callerUser.id;
     }
 
-    const callerId = claimsData.claims.sub as string;
     if (!callerId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -106,9 +119,11 @@ Deno.serve(async (req) => {
 
       const userPassword = password || generateRandomPassword();
 
-      // Check if user already exists
-      const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === email);
+      // Check if user already exists - use listUsers with filter for reliability
+      const { data: existingUsers } = await adminClient.auth.admin.listUsers({
+        perPage: 1000,
+      });
+      let existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
       if (existingUser) {
         // Check if user already has ANY role
@@ -139,7 +154,11 @@ Deno.serve(async (req) => {
         // No roles yet, assign the requested one
         await adminClient.from("user_roles").insert({ user_id: existingUser.id, role });
         if (full_name) {
-          await adminClient.from("profiles").update({ full_name }).eq("user_id", existingUser.id);
+          // Upsert profile in case it was deleted
+          await adminClient.from("profiles").upsert(
+            { user_id: existingUser.id, full_name },
+            { onConflict: "user_id" }
+          );
         }
         return new Response(
           JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
