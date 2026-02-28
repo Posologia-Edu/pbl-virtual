@@ -42,7 +42,7 @@ export default function DemoSession() {
   const [demoEvaluations, setDemoEvaluations] = useState<Record<string, Record<string, string>>>({});
 
   // Onboarding
-  const showOnboarding = !localStorage.getItem("onboarding_completed");
+  const showOnboarding = !profile?.onboarding_completed;
   const [highlightPanel, setHighlightPanel] = useState<string | null>(null);
 
   const handleOnboardingStepChange = useCallback((step: OnboardingStep) => {
