@@ -21,7 +21,7 @@ import AIKeysTab from "@/components/admin/AIKeysTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
-  const { isAdmin, isInstitutionAdmin, subscription } = useAuth();
+  const { isAdmin, isInstitutionAdmin, subscription, user } = useAuth();
   const isSuperAdmin = isAdmin;
 
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -46,8 +46,8 @@ export default function AdminPanel() {
   }, [isInstitutionAdmin, subscription.institutionId]);
 
   useEffect(() => {
-    fetchAll();
-  }, []);
+    if (user) fetchAll();
+  }, [user?.id]);
 
   // Fetch subscription for institution_admin
   useEffect(() => {
