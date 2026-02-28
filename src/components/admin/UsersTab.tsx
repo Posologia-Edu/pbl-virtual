@@ -104,7 +104,8 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
         if (userId && selectedCourseId) {
           await supabase.from("course_members").upsert({ course_id: selectedCourseId, user_id: userId }, { onConflict: "course_id,user_id" });
         }
-        toast({ title: "Usuário criado e vinculado ao curso!" });
+        const note = res.data?.note;
+        toast({ title: note ? "Usuário vinculado ao curso!" : "Usuário criado e vinculado ao curso!", description: note || undefined });
         setNewUserName(""); setNewUserEmail(""); setNewUserRole("");
         onRefresh();
       }
