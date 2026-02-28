@@ -175,7 +175,10 @@ Deno.serve(async (req) => {
         }
 
         // No roles yet, assign the requested one
-        const { error: roleInsertErr } = await adminClient.from("user_roles").insert({ user_id: existingUser.id, role });
+        const { error: roleInsertErr } = await adminClient.from("user_roles").upsert(
+          { user_id: existingUser.id, role },
+          { onConflict: "user_id" }
+        );
         if (roleInsertErr) {
           console.error("Role insert error:", roleInsertErr);
           return new Response(
@@ -212,11 +215,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Assign role
-      const { error: roleError } = await adminClient.from("user_roles").insert({
-        user_id: newUser.user.id,
-        role,
-      });
+      // Assign role (upsert to handle trigger-created default role)
+      const { error: roleError } = await adminClient.from("user_roles").upsert(
+        { user_id: newUser.user.id, role },
+        { onConflict: "user_id" }
+      );
 
       if (roleError) {
         console.error("Role assignment error:", roleError);
