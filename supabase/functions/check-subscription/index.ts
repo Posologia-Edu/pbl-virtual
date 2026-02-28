@@ -392,6 +392,7 @@ Deno.serve(async (req) => {
 
 // Helper: check local subscription for users who may not have a Stripe customer
 async function getLocalSubscription(userId: string, serviceClient: any) {
+  // 1. Check if user is a subscription owner
   const { data: sub } = await serviceClient
     .from("subscriptions")
     .select("plan_name, institution_id, status, current_period_end, stripe_product_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
@@ -426,6 +427,53 @@ async function getLocalSubscription(userId: string, serviceClient: any) {
     };
   }
 
+  // 2. Check if user belongs to an institution via course_members (professors/students)
+  const { data: memberCourses } = await serviceClient
+    .from("course_members")
+    .select("course_id, courses!inner(institution_id)")
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (memberCourses && memberCourses.length > 0) {
+    const instId = (memberCourses[0].courses as any)?.institution_id;
+    if (instId) {
+      const { data: instSub } = await serviceClient
+        .from("subscriptions")
+        .select("plan_name, institution_id, status, current_period_end, stripe_product_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
+        .eq("institution_id", instId)
+        .in("status", ["active", "trialing"])
+        .maybeSingle();
+
+      if (instSub) {
+        let aiInteractionsUsed = 0;
+        const monthYear = new Date().toISOString().slice(0, 7);
+        const { data: aiCount } = await serviceClient
+          .from("ai_interaction_counts")
+          .select("interaction_count")
+          .eq("institution_id", instId)
+          .eq("month_year", monthYear)
+          .maybeSingle();
+        aiInteractionsUsed = aiCount?.interaction_count ?? 0;
+
+        return {
+          subscribed: true,
+          product_id: instSub.stripe_product_id,
+          plan_name: instSub.plan_name,
+          subscription_end: instSub.current_period_end,
+          institution_id: instId,
+          max_ai_interactions: instSub.max_ai_interactions ?? 50,
+          ai_scenario_generation: instSub.ai_scenario_generation ?? false,
+          peer_evaluation_enabled: instSub.peer_evaluation_enabled ?? false,
+          badges_enabled: instSub.badges_enabled ?? false,
+          full_reports_enabled: instSub.full_reports_enabled ?? false,
+          whitelabel_enabled: instSub.whitelabel_enabled ?? false,
+          ai_interactions_used: aiInteractionsUsed,
+        };
+      }
+    }
+  }
+
+  // 3. Check if user owns an institution (without active sub)
   const { data: inst } = await serviceClient
     .from("institutions")
     .select("id")
