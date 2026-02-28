@@ -159,8 +159,7 @@ export default function OnboardingGuide({ onStepChange, onComplete, isVisible }:
   };
 
   const handleComplete = async () => {
-    // Mark onboarding as completed
-    localStorage.setItem("onboarding_completed", "true");
+    // Mark onboarding as completed in DB (single source of truth)
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
