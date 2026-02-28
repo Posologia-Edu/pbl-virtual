@@ -269,7 +269,7 @@ async function getLocalSubscription(userId: string, serviceClient: any) {
     .from("subscriptions")
     .select("plan_name, institution_id, status, current_period_end, stripe_product_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
     .eq("owner_id", userId)
-    .eq("status", "active")
+    .in("status", ["active", "trialing"])
     .maybeSingle();
 
   if (sub) {
