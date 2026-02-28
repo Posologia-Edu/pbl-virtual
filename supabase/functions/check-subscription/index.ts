@@ -7,6 +7,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Map Stripe price IDs to plan names and limits
+const PLAN_MAP: Record<string, { plan_name: string; max_students: number; max_rooms: number; max_ai_interactions: number; ai_enabled: boolean; ai_scenario_generation: boolean; peer_evaluation_enabled: boolean; badges_enabled: boolean; full_reports_enabled: boolean; whitelabel_enabled: boolean }> = {
+  "price_1T3yHIHRnDD6dn6iLSvmwfFh": {
+    plan_name: "starter", max_students: 30, max_rooms: 3, max_ai_interactions: 50,
+    ai_enabled: true, ai_scenario_generation: false, peer_evaluation_enabled: false,
+    badges_enabled: false, full_reports_enabled: false, whitelabel_enabled: false,
+  },
+  "price_1T3yHbHRnDD6dn6iklmghD9E": {
+    plan_name: "professional", max_students: 150, max_rooms: 99999, max_ai_interactions: 500,
+    ai_enabled: true, ai_scenario_generation: true, peer_evaluation_enabled: true,
+    badges_enabled: true, full_reports_enabled: true, whitelabel_enabled: false,
+  },
+  "price_1T3yHuHRnDD6dn6iqPedb6Cp": {
+    plan_name: "enterprise", max_students: 99999, max_rooms: 99999, max_ai_interactions: 99999,
+    ai_enabled: true, ai_scenario_generation: true, peer_evaluation_enabled: true,
+    badges_enabled: true, full_reports_enabled: true, whitelabel_enabled: true,
+  },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,18 +51,30 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
     if (!email) throw new Error("User not authenticated");
 
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email, limit: 1 });
 
     if (customers.data.length === 0) {
       // No Stripe customer — check if user has a local subscription via institution
-      const localSub = await getLocalSubscription(userId);
+      const localSub = await getLocalSubscription(userId, serviceClient);
       return new Response(JSON.stringify({
         subscribed: localSub?.subscribed ?? false,
         product_id: localSub?.product_id ?? null,
         plan_name: localSub?.plan_name ?? null,
         subscription_end: localSub?.subscription_end ?? null,
         institution_id: localSub?.institution_id ?? null,
+        max_ai_interactions: localSub?.max_ai_interactions ?? 50,
+        ai_scenario_generation: localSub?.ai_scenario_generation ?? false,
+        peer_evaluation_enabled: localSub?.peer_evaluation_enabled ?? false,
+        badges_enabled: localSub?.badges_enabled ?? false,
+        full_reports_enabled: localSub?.full_reports_enabled ?? false,
+        whitelabel_enabled: localSub?.whitelabel_enabled ?? false,
+        ai_interactions_used: localSub?.ai_interactions_used ?? 0,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -51,56 +82,157 @@ serve(async (req) => {
     }
 
     const customerId = customers.data[0].id;
+    
+    // Check active or trialing subscriptions
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
       limit: 1,
     });
-
-    const hasActiveSub = subscriptions.data.length > 0;
+    
+    // Filter to active or trialing
+    const activeSub = subscriptions.data.find(s => s.status === "active" || s.status === "trialing");
+    const hasActiveSub = !!activeSub;
+    
     let productId = null;
     let subscriptionEnd = null;
-    let planName = null;
-    let institutionId = null;
+    let priceId = null;
+    let stripeSubscriptionId = null;
+    let currentPeriodStart = null;
+    let cancelAt = null;
 
     if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
+      const subscription = activeSub!;
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product;
+      currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+      productId = subscription.items.data[0].price.product as string;
+      priceId = subscription.items.data[0].price.id;
+      stripeSubscriptionId = subscription.id;
+      if (subscription.cancel_at) {
+        cancelAt = new Date(subscription.cancel_at * 1000).toISOString();
+      }
     }
 
-    // Fetch plan_name and institution_id from local subscriptions table
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Get or create institution
+    let institutionId: string | null = null;
+    const { data: inst } = await serviceClient
+      .from("institutions")
+      .select("id")
+      .eq("owner_id", userId)
+      .maybeSingle();
+    
+    if (inst) {
+      institutionId = inst.id;
+    } else if (hasActiveSub) {
+      // Auto-create institution for new subscriber
+      const { data: newInst } = await serviceClient
+        .from("institutions")
+        .insert({ name: email.split("@")[0], owner_id: userId })
+        .select("id")
+        .single();
+      if (newInst) institutionId = newInst.id;
+    }
 
+    // Sync local subscription record
+    const planConfig = priceId ? PLAN_MAP[priceId] : null;
+    
     const { data: localSub } = await serviceClient
       .from("subscriptions")
-      .select("plan_name, institution_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
+      .select("id, plan_name, institution_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
       .eq("owner_id", userId)
-      .limit(1)
       .maybeSingle();
 
-    if (localSub) {
-      planName = localSub.plan_name;
-      institutionId = localSub.institution_id;
+    let planName = localSub?.plan_name ?? planConfig?.plan_name ?? null;
+    let subFeatures = {
+      max_ai_interactions: localSub?.max_ai_interactions ?? planConfig?.max_ai_interactions ?? 50,
+      ai_scenario_generation: localSub?.ai_scenario_generation ?? planConfig?.ai_scenario_generation ?? false,
+      peer_evaluation_enabled: localSub?.peer_evaluation_enabled ?? planConfig?.peer_evaluation_enabled ?? false,
+      badges_enabled: localSub?.badges_enabled ?? planConfig?.badges_enabled ?? false,
+      full_reports_enabled: localSub?.full_reports_enabled ?? planConfig?.full_reports_enabled ?? false,
+      whitelabel_enabled: localSub?.whitelabel_enabled ?? planConfig?.whitelabel_enabled ?? false,
+    };
+
+    if (hasActiveSub && institutionId) {
+      const subRecord = {
+        owner_id: userId,
+        institution_id: institutionId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: stripeSubscriptionId,
+        stripe_product_id: productId,
+        stripe_price_id: priceId,
+        status: activeSub!.status === "trialing" ? "trialing" : "active",
+        plan_name: planConfig?.plan_name ?? planName,
+        current_period_start: currentPeriodStart,
+        current_period_end: subscriptionEnd,
+        cancel_at: cancelAt,
+        max_students: planConfig?.max_students ?? 30,
+        max_rooms: planConfig?.max_rooms ?? 3,
+        max_ai_interactions: planConfig?.max_ai_interactions ?? 50,
+        ai_enabled: planConfig?.ai_enabled ?? true,
+        ai_scenario_generation: planConfig?.ai_scenario_generation ?? false,
+        peer_evaluation_enabled: planConfig?.peer_evaluation_enabled ?? false,
+        badges_enabled: planConfig?.badges_enabled ?? false,
+        full_reports_enabled: planConfig?.full_reports_enabled ?? false,
+        whitelabel_enabled: planConfig?.whitelabel_enabled ?? false,
+      };
+
+      if (localSub) {
+        // Update existing record
+        await serviceClient
+          .from("subscriptions")
+          .update(subRecord)
+          .eq("id", localSub.id);
+        planName = subRecord.plan_name;
+        subFeatures = {
+          max_ai_interactions: subRecord.max_ai_interactions,
+          ai_scenario_generation: subRecord.ai_scenario_generation,
+          peer_evaluation_enabled: subRecord.peer_evaluation_enabled,
+          badges_enabled: subRecord.badges_enabled,
+          full_reports_enabled: subRecord.full_reports_enabled,
+          whitelabel_enabled: subRecord.whitelabel_enabled,
+        };
+      } else {
+        // Create new record
+        await serviceClient
+          .from("subscriptions")
+          .insert(subRecord);
+        planName = subRecord.plan_name;
+        subFeatures = {
+          max_ai_interactions: subRecord.max_ai_interactions,
+          ai_scenario_generation: subRecord.ai_scenario_generation,
+          peer_evaluation_enabled: subRecord.peer_evaluation_enabled,
+          badges_enabled: subRecord.badges_enabled,
+          full_reports_enabled: subRecord.full_reports_enabled,
+          whitelabel_enabled: subRecord.whitelabel_enabled,
+        };
+      }
+
+      // Ensure user has institution_admin role
+      const { data: roleExists } = await serviceClient
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("role", "institution_admin")
+        .maybeSingle();
+      
+      if (!roleExists) {
+        await serviceClient
+          .from("user_roles")
+          .upsert({ user_id: userId, role: "institution_admin" }, { onConflict: "user_id,role" });
+      }
     }
 
-    // If user is not owner but is a member of an institution, find it
-    if (!institutionId) {
-      const { data: inst } = await serviceClient
-        .from("institutions")
-        .select("id")
-        .eq("owner_id", userId)
-        .maybeSingle();
-      if (inst) institutionId = inst.id;
+    // If not subscribed but local exists, sync cancel state
+    if (!hasActiveSub && localSub) {
+      await serviceClient
+        .from("subscriptions")
+        .update({ status: "canceled" })
+        .eq("id", localSub.id);
     }
 
     // Fetch AI interaction count for current month
     let aiInteractionsUsed = 0;
     if (institutionId) {
-      const monthYear = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+      const monthYear = new Date().toISOString().slice(0, 7);
       const { data: aiCount } = await serviceClient
         .from("ai_interaction_counts")
         .select("interaction_count")
@@ -116,12 +248,7 @@ serve(async (req) => {
       plan_name: planName,
       subscription_end: subscriptionEnd,
       institution_id: institutionId,
-      max_ai_interactions: localSub?.max_ai_interactions ?? 50,
-      ai_scenario_generation: localSub?.ai_scenario_generation ?? false,
-      peer_evaluation_enabled: localSub?.peer_evaluation_enabled ?? false,
-      badges_enabled: localSub?.badges_enabled ?? false,
-      full_reports_enabled: localSub?.full_reports_enabled ?? false,
-      whitelabel_enabled: localSub?.whitelabel_enabled ?? false,
+      ...subFeatures,
       ai_interactions_used: aiInteractionsUsed,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -137,13 +264,7 @@ serve(async (req) => {
 });
 
 // Helper: check local subscription for users who may not have a Stripe customer
-async function getLocalSubscription(userId: string) {
-  const serviceClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
-
-  // Check if user owns a subscription
+async function getLocalSubscription(userId: string, serviceClient: any) {
   const { data: sub } = await serviceClient
     .from("subscriptions")
     .select("plan_name, institution_id, status, current_period_end, stripe_product_id, max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled")
@@ -152,7 +273,6 @@ async function getLocalSubscription(userId: string) {
     .maybeSingle();
 
   if (sub) {
-    // Fetch AI interaction count
     let aiInteractionsUsed = 0;
     const monthYear = new Date().toISOString().slice(0, 7);
     const { data: aiCount } = await serviceClient
@@ -179,7 +299,6 @@ async function getLocalSubscription(userId: string) {
     };
   }
 
-  // Check if user's institution has active subscription
   const { data: inst } = await serviceClient
     .from("institutions")
     .select("id")

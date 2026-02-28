@@ -48,7 +48,7 @@ serve(async (req) => {
       customer_email: customerId ? undefined : customerEmail,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/auth?checkout=success`,
       cancel_url: `${origin}/pricing?subscription=canceled`,
       allow_promotion_codes: true,
       subscription_data: { trial_period_days: 14 },
