@@ -38,12 +38,27 @@ export default function AdminPanel() {
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
 
-  // For institution_admin, lock to their institution
+  // For institution_admin, resolve institution from subscription OR direct DB query
   useEffect(() => {
-    if (isInstitutionAdmin && subscription.institutionId) {
+    if (!isInstitutionAdmin || !session || loading) return;
+    
+    if (subscription.institutionId) {
       setSelectedInstitutionId(subscription.institutionId);
+      return;
     }
-  }, [isInstitutionAdmin, subscription.institutionId]);
+    
+    // Fallback: query institution directly from DB if subscription hasn't loaded yet
+    const resolveInstitution = async () => {
+      const { data } = await supabase
+        .from("institutions")
+        .select("id")
+        .maybeSingle();
+      if (data?.id) {
+        setSelectedInstitutionId(data.id);
+      }
+    };
+    resolveInstitution();
+  }, [isInstitutionAdmin, subscription.institutionId, session, loading]);
 
   useEffect(() => {
     if (session && !loading) fetchAll();
@@ -51,17 +66,17 @@ export default function AdminPanel() {
 
   // Fetch subscription for institution_admin
   useEffect(() => {
-    if (isInstitutionAdmin && subscription.institutionId) {
+    if (isInstitutionAdmin && selectedInstitutionId) {
       supabase
         .from("subscriptions")
         .select("*")
-        .eq("institution_id", subscription.institutionId)
+        .eq("institution_id", selectedInstitutionId)
         .maybeSingle()
         .then(({ data }) => {
           if (data) setMySubscription(data);
         });
     }
-  }, [isInstitutionAdmin, subscription.institutionId]);
+  }, [isInstitutionAdmin, selectedInstitutionId]);
 
   const fetchAll = async () => {
     console.log("[AdminPanel] fetchAll started, user:", user?.id);
@@ -110,12 +125,14 @@ export default function AdminPanel() {
   };
 
   // For institution_admin, filter data to their institution
-  const visibleInstitutions = isInstitutionAdmin && subscription.institutionId
-    ? institutions.filter((i) => i.id === subscription.institutionId)
+  const effectiveInstitutionId = isInstitutionAdmin ? selectedInstitutionId : null;
+  
+  const visibleInstitutions = effectiveInstitutionId
+    ? institutions.filter((i) => i.id === effectiveInstitutionId)
     : institutions;
 
-  const visibleCourses = isInstitutionAdmin && subscription.institutionId
-    ? courses.filter((c) => c.institution_id === subscription.institutionId)
+  const visibleCourses = effectiveInstitutionId
+    ? courses.filter((c) => c.institution_id === effectiveInstitutionId)
     : courses;
 
   const defaultTab = isSuperAdmin ? "institutions" : "courses";
@@ -162,7 +179,7 @@ export default function AdminPanel() {
             <TabsContent value="institutions">
               <InstitutionExplorer
                 onRefresh={fetchAll}
-                canCreate={isSuperAdmin || (isInstitutionAdmin && !subscription.institutionId)}
+                canCreate={isSuperAdmin || (isInstitutionAdmin && !selectedInstitutionId)}
                 readOnly={false}
                 isSuperAdmin={isSuperAdmin}
               />
@@ -176,17 +193,17 @@ export default function AdminPanel() {
           <TabsContent value="users">
             <CourseContextSelector
               institutions={visibleInstitutions} courses={visibleCourses}
-              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
-            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={false} subscription={mySubscription} />
+            <UsersTab profiles={profiles} courseMembers={courseMembers} selectedCourseId={selectedCourseId} selectedInstitutionId={selectedInstitutionId} institutions={visibleInstitutions} courses={visibleCourses} onRefresh={fetchAll} readOnly={false} subscription={mySubscription} />
           </TabsContent>
 
           <TabsContent value="groups">
             <CourseContextSelector
               institutions={visibleInstitutions} courses={visibleCourses}
-              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
@@ -201,7 +218,7 @@ export default function AdminPanel() {
           <TabsContent value="modules">
             <CourseContextSelector
               institutions={visibleInstitutions} courses={visibleCourses}
-              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
@@ -211,7 +228,7 @@ export default function AdminPanel() {
           <TabsContent value="scenarios">
             <CourseContextSelector
               institutions={visibleInstitutions} courses={visibleCourses}
-              selectedInstitutionId={isInstitutionAdmin && subscription.institutionId ? subscription.institutionId : selectedInstitutionId} selectedCourseId={selectedCourseId}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
               onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
               lockInstitution={isInstitutionAdmin && !isSuperAdmin}
             />
