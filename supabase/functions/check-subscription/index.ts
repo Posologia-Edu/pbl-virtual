@@ -61,12 +61,66 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     console.log("[CHECK-SUB] Listing Stripe customers for:", email);
-    const customers = await stripe.customers.list({ email, limit: 1 });
-    console.log("[CHECK-SUB] Stripe customers found:", customers.data.length);
+    let customers = await stripe.customers.list({ email, limit: 1 });
+    console.log("[CHECK-SUB] Stripe customers found by email:", customers.data.length);
+
+    // If no customer found by email, try to find via local subscription record
+    if (customers.data.length === 0) {
+      // Check if there's a local subscription with a stripe_customer_id we can use
+      const { data: localSubRecord } = await serviceClient
+        .from("subscriptions")
+        .select("stripe_customer_id")
+        .eq("owner_id", userId)
+        .not("stripe_customer_id", "is", null)
+        .maybeSingle();
+      
+      if (localSubRecord?.stripe_customer_id && !localSubRecord.stripe_customer_id.startsWith("invited_")) {
+        console.log("[CHECK-SUB] Found local stripe_customer_id:", localSubRecord.stripe_customer_id);
+        try {
+          const customer = await stripe.customers.retrieve(localSubRecord.stripe_customer_id);
+          if (customer && !customer.deleted) {
+            customers = { data: [customer] } as any;
+          }
+        } catch (e) {
+          console.log("[CHECK-SUB] Failed to retrieve customer:", e);
+        }
+      }
+    }
+
+    // If still no customer, try searching Stripe checkout sessions for this email
+    if (customers.data.length === 0) {
+      console.log("[CHECK-SUB] Trying checkout sessions search...");
+      try {
+        const sessions = await stripe.checkout.sessions.list({ 
+          customer_details: { email } as any,
+          limit: 5 
+        });
+        // Find a session with a customer
+        for (const session of sessions.data) {
+          if (session.customer) {
+            const custId = typeof session.customer === 'string' ? session.customer : session.customer.id;
+            console.log("[CHECK-SUB] Found customer from checkout session:", custId);
+            try {
+              const customer = await stripe.customers.retrieve(custId);
+              if (customer && !customer.deleted) {
+                // Update the customer's email for future lookups
+                await stripe.customers.update(custId, { email });
+                customers = { data: [customer] } as any;
+                break;
+              }
+            } catch (e) {
+              console.log("[CHECK-SUB] Failed to retrieve session customer:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.log("[CHECK-SUB] Checkout sessions search failed:", e);
+      }
+    }
 
     if (customers.data.length === 0) {
       // No Stripe customer — check if user has a local subscription via institution
-      console.log("[CHECK-SUB] No Stripe customer, checking local subscription");
+      console.log("[CHECK-SUB] No Stripe customer found, checking local subscription");
       const localSub = await getLocalSubscription(userId, serviceClient);
       return new Response(JSON.stringify({
         subscribed: localSub?.subscribed ?? false,
