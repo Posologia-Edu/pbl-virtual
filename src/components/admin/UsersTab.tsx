@@ -79,7 +79,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
     setCreating(true);
     try {
       const res = await supabase.functions.invoke("manage-users", {
-        body: { action: "create_user", email: newUserEmail, full_name: newUserName, role: newUserRole },
+        body: { action: "create_user", email: newUserEmail, full_name: newUserName, role: newUserRole, course_id: selectedCourseId },
       });
       if (res.error) {
         // Try to extract the detailed error message from the edge function response
