@@ -42,34 +42,39 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    // Find Stripe customer
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    if (customers.data.length === 0) throw new Error("No Stripe customer found");
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    // Collect candidate customer IDs (email lookup + local DB)
+    const candidateIds: string[] = [];
 
-    // Find active subscription
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
-
-    // Also check trialing
-    if (subscriptions.data.length === 0) {
-      const trialSubs = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "trialing",
-        limit: 1,
-      });
-      if (trialSubs.data.length > 0) {
-        subscriptions.data.push(trialSubs.data[0]);
-      }
+    const customers = await stripe.customers.list({ email: user.email, limit: 5 });
+    for (const c of customers.data) {
+      if (!candidateIds.includes(c.id)) candidateIds.push(c.id);
     }
 
-    if (subscriptions.data.length === 0) throw new Error("No active subscription found");
+    // Also check local subscriptions table for stripe_customer_id
+    const { data: localSub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (localSub?.stripe_customer_id && !candidateIds.includes(localSub.stripe_customer_id)) {
+      candidateIds.push(localSub.stripe_customer_id);
+    }
 
-    const sub = subscriptions.data[0];
+    logStep("Candidate customer IDs", { candidateIds });
+    if (candidateIds.length === 0) throw new Error("No Stripe customer found");
+
+    // Find active or trialing subscription across all candidate customers
+    let foundSub: any = null;
+    for (const cid of candidateIds) {
+      const activeSubs = await stripe.subscriptions.list({ customer: cid, status: "active", limit: 1 });
+      if (activeSubs.data.length > 0) { foundSub = activeSubs.data[0]; break; }
+      const trialSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 1 });
+      if (trialSubs.data.length > 0) { foundSub = trialSubs.data[0]; break; }
+    }
+
+    if (!foundSub) throw new Error("No active subscription found");
+
+    const sub = foundSub;
     logStep("Found subscription", { subId: sub.id, status: sub.status });
 
     // Cancel at period end
