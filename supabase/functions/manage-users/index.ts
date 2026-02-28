@@ -101,12 +101,28 @@ Deno.serve(async (req) => {
 
     // ACTION: create_user
     if (action === "create_user") {
-      const { email, full_name, role, password } = body;
+      const { email, full_name, role, password, course_id } = body;
       if (!email || !role) {
         return new Response(JSON.stringify({ error: "email and role required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Helper: check if a user is already enrolled in any course of a given institution
+      const isUserInInstitution = async (userId: string, institutionId: string): Promise<boolean> => {
+        const { data: memberships } = await adminClient
+          .from("course_members")
+          .select("course_id, courses!inner(institution_id)")
+          .eq("user_id", userId);
+        return (memberships || []).some((m: any) => m.courses?.institution_id === institutionId);
+      };
+
+      // Determine the institution_id from the course_id (if provided) or from callerInstitutionId
+      let targetInstitutionId = callerInstitutionId;
+      if (course_id && !targetInstitutionId) {
+        const { data: courseData } = await adminClient.from("courses").select("institution_id").eq("id", course_id).single();
+        targetInstitutionId = courseData?.institution_id || null;
       }
 
       // Generate a unique random password per user if none provided
@@ -119,7 +135,7 @@ Deno.serve(async (req) => {
 
       const userPassword = password || generateRandomPassword();
 
-      // Check if user already exists - use listUsers with filter for reliability
+      // Check if user already exists
       const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers({
         perPage: 1000,
       });
@@ -144,6 +160,17 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Check if user is already in this institution
+        if (targetInstitutionId) {
+          const alreadyInInstitution = await isUserInInstitution(existingUser.id, targetInstitutionId);
+          if (alreadyInInstitution) {
+            return new Response(
+              JSON.stringify({ error: "Este e-mail já está cadastrado nesta instituição." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
         // Check if user already has ANY role
         const { data: existingRoles } = await adminClient
           .from("user_roles")
@@ -155,7 +182,7 @@ Deno.serve(async (req) => {
         if (existingRoles && existingRoles.length > 0) {
           const currentRole = existingRoles[0].role;
           if (currentRole === role) {
-            // Same role, just link to course
+            // Same role, allow linking to another institution's course
             if (full_name) {
               await adminClient.from("profiles").upsert(
                 { user_id: existingUser.id, full_name },
