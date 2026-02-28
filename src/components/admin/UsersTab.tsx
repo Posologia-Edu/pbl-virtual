@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2, EyeOff, Eye, AlertTriangle } from "lucide-react";
+import { UserPlus, Users, Pencil, Trash2, User, GraduationCap, BookOpen, Building2, EyeOff, Eye, AlertTriangle, Upload } from "lucide-react";
 
 interface SubscriptionLimits {
   max_students: number | null;
@@ -30,6 +31,10 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("");
   const [creating, setCreating] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchText, setBatchText] = useState("");
+  const [batchRole, setBatchRole] = useState("");
+  const [batchCreating, setBatchCreating] = useState(false);
 
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
@@ -115,6 +120,75 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
     setCreating(false);
   };
 
+  const parseBatchLines = (text: string): { name: string; email: string }[] => {
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        // Support: "Name, email" or "Name; email" or "Name\temail"
+        const parts = line.split(/[,;\t]+/).map((p) => p.trim());
+        if (parts.length >= 2) {
+          const emailPart = parts.find((p) => p.includes("@"));
+          const namePart = parts.filter((p) => p !== emailPart).join(" ");
+          return { name: namePart || parts[0], email: emailPart || parts[1] };
+        }
+        // If only one part and it's an email, use email prefix as name
+        if (line.includes("@")) return { name: line.split("@")[0], email: line };
+        return { name: "", email: "" };
+      })
+      .filter((u) => u.name && u.email && u.email.includes("@"));
+  };
+
+  const createBatchUsers = async () => {
+    if (!batchText.trim() || !batchRole || !selectedCourseId) {
+      toast({ title: "Erro", description: "Preencha todos os campos e selecione um curso.", variant: "destructive" });
+      return;
+    }
+    const users = parseBatchLines(batchText);
+    if (users.length === 0) {
+      toast({ title: "Erro", description: "Nenhum usuário válido encontrado. Use o formato: Nome, email@exemplo.com", variant: "destructive" });
+      return;
+    }
+
+    setBatchCreating(true);
+    let created = 0;
+    let errors = 0;
+    const errorMessages: string[] = [];
+
+    for (const u of users) {
+      try {
+        const res = await supabase.functions.invoke("manage-users", {
+          body: { action: "create_user", email: u.email, full_name: u.name, role: batchRole, course_id: selectedCourseId },
+        });
+        if (res.error || res.data?.error) {
+          errors++;
+          errorMessages.push(`${u.email}: ${res.data?.error || res.error?.message || "Erro"}`);
+        } else {
+          const userId = res.data?.user_id;
+          if (userId && selectedCourseId) {
+            await supabase.from("course_members").upsert({ course_id: selectedCourseId, user_id: userId }, { onConflict: "course_id,user_id" });
+          }
+          created++;
+        }
+      } catch {
+        errors++;
+        errorMessages.push(`${u.email}: Erro de rede`);
+      }
+    }
+
+    if (created > 0) {
+      toast({ title: `${created} usuário(s) cadastrado(s)!`, description: errors > 0 ? `${errors} falha(s)` : undefined });
+      setBatchText("");
+      onRefresh();
+    }
+    if (errors > 0 && created === 0) {
+      toast({ title: "Falha no cadastro em lote", description: errorMessages.slice(0, 3).join("\n"), variant: "destructive" });
+    }
+    setBatchCreating(false);
+  };
+
+
   const updateUser = async () => {
     if (!editingUser) return;
     setSaving(true);
@@ -197,8 +271,20 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
     <div>
       {!readOnly && (
       <div className="clinical-card p-6 max-w-lg mb-8">
-        <h3 className="mb-4 text-base font-semibold text-foreground">Cadastrar Novo Usuário</h3>
-        <p className="text-xs text-muted-foreground mb-4">O usuário será vinculado ao curso selecionado.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-semibold text-foreground">
+            {batchMode ? "Cadastro em Lote" : "Cadastrar Novo Usuário"}
+          </h3>
+          <Button variant="ghost" size="sm" onClick={() => setBatchMode(!batchMode)} className="gap-1.5 text-xs">
+            {batchMode ? <UserPlus className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+            {batchMode ? "Individual" : "Em Lote"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          {batchMode
+            ? "Cole uma lista com um usuário por linha no formato: Nome Completo, email@exemplo.com"
+            : "O usuário será vinculado ao curso selecionado."}
+        </p>
 
         {/* Student limit banner */}
         {studentLimitReached && (
@@ -227,29 +313,61 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
             </div>
           </div>
         )}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nome Completo</Label>
-            <Input placeholder="Nome do usuário" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+
+        {batchMode ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Papel</Label>
+              <Select value={batchRole} onValueChange={setBatchRole}>
+                <SelectTrigger><SelectValue placeholder="Selecionar papel" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professor">Professor</SelectItem>
+                  <SelectItem value="student">Aluno</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Lista de Usuários</Label>
+              <Textarea
+                placeholder={"João Silva, joao@email.com\nMaria Santos, maria@email.com\nCarlos Lima, carlos@email.com"}
+                value={batchText}
+                onChange={(e) => setBatchText(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Formato: <code>Nome Completo, email</code> — um por linha. Também aceita separação por <code>;</code> ou <code>tab</code>.
+              </p>
+            </div>
+            <Button onClick={createBatchUsers} disabled={batchCreating || !batchText.trim() || !batchRole || (batchRole === "student" && studentLimitReached)}>
+              <Upload className="mr-2 h-4 w-4" />{batchCreating ? "Cadastrando..." : "Cadastrar em Lote"}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input type="email" placeholder="email@exemplo.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input placeholder="Nome do usuário" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" placeholder="email@exemplo.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Papel</Label>
+              <Select value={newUserRole} onValueChange={setNewUserRole}>
+                <SelectTrigger><SelectValue placeholder="Selecionar papel" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professor">Professor</SelectItem>
+                  <SelectItem value="student">Aluno</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole || (newUserRole === "student" && studentLimitReached)}>
+              <UserPlus className="mr-2 h-4 w-4" />{creating ? "Criando..." : "Cadastrar Usuário"}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Papel</Label>
-            <Select value={newUserRole} onValueChange={setNewUserRole}>
-              <SelectTrigger><SelectValue placeholder="Selecionar papel" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="professor">Professor</SelectItem>
-                <SelectItem value="student">Aluno</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={createUser} disabled={creating || !newUserName || !newUserEmail || !newUserRole || (newUserRole === "student" && studentLimitReached)}>
-            <UserPlus className="mr-2 h-4 w-4" />{creating ? "Criando..." : "Cadastrar Usuário"}
-          </Button>
-        </div>
+        )}
       </div>
       )}
 

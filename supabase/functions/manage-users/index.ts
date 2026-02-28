@@ -229,9 +229,12 @@ Deno.serve(async (req) => {
           // The user keeps their existing role but gets added to the course
           if (full_name) {
             await adminClient.from("profiles").upsert(
-              { user_id: existingUser.id, full_name },
+              { user_id: existingUser.id, full_name, is_demo_user: false, onboarding_completed: true },
               { onConflict: "user_id" }
             );
+          } else if (targetInstitutionId) {
+            // Even without name update, mark as non-demo when linking to institution
+            await adminClient.from("profiles").update({ is_demo_user: false, onboarding_completed: true }).eq("user_id", existingUser.id);
           }
           const roleLabel = currentRole === "professor" ? "Professor" : currentRole === "student" ? "Aluno" : currentRole === "institution_admin" ? "Admin Institucional" : currentRole;
           return new Response(
@@ -285,6 +288,14 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Set is_demo_user = false for users created within an institution context
+      if (targetInstitutionId) {
+        await adminClient.from("profiles").upsert(
+          { user_id: newUser.user.id, full_name: full_name || email, is_demo_user: false, onboarding_completed: true },
+          { onConflict: "user_id" }
+        );
       }
 
       // Assign role (upsert to handle trigger-created default role)
