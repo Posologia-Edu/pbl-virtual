@@ -60,13 +60,29 @@ Deno.serve(async (req) => {
     );
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    console.log("[CHECK-SUB] Listing Stripe customers for:", email);
-    let customers = await stripe.customers.list({ email, limit: 1 });
-    console.log("[CHECK-SUB] Stripe customers found by email:", customers.data.length);
+    console.log("[CHECK-SUB] Looking for subscription for:", email);
+    
+    // Strategy: Find the customer that actually has an active/trialing subscription
+    let customerId: string | null = null;
+    let activeSub: any = null;
 
-    // If no customer found by email, try to find via local subscription record
-    if (customers.data.length === 0) {
-      // Check if there's a local subscription with a stripe_customer_id we can use
+    // 1. Try finding customer by email
+    const customersByEmail = await stripe.customers.list({ email, limit: 5 });
+    console.log("[CHECK-SUB] Customers found by email:", customersByEmail.data.length);
+    
+    for (const cust of customersByEmail.data) {
+      const subs = await stripe.subscriptions.list({ customer: cust.id, limit: 1 });
+      const found = subs.data.find(s => s.status === "active" || s.status === "trialing");
+      if (found) {
+        customerId = cust.id;
+        activeSub = found;
+        console.log("[CHECK-SUB] Found active sub via customer email:", cust.id);
+        break;
+      }
+    }
+
+    // 2. If not found, check local subscription record for stripe_customer_id
+    if (!activeSub) {
       const { data: localSubRecord } = await serviceClient
         .from("subscriptions")
         .select("stripe_customer_id")
@@ -75,52 +91,78 @@ Deno.serve(async (req) => {
         .maybeSingle();
       
       if (localSubRecord?.stripe_customer_id && !localSubRecord.stripe_customer_id.startsWith("invited_")) {
-        console.log("[CHECK-SUB] Found local stripe_customer_id:", localSubRecord.stripe_customer_id);
+        console.log("[CHECK-SUB] Trying local stripe_customer_id:", localSubRecord.stripe_customer_id);
         try {
-          const customer = await stripe.customers.retrieve(localSubRecord.stripe_customer_id);
-          if (customer && !customer.deleted) {
-            customers = { data: [customer] } as any;
+          const subs = await stripe.subscriptions.list({ customer: localSubRecord.stripe_customer_id, limit: 1 });
+          const found = subs.data.find(s => s.status === "active" || s.status === "trialing");
+          if (found) {
+            customerId = localSubRecord.stripe_customer_id;
+            activeSub = found;
           }
         } catch (e) {
-          console.log("[CHECK-SUB] Failed to retrieve customer:", e);
+          console.log("[CHECK-SUB] Local customer lookup failed:", e);
         }
       }
     }
 
-    // If still no customer, try searching Stripe checkout sessions for this email
-    if (customers.data.length === 0) {
-      console.log("[CHECK-SUB] Trying checkout sessions search...");
+    // 3. If still not found, search all active/trialing subscriptions and match by customer email
+    if (!activeSub) {
+      console.log("[CHECK-SUB] Trying subscriptions search...");
       try {
-        const sessions = await stripe.checkout.sessions.list({ 
-          customer_details: { email } as any,
-          limit: 5 
-        });
-        // Find a session with a customer
-        for (const session of sessions.data) {
-          if (session.customer) {
-            const custId = typeof session.customer === 'string' ? session.customer : session.customer.id;
-            console.log("[CHECK-SUB] Found customer from checkout session:", custId);
-            try {
-              const customer = await stripe.customers.retrieve(custId);
-              if (customer && !customer.deleted) {
-                // Update the customer's email for future lookups
-                await stripe.customers.update(custId, { email });
-                customers = { data: [customer] } as any;
-                break;
+        const allSubs = await stripe.subscriptions.list({ status: "trialing", limit: 20 });
+        for (const sub of allSubs.data) {
+          const custId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+          try {
+            const cust = await stripe.customers.retrieve(custId);
+            // Check if this customer was created via checkout with this email
+            if (!cust.deleted) {
+              // Try to match - check customer email or look at checkout session
+              const sessions = await stripe.checkout.sessions.list({ 
+                subscription: sub.id, 
+                limit: 1,
+                expand: ["data.customer_details"]
+              });
+              if (sessions.data.length > 0) {
+                const sessionEmail = sessions.data[0].customer_details?.email;
+                console.log("[CHECK-SUB] Sub", sub.id, "session email:", sessionEmail);
+                if (sessionEmail?.toLowerCase() === email.toLowerCase()) {
+                  customerId = custId;
+                  activeSub = sub;
+                  await stripe.customers.update(custId, { email });
+                  console.log("[CHECK-SUB] Found! Updated customer email:", custId);
+                  break;
+                }
               }
-            } catch (e) {
-              console.log("[CHECK-SUB] Failed to retrieve session customer:", e);
+            }
+          } catch (e) {
+            // skip
+          }
+        }
+        // Also check active
+        if (!activeSub) {
+          const activeSubs = await stripe.subscriptions.list({ status: "active", limit: 20 });
+          for (const sub of activeSubs.data) {
+            const custId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+            const sessions = await stripe.checkout.sessions.list({ subscription: sub.id, limit: 1, expand: ["data.customer_details"] });
+            if (sessions.data.length > 0 && sessions.data[0].customer_details?.email?.toLowerCase() === email.toLowerCase()) {
+              customerId = custId;
+              activeSub = sub;
+              await stripe.customers.update(custId, { email });
+              console.log("[CHECK-SUB] Found active! Updated customer email:", custId);
+              break;
             }
           }
         }
       } catch (e) {
-        console.log("[CHECK-SUB] Checkout sessions search failed:", e);
+        console.log("[CHECK-SUB] Subscriptions search failed:", e);
       }
     }
 
-    if (customers.data.length === 0) {
-      // No Stripe customer — check if user has a local subscription via institution
-      console.log("[CHECK-SUB] No Stripe customer found, checking local subscription");
+    const hasActiveSub = !!activeSub;
+    console.log("[CHECK-SUB] Has active/trialing sub:", hasActiveSub, "customerId:", customerId);
+
+    if (!hasActiveSub) {
+      // No active subscription anywhere — check local
       const localSub = await getLocalSubscription(userId, serviceClient);
       return new Response(JSON.stringify({
         subscribed: localSub?.subscribed ?? false,
@@ -141,21 +183,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const customerId = customers.data[0].id;
-    console.log("[CHECK-SUB] Customer:", customerId);
-    
-    // Check active or trialing subscriptions
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      limit: 1,
-    });
-    console.log("[CHECK-SUB] Subscriptions found:", subscriptions.data.length, "statuses:", subscriptions.data.map(s => s.status));
-    
-    // Filter to active or trialing
-    const activeSub = subscriptions.data.find(s => s.status === "active" || s.status === "trialing");
-    const hasActiveSub = !!activeSub;
-    console.log("[CHECK-SUB] Has active/trialing sub:", hasActiveSub);
-    
     let productId = null;
     let subscriptionEnd = null;
     let priceId = null;
@@ -163,16 +190,14 @@ Deno.serve(async (req) => {
     let currentPeriodStart = null;
     let cancelAt = null;
 
-    if (hasActiveSub) {
-      const subscription = activeSub!;
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
-      productId = subscription.items.data[0].price.product as string;
-      priceId = subscription.items.data[0].price.id;
-      stripeSubscriptionId = subscription.id;
-      if (subscription.cancel_at) {
-        cancelAt = new Date(subscription.cancel_at * 1000).toISOString();
-      }
+    const subscription = activeSub;
+    subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+    productId = subscription.items.data[0].price.product as string;
+    priceId = subscription.items.data[0].price.id;
+    stripeSubscriptionId = subscription.id;
+    if (subscription.cancel_at) {
+      cancelAt = new Date(subscription.cancel_at * 1000).toISOString();
     }
 
     // Get or create institution

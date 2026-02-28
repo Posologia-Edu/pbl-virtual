@@ -39,13 +39,16 @@ serve(async (req) => {
         const customers = await stripe.customers.list({ email: customerEmail, limit: 1 });
         if (customers.data.length > 0) {
           customerId = customers.data[0].id;
+        } else {
+          // Always create the customer with email so it's searchable later
+          const newCustomer = await stripe.customers.create({ email: customerEmail, name: data.user.user_metadata?.full_name || customerEmail });
+          customerId = newCustomer.id;
         }
       }
     }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_email: customerId ? undefined : customerEmail,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       success_url: `${origin}/auth?checkout=success`,
