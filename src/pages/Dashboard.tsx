@@ -23,8 +23,15 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 export default function Dashboard() {
-  const { user, isAdmin, isProfessor, isStudent, isInstitutionAdmin, profile, subscription } = useAuth();
+  const { user, isAdmin, isProfessor, isStudent, isInstitutionAdmin, profile, subscription, isDemoUser } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect demo users to demo session
+  useEffect(() => {
+    if (isDemoUser) {
+      navigate("/demo", { replace: true });
+    }
+  }, [isDemoUser, navigate]);
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<any[]>([]);
   const [allRooms, setAllRooms] = useState<any[]>([]);
