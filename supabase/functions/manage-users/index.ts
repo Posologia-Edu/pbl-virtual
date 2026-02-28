@@ -181,23 +181,24 @@ Deno.serve(async (req) => {
 
         if (existingRoles && existingRoles.length > 0) {
           const currentRole = existingRoles[0].role;
-          if (currentRole === role) {
-            // Same role, allow linking to another institution's course
-            if (full_name) {
-              await adminClient.from("profiles").upsert(
-                { user_id: existingUser.id, full_name },
-                { onConflict: "user_id" }
-              );
-            }
-            return new Response(
-              JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          // Allow linking to course regardless of role difference (multi-tenant support)
+          // The user keeps their existing role but gets added to the course
+          if (full_name) {
+            await adminClient.from("profiles").upsert(
+              { user_id: existingUser.id, full_name },
+              { onConflict: "user_id" }
             );
           }
-          const roleLabel = currentRole === "professor" ? "Professor" : currentRole === "student" ? "Aluno" : currentRole;
+          const roleLabel = currentRole === "professor" ? "Professor" : currentRole === "student" ? "Aluno" : currentRole === "institution_admin" ? "Admin Institucional" : currentRole;
           return new Response(
-            JSON.stringify({ error: `Usuário já cadastrado como ${roleLabel}. Cada usuário só pode ter um papel.` }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ 
+              user_id: existingUser.id, 
+              email, 
+              role: currentRole, 
+              existing: true,
+              note: currentRole !== role ? `Usuário mantém o papel ${roleLabel}. Vinculado ao curso com sucesso.` : undefined
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
