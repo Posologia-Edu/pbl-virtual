@@ -27,11 +27,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Redirect demo users to demo session on first load
+  // Only for non-subscribers who haven't completed onboarding
   useEffect(() => {
-    if (isDemoUser && !profile?.onboarding_completed) {
+    if (isDemoUser && !profile?.onboarding_completed && !subscription.subscribed && !subscription.institutionId) {
       navigate("/demo", { replace: true });
     }
-  }, [isDemoUser, profile?.onboarding_completed, navigate]);
+  }, [isDemoUser, profile?.onboarding_completed, subscription.subscribed, subscription.institutionId, navigate]);
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<any[]>([]);
   const [allRooms, setAllRooms] = useState<any[]>([]);

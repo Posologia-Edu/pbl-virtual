@@ -323,15 +323,50 @@ Deno.serve(async (req) => {
 
     // Fetch AI interaction count for current month
     let aiInteractionsUsed = 0;
-    if (institutionId) {
+    let effectiveInstitutionId = institutionId;
+    
+    // For non-owner users (e.g., professors), resolve institution via course membership
+    if (!effectiveInstitutionId) {
+      const { data: memberCourses } = await serviceClient
+        .from("course_members")
+        .select("course_id, courses!inner(institution_id)")
+        .eq("user_id", userId)
+        .limit(1);
+      if (memberCourses && memberCourses.length > 0) {
+        effectiveInstitutionId = (memberCourses[0].courses as any)?.institution_id ?? null;
+      }
+    }
+    
+    if (effectiveInstitutionId) {
       const monthYear = new Date().toISOString().slice(0, 7);
       const { data: aiCount } = await serviceClient
         .from("ai_interaction_counts")
         .select("interaction_count")
-        .eq("institution_id", institutionId)
+        .eq("institution_id", effectiveInstitutionId)
         .eq("month_year", monthYear)
         .maybeSingle();
       aiInteractionsUsed = aiCount?.interaction_count ?? 0;
+      
+      // For professors, also fetch the institution's subscription limits
+      if (!institutionId && effectiveInstitutionId) {
+        const { data: instSub } = await serviceClient
+          .from("subscriptions")
+          .select("max_ai_interactions, ai_scenario_generation, peer_evaluation_enabled, badges_enabled, full_reports_enabled, whitelabel_enabled, plan_name")
+          .eq("institution_id", effectiveInstitutionId)
+          .in("status", ["active", "trialing"])
+          .maybeSingle();
+        if (instSub) {
+          subFeatures = {
+            max_ai_interactions: instSub.max_ai_interactions ?? 50,
+            ai_scenario_generation: instSub.ai_scenario_generation ?? false,
+            peer_evaluation_enabled: instSub.peer_evaluation_enabled ?? false,
+            badges_enabled: instSub.badges_enabled ?? false,
+            full_reports_enabled: instSub.full_reports_enabled ?? false,
+            whitelabel_enabled: instSub.whitelabel_enabled ?? false,
+          };
+          if (!planName) planName = instSub.plan_name;
+        }
+      }
     }
 
     return new Response(JSON.stringify({
