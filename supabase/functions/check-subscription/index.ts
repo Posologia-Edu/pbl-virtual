@@ -177,10 +177,11 @@ serve(async (req) => {
 
       if (localSub) {
         // Update existing record
-        await serviceClient
+        const { error: updateErr } = await serviceClient
           .from("subscriptions")
           .update(subRecord)
           .eq("id", localSub.id);
+        if (updateErr) console.error("[CHECK-SUB] Update error:", JSON.stringify(updateErr));
         planName = subRecord.plan_name;
         subFeatures = {
           max_ai_interactions: subRecord.max_ai_interactions,
@@ -192,9 +193,12 @@ serve(async (req) => {
         };
       } else {
         // Create new record
-        await serviceClient
+        console.log("[CHECK-SUB] Inserting subscription for user:", userId, "institution:", institutionId);
+        const { error: insertErr } = await serviceClient
           .from("subscriptions")
           .insert(subRecord);
+        if (insertErr) console.error("[CHECK-SUB] Insert error:", JSON.stringify(insertErr));
+        else console.log("[CHECK-SUB] Subscription inserted successfully");
         planName = subRecord.plan_name;
         subFeatures = {
           max_ai_interactions: subRecord.max_ai_interactions,

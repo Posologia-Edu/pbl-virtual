@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CreditCard, ExternalLink, Loader2, CheckCircle2, Users, DoorOpen, AlertTriangle, XCircle } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2, CheckCircle2, Users, DoorOpen, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SubscriptionData {
@@ -27,6 +27,7 @@ interface SubscriptionData {
   ai_enabled: boolean | null;
   whitelabel_enabled: boolean | null;
   current_period_end: string | null;
+  current_period_start: string | null;
   stripe_customer_id: string;
   cancel_at: string | null;
 }
@@ -40,9 +41,41 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
   const { refreshSubscription } = useAuth();
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [loadingCancel, setLoadingCancel] = useState(false);
+  const [trialCountdown, setTrialCountdown] = useState("");
 
   const isInvited = subscription?.stripe_customer_id?.startsWith("invited_");
   const isCanceled = subscription?.status === "canceled" || !!subscription?.cancel_at;
+  const isTrialing = subscription?.status === "trialing";
+
+  // Trial countdown timer
+  useEffect(() => {
+    if (!isTrialing || !subscription?.current_period_end) return;
+
+    const updateCountdown = () => {
+      const end = new Date(subscription.current_period_end!).getTime();
+      const now = Date.now();
+      const diff = end - now;
+
+      if (diff <= 0) {
+        setTrialCountdown("Expirado");
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (days > 0) {
+        setTrialCountdown(`${days}d ${hours}h ${minutes}m`);
+      } else {
+        setTrialCountdown(`${hours}h ${minutes}m`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000);
+    return () => clearInterval(interval);
+  }, [isTrialing, subscription?.current_period_end]);
 
   const handleManageSubscription = async () => {
     setLoadingPortal(true);
@@ -106,18 +139,49 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
               className={
                 isCanceled
                   ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : subscription.status === "active"
-                    ? "border-green-300 bg-green-50 text-green-700"
-                    : "border-red-300 bg-red-50 text-red-700"
+                  : isTrialing
+                    ? "border-blue-300 bg-blue-50 text-blue-700"
+                    : subscription.status === "active"
+                      ? "border-green-300 bg-green-50 text-green-700"
+                      : "border-red-300 bg-red-50 text-red-700"
               }
             >
               {isCanceled ? (
                 <><AlertTriangle className="mr-1 h-3 w-3" /> Cancelamento agendado</>
+              ) : isTrialing ? (
+                <><Clock className="mr-1 h-3 w-3" /> Período de teste</>
               ) : (
                 <><CheckCircle2 className="mr-1 h-3 w-3" /> {subscription.status === "active" ? "Ativo" : subscription.status}</>
               )}
             </Badge>
           </div>
+
+          {/* Trial notice */}
+          {isTrialing && subscription.current_period_end && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-800">Período de teste gratuito</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Você está no período de teste do plano <strong className="capitalize">{subscription.plan_name}</strong>.
+                    Os limites e travas do plano já estão ativos durante o trial.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="rounded-lg bg-blue-100 px-3 py-1.5">
+                      <p className="text-xs text-blue-600 font-medium">Tempo restante</p>
+                      <p className="text-lg font-bold text-blue-800">{trialCountdown}</p>
+                    </div>
+                    <div className="text-xs text-blue-600">
+                      O pagamento será cobrado em{" "}
+                      <strong>{new Date(subscription.current_period_end).toLocaleDateString("pt-BR")}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           {/* Cancel notice */}
           {isCanceled && subscription.cancel_at && (
