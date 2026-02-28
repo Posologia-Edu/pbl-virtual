@@ -125,6 +125,10 @@ serve(async (req) => {
       }
       logStep("Role assigned: institution_admin");
 
+      // Mark user as no longer a demo user
+      await supabaseAdmin.from("profiles").update({ is_demo_user: false, onboarding_completed: true }).eq("user_id", user.id);
+      logStep("User marked as non-demo");
+
       // 3. Handle subscription based on flow
       if (action === "setup-invited") {
         // Invited admin: create free courtesy subscription

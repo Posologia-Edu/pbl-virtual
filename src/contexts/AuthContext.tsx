@@ -19,13 +19,21 @@ interface SubscriptionInfo {
   aiInteractionsUsed: number;
 }
 
+interface ProfileInfo {
+  full_name: string;
+  is_demo_user: boolean;
+  onboarding_completed: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   roles: AppRole[];
-  profile: { full_name: string } | null;
+  profile: ProfileInfo | null;
   loading: boolean;
   subscription: SubscriptionInfo;
+  isDemoUser: boolean;
+  onboardingCompleted: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<void>;
@@ -58,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [profile, setProfile] = useState<{ full_name: string } | null>(null);
+  const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo>(defaultSubscription);
   const [initialSessionLoaded, setInitialSessionLoaded] = useState(false);
@@ -66,10 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("profiles").select("full_name").eq("user_id", userId).single(),
+      supabase.from("profiles").select("full_name, is_demo_user, onboarding_completed").eq("user_id", userId).single(),
     ]);
     if (rolesRes.data) setRoles(rolesRes.data.map((r: any) => r.role as AppRole));
-    if (profileRes.data) setProfile(profileRes.data);
+    if (profileRes.data) setProfile(profileRes.data as any);
   };
 
   const refreshSubscription = useCallback(async () => {
@@ -171,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin + "/dashboard" },
+      options: { redirectTo: window.location.origin + "/demo" },
     });
   };
 
@@ -188,6 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isProfessor: roles.includes("professor"),
         isStudent: roles.includes("student"),
         isInstitutionAdmin: roles.includes("institution_admin"),
+        isDemoUser: profile?.is_demo_user ?? false,
+        onboardingCompleted: profile?.onboarding_completed ?? true,
       }}
     >
       {children}
