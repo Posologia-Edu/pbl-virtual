@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
@@ -26,7 +25,7 @@ const PLAN_MAP: Record<string, { plan_name: string; max_students: number; max_ro
   },
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -37,6 +36,7 @@ serve(async (req) => {
   );
 
   try {
+    console.log("[CHECK-SUB] Function started");
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
@@ -44,12 +44,15 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) throw new Error(`Auth error: ${claimsError?.message || "Invalid token"}`);
     
-    const email = claimsData.claims.email as string;
-    const userId = claimsData.claims.sub as string;
+    // Use getUser for reliable auth - getClaims may not be available
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !userData.user) throw new Error(`Auth error: ${userError?.message || "Invalid token"}`);
+    
+    const email = userData.user.email as string;
+    const userId = userData.user.id;
     if (!email) throw new Error("User not authenticated");
+    console.log("[CHECK-SUB] User authenticated:", userId, email);
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -57,10 +60,13 @@ serve(async (req) => {
     );
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    console.log("[CHECK-SUB] Listing Stripe customers for:", email);
     const customers = await stripe.customers.list({ email, limit: 1 });
+    console.log("[CHECK-SUB] Stripe customers found:", customers.data.length);
 
     if (customers.data.length === 0) {
       // No Stripe customer — check if user has a local subscription via institution
+      console.log("[CHECK-SUB] No Stripe customer, checking local subscription");
       const localSub = await getLocalSubscription(userId, serviceClient);
       return new Response(JSON.stringify({
         subscribed: localSub?.subscribed ?? false,
@@ -82,16 +88,19 @@ serve(async (req) => {
     }
 
     const customerId = customers.data[0].id;
+    console.log("[CHECK-SUB] Customer:", customerId);
     
     // Check active or trialing subscriptions
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       limit: 1,
     });
+    console.log("[CHECK-SUB] Subscriptions found:", subscriptions.data.length, "statuses:", subscriptions.data.map(s => s.status));
     
     // Filter to active or trialing
     const activeSub = subscriptions.data.find(s => s.status === "active" || s.status === "trialing");
     const hasActiveSub = !!activeSub;
+    console.log("[CHECK-SUB] Has active/trialing sub:", hasActiveSub);
     
     let productId = null;
     let subscriptionEnd = null;
