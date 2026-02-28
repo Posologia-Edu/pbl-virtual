@@ -47,7 +47,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (user) fetchAll();
-  }, [user?.id]);
+  }, [user?.id, subscription.institutionId]);
 
   // Fetch subscription for institution_admin
   useEffect(() => {
@@ -64,6 +64,7 @@ export default function AdminPanel() {
   }, [isInstitutionAdmin, subscription.institutionId]);
 
   const fetchAll = async () => {
+    console.log("[AdminPanel] fetchAll started, user:", user?.id);
     const [profilesRes, rolesRes, groupsRes, roomsRes, modulesRes, scenariosRes, instRes, coursesRes, cmRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("user_roles").select("*"),
@@ -75,6 +76,8 @@ export default function AdminPanel() {
       supabase.from("courses").select("*").order("created_at", { ascending: false }),
       supabase.from("course_members").select("*"),
     ]);
+
+    console.log("[AdminPanel] institutions fetched:", instRes.data?.length, instRes.error, "subscription.institutionId:", subscription.institutionId);
 
     if (profilesRes.data) {
       const rolesMap: Record<string, any[]> = {};
