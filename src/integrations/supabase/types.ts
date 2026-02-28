@@ -17,6 +17,7 @@ export type Database = {
       admin_invites: {
         Row: {
           activated_at: string | null
+          assigned_plan: string | null
           created_at: string
           email: string
           id: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          assigned_plan?: string | null
           created_at?: string
           email: string
           id?: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          assigned_plan?: string | null
           created_at?: string
           email?: string
           id?: string

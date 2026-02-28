@@ -235,11 +235,14 @@ export default function SubscriptionTab({ subscription, onRefresh }: Subscriptio
           )}
 
           {isInvited && (
-            <div className="pt-4 border-t border-border/50">
+            <div className="pt-4 border-t border-border/50 space-y-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                Acesso cortesia — sem cobrança recorrente
+                Plano atribuído pelo administrador do sistema — sem cobrança recorrente
               </div>
+              <p className="text-xs text-muted-foreground">
+                Para alterar seu plano, entre em contato com o administrador do sistema.
+              </p>
             </div>
           )}
         </CardContent>

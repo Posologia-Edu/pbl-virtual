@@ -131,26 +131,42 @@ serve(async (req) => {
 
       // 3. Handle subscription based on flow
       if (action === "setup-invited") {
-        // Invited admin: create free courtesy subscription
+        // Invited admin: fetch assigned_plan from invite
+        const { data: inviteRecord } = await supabaseAdmin
+          .from("admin_invites")
+          .select("assigned_plan")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const assignedPlan = inviteRecord?.assigned_plan || "starter";
+
+        // Map plan name to tier limits
+        const INVITED_TIERS: Record<string, typeof TIERS[string]> = {
+          starter: TIERS["prod_U22MNDlQOLbcmr"],
+          professional: TIERS["prod_U22Mmhx6hjqTAQ"],
+          enterprise: TIERS["prod_U22M2hz40qmRsN"],
+        };
+        const tier = INVITED_TIERS[assignedPlan] || INVITED_TIERS["starter"];
+
         await supabaseAdmin.from("subscriptions").insert({
           institution_id: institution.id,
           owner_id: user.id,
           stripe_customer_id: `invited_${user.id}`,
           status: "active",
-          plan_name: "Convidado (Cortesia)",
-          max_students: 999,
-          max_rooms: 999,
-          ai_enabled: true,
-          whitelabel_enabled: true,
-          max_ai_interactions: 99999,
-          ai_scenario_generation: true,
-          peer_evaluation_enabled: true,
-          badges_enabled: true,
-          full_reports_enabled: true,
+          plan_name: assignedPlan,
+          max_students: tier.max_students,
+          max_rooms: tier.max_rooms,
+          ai_enabled: tier.ai_enabled,
+          whitelabel_enabled: tier.whitelabel_enabled,
+          max_ai_interactions: tier.max_ai_interactions,
+          ai_scenario_generation: tier.ai_scenario_generation,
+          peer_evaluation_enabled: tier.peer_evaluation_enabled,
+          badges_enabled: tier.badges_enabled,
+          full_reports_enabled: tier.full_reports_enabled,
           current_period_start: new Date().toISOString(),
           current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
         });
-        logStep("Courtesy subscription created for invited admin");
+        logStep("Subscription created for invited admin", { plan: assignedPlan });
 
         // Update invite record with institution_id and mark as active
         await supabaseAdmin
