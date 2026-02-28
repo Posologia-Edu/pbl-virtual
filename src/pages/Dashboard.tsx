@@ -26,12 +26,12 @@ export default function Dashboard() {
   const { user, isAdmin, isProfessor, isStudent, isInstitutionAdmin, profile, subscription, isDemoUser } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect demo users to demo session
+  // Redirect demo users to demo session on first load
   useEffect(() => {
-    if (isDemoUser) {
+    if (isDemoUser && !profile?.onboarding_completed) {
       navigate("/demo", { replace: true });
     }
-  }, [isDemoUser, navigate]);
+  }, [isDemoUser, profile?.onboarding_completed, navigate]);
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<any[]>([]);
   const [allRooms, setAllRooms] = useState<any[]>([]);
@@ -174,7 +174,30 @@ export default function Dashboard() {
 
         {/* Content */}
         <div className="px-6 py-6 lg:px-10 lg:py-8 max-w-7xl mx-auto space-y-8">
-          {/* Setup banner for institution_admin without institution */}
+          {/* Demo user upgrade banner */}
+          {isDemoUser && (
+            <div className="clinical-card p-6 border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent animate-fade-in">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                  <GraduationCap className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-foreground mb-1">Você está no modo demonstração</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Para criar suas próprias salas, turmas e cenários, ative sua assinatura e configure sua instituição.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => navigate("/pricing")} className="rounded-xl gap-2">
+                      <TrendingUp className="h-4 w-4" /> Ver Planos
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate("/demo")} className="rounded-xl gap-2">
+                      <Eye className="h-4 w-4" /> Voltar à Sala Demo
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {isInstitutionAdmin && !subscription.institutionId && rooms.length === 0 && (
             <div className="clinical-card p-6 border-primary/30 bg-primary/5 animate-fade-in">
               <div className="flex items-start gap-4">
