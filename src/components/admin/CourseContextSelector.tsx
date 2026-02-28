@@ -30,16 +30,24 @@ export default function CourseContextSelector({
         <Building2 className="h-4 w-4" />
         <span>Contexto:</span>
       </div>
-      <Select value={selectedInstitutionId} onValueChange={(v) => { onInstitutionChange(v); onCourseChange(""); }} disabled={lockInstitution}>
-        <SelectTrigger className="w-[220px] bg-card">
-          <SelectValue placeholder="Selecionar instituição" />
-        </SelectTrigger>
-        <SelectContent>
-          {institutions.map((i) => (
-            <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {lockInstitution && selectedInstitutionId ? (
+        <div className="flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm min-w-[220px]">
+          <span className="text-foreground font-medium">
+            {institutions.find((i) => i.id === selectedInstitutionId)?.name || "Carregando..."}
+          </span>
+        </div>
+      ) : (
+        <Select value={selectedInstitutionId} onValueChange={(v) => { onInstitutionChange(v); onCourseChange(""); }}>
+          <SelectTrigger className="w-[220px] bg-card">
+            <SelectValue placeholder="Selecionar instituição" />
+          </SelectTrigger>
+          <SelectContent>
+            {institutions.map((i) => (
+              <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       {selectedInstitutionId && (
         <>
           <BookOpen className="h-4 w-4 text-primary" />
