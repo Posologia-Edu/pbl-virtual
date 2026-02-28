@@ -125,6 +125,50 @@ Deno.serve(async (req) => {
         targetInstitutionId = courseData?.institution_id || null;
       }
 
+      // Enforce max_students limit (applies during trial and active periods)
+      if (role === "student" && targetInstitutionId) {
+        const { data: sub } = await adminClient
+          .from("subscriptions")
+          .select("max_students")
+          .eq("institution_id", targetInstitutionId)
+          .in("status", ["active", "trialing"])
+          .maybeSingle();
+
+        if (sub && sub.max_students !== null && sub.max_students < 99999) {
+          // Count unique students across all courses in this institution
+          const { data: instCourses } = await adminClient
+            .from("courses")
+            .select("id")
+            .eq("institution_id", targetInstitutionId);
+          const courseIds = (instCourses || []).map((c: any) => c.id);
+
+          if (courseIds.length > 0) {
+            const { data: members } = await adminClient
+              .from("course_members")
+              .select("user_id")
+              .in("course_id", courseIds);
+            
+            // Get unique user_ids that are students
+            const uniqueUserIds = [...new Set((members || []).map((m: any) => m.user_id))];
+            if (uniqueUserIds.length > 0) {
+              const { data: studentRoles } = await adminClient
+                .from("user_roles")
+                .select("user_id")
+                .in("user_id", uniqueUserIds)
+                .eq("role", "student");
+              const studentCount = (studentRoles || []).length;
+              
+              if (studentCount >= sub.max_students) {
+                return new Response(
+                  JSON.stringify({ error: `Limite de ${sub.max_students} alunos atingido no seu plano. Faça upgrade para cadastrar mais alunos.` }),
+                  { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+            }
+          }
+        }
+      }
+
       // Generate a unique random password per user if none provided
       const generateRandomPassword = (length = 32): string => {
         const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
