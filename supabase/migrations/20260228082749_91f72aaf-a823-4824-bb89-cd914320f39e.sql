@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_invites ADD COLUMN assigned_plan text;

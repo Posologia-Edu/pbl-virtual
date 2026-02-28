@@ -7,6 +7,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PLAN_TIERS: Record<string, {
+  max_students: number; max_rooms: number; ai_enabled: boolean; whitelabel_enabled: boolean;
+  max_ai_interactions: number; ai_scenario_generation: boolean; peer_evaluation_enabled: boolean; badges_enabled: boolean; full_reports_enabled: boolean;
+}> = {
+  starter: { max_students: 30, max_rooms: 3, ai_enabled: true, whitelabel_enabled: false, max_ai_interactions: 50, ai_scenario_generation: false, peer_evaluation_enabled: false, badges_enabled: false, full_reports_enabled: false },
+  professional: { max_students: 150, max_rooms: 999, ai_enabled: true, whitelabel_enabled: false, max_ai_interactions: 500, ai_scenario_generation: true, peer_evaluation_enabled: true, badges_enabled: true, full_reports_enabled: true },
+  enterprise: { max_students: 99999, max_rooms: 99999, ai_enabled: true, whitelabel_enabled: true, max_ai_interactions: 99999, ai_scenario_generation: true, peer_evaluation_enabled: true, badges_enabled: true, full_reports_enabled: true },
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -69,9 +78,16 @@ Deno.serve(async (req) => {
 
     // ACTION: invite
     if (action === "invite") {
-      const { email } = body;
+      const { email, plan_name } = body;
       if (!email) {
         return new Response(JSON.stringify({ error: "email is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!plan_name || !PLAN_TIERS[plan_name]) {
+        return new Response(JSON.stringify({ error: "plan_name inválido. Use: starter, professional ou enterprise." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -131,15 +147,16 @@ Deno.serve(async (req) => {
       // 2. Assign institution_admin role
       await adminClient.from("user_roles").insert({ user_id: userId, role: "institution_admin" });
 
-      // 3. Record invite (no institution yet - admin will create on first login)
+      // 3. Record invite with assigned_plan
       await adminClient.from("admin_invites").insert({
         email,
         invited_by: callerId,
         user_id: userId,
         status: "pending",
+        assigned_plan: plan_name,
       });
 
-      // 6. Generate password reset link
+      // 4. Generate password reset link
       const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: "recovery",
         email,
@@ -148,13 +165,13 @@ Deno.serve(async (req) => {
         },
       });
 
-      // Build the verification URL
       let resetUrl = "";
       if (linkData?.properties?.action_link) {
         resetUrl = linkData.properties.action_link;
       }
 
-      // 7. Send email via Resend
+      // 5. Send email via Resend
+      const planLabel = plan_name === "starter" ? "Starter" : plan_name === "professional" ? "Professional" : "Enterprise";
       const resend = new Resend(resendApiKey);
       const { error: emailError } = await resend.emails.send({
         from: "PBL Flow <convite@tbl.posologia.app>",
@@ -175,7 +192,8 @@ Deno.serve(async (req) => {
                 Você foi convidado! 🎉
               </h1>
               <p style="color:#55575d;font-size:16px;line-height:1.6;margin:0 0 8px;">
-                Você recebeu acesso completo à plataforma <strong>PBL Flow</strong> como administrador de instituição.
+                Você recebeu acesso à plataforma <strong>PBL Flow</strong> como administrador de instituição
+                com o plano <strong>${planLabel}</strong>.
               </p>
               <p style="color:#55575d;font-size:16px;line-height:1.6;margin:0 0 24px;">
                 Para começar, clique no botão abaixo para criar sua senha de acesso:
@@ -202,7 +220,6 @@ Deno.serve(async (req) => {
 
       if (emailError) {
         console.error("Resend email error:", emailError);
-        // Invite was created, but email failed — log and continue
         return new Response(
           JSON.stringify({ success: true, warning: "Convite criado, mas falha ao enviar email. Verifique o domínio no Resend." }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -229,12 +246,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check activation status for each invite
+      // Check activation status and enrich with subscription info
       for (const invite of invites || []) {
         if (invite.status === "pending" && invite.user_id) {
           const { data: userData } = await adminClient.auth.admin.getUserById(invite.user_id);
           if (userData?.user?.last_sign_in_at) {
-            // User has signed in — mark as active
             await adminClient
               .from("admin_invites")
               .update({ status: "active", activated_at: userData.user.last_sign_in_at })
@@ -243,10 +259,101 @@ Deno.serve(async (req) => {
             invite.activated_at = userData.user.last_sign_in_at;
           }
         }
+
+        // Check if this invite has a real Stripe subscription (not invited_)
+        if (invite.institution_id) {
+          const { data: sub } = await adminClient
+            .from("subscriptions")
+            .select("stripe_customer_id")
+            .eq("institution_id", invite.institution_id)
+            .maybeSingle();
+          invite.is_stripe_subscriber = sub?.stripe_customer_id && !sub.stripe_customer_id.startsWith("invited_");
+        } else {
+          invite.is_stripe_subscriber = false;
+        }
       }
 
       return new Response(
         JSON.stringify({ invites }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ACTION: update_plan
+    if (action === "update_plan") {
+      const { invite_id, plan_name } = body;
+      if (!invite_id || !plan_name) {
+        return new Response(JSON.stringify({ error: "invite_id e plan_name são obrigatórios" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!PLAN_TIERS[plan_name]) {
+        return new Response(JSON.stringify({ error: "plan_name inválido. Use: starter, professional ou enterprise." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get invite
+      const { data: invite } = await adminClient
+        .from("admin_invites")
+        .select("*")
+        .eq("id", invite_id)
+        .single();
+
+      if (!invite) {
+        return new Response(JSON.stringify({ error: "Convite não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // If institution exists, check subscription type
+      if (invite.institution_id) {
+        const { data: sub } = await adminClient
+          .from("subscriptions")
+          .select("*")
+          .eq("institution_id", invite.institution_id)
+          .maybeSingle();
+
+        if (sub && !sub.stripe_customer_id.startsWith("invited_")) {
+          return new Response(JSON.stringify({ error: "Este administrador possui assinatura via Stripe. Apenas ele pode alterar o plano." }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Update subscription with new plan limits
+        if (sub) {
+          const tier = PLAN_TIERS[plan_name];
+          await adminClient
+            .from("subscriptions")
+            .update({
+              plan_name,
+              max_students: tier.max_students,
+              max_rooms: tier.max_rooms,
+              ai_enabled: tier.ai_enabled,
+              whitelabel_enabled: tier.whitelabel_enabled,
+              max_ai_interactions: tier.max_ai_interactions,
+              ai_scenario_generation: tier.ai_scenario_generation,
+              peer_evaluation_enabled: tier.peer_evaluation_enabled,
+              badges_enabled: tier.badges_enabled,
+              full_reports_enabled: tier.full_reports_enabled,
+            })
+            .eq("id", sub.id);
+        }
+      }
+
+      // Update invite record
+      await adminClient
+        .from("admin_invites")
+        .update({ assigned_plan: plan_name })
+        .eq("id", invite_id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -392,7 +499,7 @@ Deno.serve(async (req) => {
         moduleIds = (modules || []).map((m) => m.id);
       }
 
-      // 5. Get all groups for this institution (by course or by professor)
+      // 5. Get all groups for this institution
       let groupIds: string[] = [];
       if (courseIds.length > 0) {
         const { data: groups } = await adminClient
@@ -458,7 +565,7 @@ Deno.serve(async (req) => {
         await adminClient.from("subscriptions").delete().eq("id", sub.id);
       }
 
-      // 10. Delete admin invites (by user_id to catch all, including those with null institution_id)
+      // 10. Delete admin invites
       if (ownerId) {
         await adminClient.from("admin_invites").delete().eq("user_id", ownerId);
       }
