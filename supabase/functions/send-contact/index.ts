@@ -70,7 +70,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "PBL Virtual <onboarding@resend.dev>",
+        from: "PBL Virtual <contato@tbl.posologia.app>",
         to: ["sergio.araujo@ufrn.br"],
         subject: `[Contato PBL] ${subject}`,
         html: emailBody,
