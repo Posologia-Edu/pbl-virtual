@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   GraduationCap, LayoutDashboard, Settings, LogOut, Users,
-  DoorOpen, ChevronLeft, ChevronRight, BarChart3, Menu, X,
+  DoorOpen, ChevronLeft, ChevronRight, BarChart3, Menu, X, Mail,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -25,6 +25,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { label: t("nav.reports"), path: "/reports", icon: BarChart3, roles: ["admin", "professor", "institution_admin"] },
     { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin", "institution_admin"] },
     { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student", "institution_admin"] },
+    { label: t("nav.contact", "Contato"), path: "/contact", icon: Mail, roles: ["admin", "professor", "student", "institution_admin"] },
   ];
 
   const handleSignOut = async () => {

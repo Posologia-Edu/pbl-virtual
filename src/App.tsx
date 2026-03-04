@@ -17,6 +17,7 @@ import DemoSession from "./pages/DemoSession";
 import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
 import Documentation from "./pages/Documentation";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/reports" element={<ProtectedRoute requiredRole={["admin", "professor", "institution_admin"]}><Reports /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/session/:roomId" element={<ProtectedRoute><PBLSession /></ProtectedRoute>} />
+              <Route path="/contact" element={<ProtectedRoute><Contact /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrandingProvider>
