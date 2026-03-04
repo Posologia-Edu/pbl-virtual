@@ -45,9 +45,6 @@ verify_jwt = false
 [functions.manage-ai-keys]
 verify_jwt = false
 
-[functions.send-metrics-to-hub]
-verify_jwt = false
-
 [functions.hub-metrics]
 verify_jwt = false
 
