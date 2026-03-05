@@ -40,11 +40,19 @@ interface AIMessage {
   content: string;
 }
 
+interface AIResult {
+  content: string;
+  provider: string;
+  model: string;
+  tokens_input: number;
+  tokens_output: number;
+}
+
 async function callExternalProvider(
   provider: string,
   apiKey: string,
   messages: AIMessage[]
-): Promise<string | null> {
+): Promise<AIResult | null> {
   const config = PROVIDER_ENDPOINTS[provider];
   if (!config) return null;
 
@@ -77,7 +85,15 @@ async function callExternalProvider(
       }
 
       const data = await res.json();
-      return data.content?.[0]?.text || null;
+      const content = data.content?.[0]?.text || null;
+      if (!content) return null;
+      return {
+        content,
+        provider,
+        model: config.defaultModel,
+        tokens_input: data.usage?.input_tokens ?? 0,
+        tokens_output: data.usage?.output_tokens ?? 0,
+      };
     }
 
     // OpenAI-compatible format
@@ -102,25 +118,31 @@ async function callExternalProvider(
     }
 
     const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
+    const content = data.choices?.[0]?.message?.content || null;
+    if (!content) return null;
+    return {
+      content,
+      provider,
+      model: config.defaultModel,
+      tokens_input: data.usage?.prompt_tokens ?? 0,
+      tokens_output: data.usage?.completion_tokens ?? 0,
+    };
   } catch (err) {
     console.error(`[AI] ${provider} exception:`, err);
     return null;
   }
 }
 
-async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<string> {
+async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<AIResult> {
   console.log("[AI] Using Lovable AI (fallback)");
+  const model = "google/gemini-3-flash-preview";
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages,
-    }),
+    body: JSON.stringify({ model, messages }),
   });
 
   if (!res.ok) {
@@ -132,15 +154,20 @@ async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<str
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
+  return {
+    content: data.choices?.[0]?.message?.content || "",
+    provider: "lovable",
+    model,
+    tokens_input: data.usage?.prompt_tokens ?? 0,
+    tokens_output: data.usage?.completion_tokens ?? 0,
+  };
 }
 
 async function callAIWithFallback(
   adminClient: any,
   lovableApiKey: string,
   messages: AIMessage[]
-): Promise<string> {
-  // Always try external provider keys first (global keys set by superadmin)
+): Promise<AIResult> {
   const { data: providerKeys } = await adminClient
     .from("ai_provider_keys")
     .select("provider, api_key, is_active")
@@ -159,8 +186,38 @@ async function callAIWithFallback(
     }
   }
 
-  // Fallback to Lovable AI only if all external providers failed
   return callLovableAI(lovableApiKey, messages);
+}
+
+// Cost estimation per 1M tokens (approximate)
+const COST_PER_1M: Record<string, { input: number; output: number }> = {
+  "gpt-4o-mini": { input: 0.15, output: 0.60 },
+  "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
+  "claude-sonnet-4-20250514": { input: 3.0, output: 15.0 },
+  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "google/gemini-3-flash-preview": { input: 0.15, output: 0.60 },
+};
+
+function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
+  const rates = COST_PER_1M[model] || { input: 0.5, output: 1.5 };
+  return (tokensIn * rates.input + tokensOut * rates.output) / 1_000_000;
+}
+
+async function logAIUsage(adminClient: any, userId: string, aiResult: AIResult, promptType: string) {
+  try {
+    await adminClient.from("ai_usage_log").insert({
+      user_id: userId,
+      provider: aiResult.provider,
+      model: aiResult.model,
+      prompt_type: promptType,
+      tokens_input: aiResult.tokens_input,
+      tokens_output: aiResult.tokens_output,
+      estimated_cost_usd: estimateCost(aiResult.model, aiResult.tokens_input, aiResult.tokens_output),
+    });
+  } catch (e) {
+    console.error("[AI] Failed to log usage:", e);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -227,7 +284,6 @@ Deno.serve(async (req) => {
     }
 
     // --- Check AI interaction limits ---
-    // Find the institution for this room
     const { data: roomData } = await adminClient
       .from("rooms")
       .select("group_id")
@@ -254,7 +310,6 @@ Deno.serve(async (req) => {
         if (courseData?.institution_id) {
           institutionId = courseData.institution_id;
 
-          // Fetch subscription limits
           const { data: sub } = await adminClient
             .from("subscriptions")
             .select("max_ai_interactions")
@@ -264,7 +319,6 @@ Deno.serve(async (req) => {
 
           maxAiInteractions = sub?.max_ai_interactions ?? 99999;
 
-          // Check current month usage
           const monthYear = new Date().toISOString().slice(0, 7);
           const { data: usage } = await adminClient
             .from("ai_interaction_counts")
@@ -392,7 +446,7 @@ ${contributionsSummary || "Nenhuma contribuição ainda."}
 ${chatSummary || "Sem mensagens."}`;
 
       try {
-        const content = await callAIWithFallback(
+        const aiResult = await callAIWithFallback(
           adminClient,
           LOVABLE_API_KEY,
           [
@@ -401,12 +455,15 @@ ${chatSummary || "Sem mensagens."}`;
           ]
         );
 
+        // Log AI usage
+        await logAIUsage(adminClient, caller.id, aiResult, "cotutor_gap_analysis");
+
         let parsed;
         try {
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
           parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
         } catch {
-          parsed = { summary: content, gaps: [], essential_gaps: [], suggested_questions: [], addressed: [] };
+          parsed = { summary: aiResult.content, gaps: [], essential_gaps: [], suggested_questions: [], addressed: [] };
         }
 
         // Increment AI interaction count
@@ -464,7 +521,7 @@ ${contributionsSummary || "Nenhuma contribuição ainda."}
 ${chatSummary || "Sem mensagens."}`;
 
     try {
-      const content = await callAIWithFallback(
+      const aiResult = await callAIWithFallback(
         adminClient,
         LOVABLE_API_KEY,
         [
@@ -473,12 +530,15 @@ ${chatSummary || "Sem mensagens."}`;
         ]
       );
 
+      // Log AI usage
+      await logAIUsage(adminClient, caller.id, aiResult, "cotutor_suggestions");
+
       let parsed;
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
         parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
       } catch {
-        parsed = { questions: [], mentions: [], observations: [content] };
+        parsed = { questions: [], mentions: [], observations: [aiResult.content] };
       }
 
       // Increment AI interaction count

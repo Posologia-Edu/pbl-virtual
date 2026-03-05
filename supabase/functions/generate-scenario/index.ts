@@ -14,8 +14,9 @@ const PROVIDER_ENDPOINTS: Record<string, { url: string; format: string; defaultM
 };
 
 interface AIMsg { role: string; content: string; }
+interface AIResult { content: string; provider: string; model: string; tokens_input: number; tokens_output: number; }
 
-async function callExternalProvider(provider: string, apiKey: string, messages: AIMsg[]): Promise<string | null> {
+async function callExternalProvider(provider: string, apiKey: string, messages: AIMsg[]): Promise<AIResult | null> {
   const c = PROVIDER_ENDPOINTS[provider];
   if (!c) return null;
   try {
@@ -24,27 +25,63 @@ async function callExternalProvider(provider: string, apiKey: string, messages: 
       const sys = messages.find(m => m.role === "system");
       const res = await fetch(c.url, { method: "POST", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" }, body: JSON.stringify({ model: c.defaultModel, max_tokens: 4096, system: sys?.content || "", messages: messages.filter(m => m.role !== "system") }) });
       if (!res.ok) { console.error(`[AI] ${provider} ${res.status}`); await res.text(); return null; }
-      const d = await res.json(); return d.content?.[0]?.text || null;
+      const d = await res.json();
+      const content = d.content?.[0]?.text || null;
+      if (!content) return null;
+      return { content, provider, model: c.defaultModel, tokens_input: d.usage?.input_tokens ?? 0, tokens_output: d.usage?.output_tokens ?? 0 };
     }
     const res = await fetch(c.url, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: c.defaultModel, messages }) });
     if (!res.ok) { console.error(`[AI] ${provider} ${res.status}`); await res.text(); return null; }
-    const d = await res.json(); return d.choices?.[0]?.message?.content || null;
+    const d = await res.json();
+    const content = d.choices?.[0]?.message?.content || null;
+    if (!content) return null;
+    return { content, provider, model: c.defaultModel, tokens_input: d.usage?.prompt_tokens ?? 0, tokens_output: d.usage?.completion_tokens ?? 0 };
   } catch (e) { console.error(`[AI] ${provider} error:`, e); return null; }
 }
 
-async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<string> {
-  // Always try external provider keys first (global keys set by superadmin)
+async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<AIResult> {
   const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
   for (const pk of (keys || [])) {
     if (!pk.api_key) continue;
     const r = await callExternalProvider(pk.provider, pk.api_key, messages);
     if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
   }
-  // Fallback to Lovable AI only if all external providers failed
   console.log("[AI] Using Lovable AI fallback");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages }) });
+  const model = "google/gemini-3-flash-preview";
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages }) });
   if (!res.ok) { const t = await res.text(); console.error("[AI] Lovable error:", res.status, t); if (res.status === 429) throw { status: 429, message: "Rate limit exceeded." }; if (res.status === 402) throw { status: 402, message: "Payment required." }; throw { status: 500, message: "AI error" }; }
-  const d = await res.json(); return d.choices?.[0]?.message?.content || "";
+  const d = await res.json();
+  return { content: d.choices?.[0]?.message?.content || "", provider: "lovable", model, tokens_input: d.usage?.prompt_tokens ?? 0, tokens_output: d.usage?.completion_tokens ?? 0 };
+}
+
+const COST_PER_1M: Record<string, { input: number; output: number }> = {
+  "gpt-4o-mini": { input: 0.15, output: 0.60 },
+  "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
+  "claude-sonnet-4-20250514": { input: 3.0, output: 15.0 },
+  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "google/gemini-3-flash-preview": { input: 0.15, output: 0.60 },
+};
+
+function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
+  const rates = COST_PER_1M[model] || { input: 0.5, output: 1.5 };
+  return (tokensIn * rates.input + tokensOut * rates.output) / 1_000_000;
+}
+
+async function logAIUsage(adminClient: any, userId: string, aiResult: AIResult, promptType: string) {
+  try {
+    await adminClient.from("ai_usage_log").insert({
+      user_id: userId,
+      provider: aiResult.provider,
+      model: aiResult.model,
+      prompt_type: promptType,
+      tokens_input: aiResult.tokens_input,
+      tokens_output: aiResult.tokens_output,
+      estimated_cost_usd: estimateCost(aiResult.model, aiResult.tokens_input, aiResult.tokens_output),
+    });
+  } catch (e) {
+    console.error("[AI] Failed to log usage:", e);
+  }
 }
 
 // Rate limiting
@@ -77,7 +114,6 @@ Deno.serve(async (req) => {
     if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Check if user's institution has AI scenario generation enabled
-    // Find institution via user -> institution owner or course membership
     const { data: instData } = await adminClient
       .from("institutions")
       .select("id")
@@ -127,7 +163,7 @@ Responda EXATAMENTE no formato JSON abaixo, sem markdown:
 }`;
 
     try {
-      const content = await callAIWithFallback(
+      const aiResult = await callAIWithFallback(
         adminClient,
         LOVABLE_API_KEY,
         [
@@ -136,13 +172,16 @@ Responda EXATAMENTE no formato JSON abaixo, sem markdown:
         ]
       );
 
+      // Log AI usage
+      await logAIUsage(adminClient, caller.id, aiResult, "generate_scenario");
+
       let parsed;
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
         else throw new Error("No JSON found");
       } catch {
-        console.error("Failed to parse AI response:", content);
+        console.error("Failed to parse AI response:", aiResult.content);
         return new Response(JSON.stringify({ error: "Erro ao processar resposta da IA. Tente novamente." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
