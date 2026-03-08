@@ -7,6 +7,7 @@ import {
   Layers, Globe, Brain, FileText, Target, ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
+import Footer from "@/components/Footer";
 
 const rise = {
   hidden: { opacity: 0, y: 30 },
