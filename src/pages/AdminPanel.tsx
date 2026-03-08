@@ -18,6 +18,7 @@ import FinancialDashboard from "@/components/admin/FinancialDashboard";
 import InviteAdminTab from "@/components/admin/InviteAdminTab";
 import SubscriptionTab from "@/components/admin/SubscriptionTab";
 import AIKeysTab from "@/components/admin/AIKeysTab";
+import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
