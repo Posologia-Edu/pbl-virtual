@@ -20,7 +20,7 @@ export default function Footer() {
       title: "Recursos",
       links: [
         { label: "Documentação", href: "/docs" },
-        { label: "Contato", href: "/contact" },
+        { label: "Contato", href: "/public-contact" },
       ],
     },
     {
