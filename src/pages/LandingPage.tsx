@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { trackPageView, trackCTAClick, captureUTMParams } from "@/lib/cookieAnalytics";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
@@ -44,11 +45,16 @@ export default function LandingPage() {
   useEffect(() => {
     if (searchParams.get("auth") === "open") {
       setAuthOpen(true);
-      // Clean the URL param
       searchParams.delete("auth");
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // Analytics tracking
+  useEffect(() => {
+    trackPageView("/");
+    captureUTMParams(searchParams);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden selection:bg-primary/20">
