@@ -71,6 +71,7 @@ export default function Pricing() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<string | null>(null);
 
+  useEffect(() => { trackPageView("/pricing"); }, []);
   const handleSubscribe = async (priceId: string, tierKey: string) => {
     setLoading(tierKey);
     try {
