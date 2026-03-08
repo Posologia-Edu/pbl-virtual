@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import LandingPage from "./pages/LandingPage";
 import Pricing from "./pages/Pricing";
+import Features from "./pages/Features";
 import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -18,6 +19,10 @@ import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
 import Documentation from "./pages/Documentation";
 import Contact from "./pages/Contact";
+import PublicContact from "./pages/PublicContact";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Cookies from "./pages/Cookies";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
