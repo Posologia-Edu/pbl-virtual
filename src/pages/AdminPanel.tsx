@@ -271,6 +271,12 @@ export default function AdminPanel() {
             </TabsContent>
           )}
 
+          {isSuperAdmin && (
+            <TabsContent value="analytics">
+              <AnalyticsDashboard />
+            </TabsContent>
+          )}
+
           <TabsContent value="security">
             <SecurityTab />
           </TabsContent>
