@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/AuthDialog";
+import Footer from "@/components/Footer";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
 const rise = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" as const } } };
