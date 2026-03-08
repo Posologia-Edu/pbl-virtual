@@ -173,6 +173,9 @@ export default function AdminPanel() {
             {isSuperAdmin && (
               <TabsTrigger value="ai-keys"><Bot className="mr-2 h-4 w-4" /> API Keys IA</TabsTrigger>
             )}
+            {isSuperAdmin && (
+              <TabsTrigger value="analytics"><BarChart3 className="mr-2 h-4 w-4" /> Analytics</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
