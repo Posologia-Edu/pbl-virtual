@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { trackPageView, trackCTAClick } from "@/lib/cookieAnalytics";
 import { motion } from "framer-motion";
 import {
   GraduationCap, ArrowLeft, ArrowRight, BookOpen, Users, MessageSquare,
