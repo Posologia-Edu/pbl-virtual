@@ -93,6 +93,8 @@ export default function Features() {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  useEffect(() => { trackPageView("/features"); }, []);
+
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden selection:bg-primary/20">
       <div className="fixed inset-0 -z-10">

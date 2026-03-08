@@ -82,6 +82,7 @@ const App = () => (
             </Routes>
           </BrandingProvider>
         </AuthProvider>
+        <CookieConsentBanner />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
