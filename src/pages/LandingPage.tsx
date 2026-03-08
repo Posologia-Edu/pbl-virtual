@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { trackPageView, trackCTAClick, captureUTMParams } from "@/lib/cookieAnalytics";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
