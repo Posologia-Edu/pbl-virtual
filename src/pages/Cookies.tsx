@@ -1,14 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { GraduationCap, ArrowLeft } from "lucide-react";
+import { GraduationCap, ArrowLeft, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
+import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 const rise = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6 } } };
 
 export default function Cookies() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { reopenBanner } = useCookieConsent();
 
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden flex flex-col">
@@ -37,6 +40,20 @@ export default function Cookies() {
             <h1 className="text-3xl font-extrabold tracking-tight">Política de Cookies</h1>
             <p className="text-sm text-foreground/50">Última atualização: {new Date().toLocaleDateString("pt-BR")}</p>
 
+            {/* Manage preferences CTA */}
+            <div className="rounded-2xl bg-primary/5 border border-primary/10 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <h3 className="font-bold text-sm text-foreground">Gerencie suas preferências</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Você pode alterar suas preferências de cookies a qualquer momento.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={reopenBanner} className="rounded-full gap-1.5 shrink-0">
+                <Settings className="h-3.5 w-3.5" />
+                Gerenciar cookies
+              </Button>
+            </div>
+
             <div className="space-y-5 text-foreground/70 text-sm leading-relaxed">
               <section>
                 <h2 className="text-lg font-bold text-foreground mb-2">1. O que são Cookies?</h2>
@@ -45,35 +62,65 @@ export default function Cookies() {
 
               <section>
                 <h2 className="text-lg font-bold text-foreground mb-2">2. Cookies que Utilizamos</h2>
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">Cookies Essenciais</h3>
-                    <p>Necessários para autenticação e funcionamento da plataforma. Incluem tokens de sessão do Supabase Auth que mantêm você logado de forma segura.</p>
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-muted/30 p-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Cookies Essenciais
+                    </h3>
+                    <p className="mt-1">Necessários para autenticação e funcionamento da plataforma. Incluem tokens de sessão do Supabase Auth. <strong>Não podem ser desativados.</strong></p>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Cookies de Preferência</h3>
-                    <p>Armazenam suas preferências como idioma selecionado (português, inglês ou espanhol) e configurações de interface.</p>
+                  <div className="rounded-xl bg-muted/30 p-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      Cookies Analíticos
+                    </h3>
+                    <p className="mt-1">Coletam dados anônimos sobre páginas visitadas, cliques em CTAs e tempo de navegação. Usados para entender o comportamento do visitante e otimizar a plataforma.</p>
+                    <ul className="mt-2 list-disc list-inside text-xs space-y-1 text-foreground/50">
+                      <li>Páginas visitadas e timestamps</li>
+                      <li>Cliques em botões de ação (CTAs)</li>
+                      <li>Plano de interesse visualizado</li>
+                    </ul>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Cookies de Terceiros</h3>
-                    <p>O Stripe pode utilizar cookies para processamento seguro de pagamentos. Esses cookies são regidos pela política de privacidade do Stripe.</p>
+                  <div className="rounded-xl bg-muted/30 p-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Cookies Funcionais
+                    </h3>
+                    <p className="mt-1">Armazenam suas preferências como idioma selecionado (português, inglês ou espanhol) e configurações de interface.</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 p-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-purple-500" />
+                      Cookies de Marketing
+                    </h3>
+                    <p className="mt-1">Permitem rastrear a origem do tráfego através de parâmetros UTM. Usados para medir a eficácia de campanhas e segmentação de leads.</p>
+                    <ul className="mt-2 list-disc list-inside text-xs space-y-1 text-foreground/50">
+                      <li>Parâmetros UTM (source, medium, campaign)</li>
+                      <li>Origem do tráfego</li>
+                    </ul>
                   </div>
                 </div>
               </section>
 
               <section>
                 <h2 className="text-lg font-bold text-foreground mb-2">3. localStorage</h2>
-                <p>Além de cookies, utilizamos localStorage do navegador para armazenar tokens de autenticação e preferências do usuário. Esses dados permanecem no seu dispositivo e podem ser removidos limpando os dados do navegador.</p>
+                <p>Além de cookies, utilizamos localStorage do navegador para armazenar tokens de autenticação, preferências de consentimento e dados analíticos temporários. Esses dados permanecem no seu dispositivo e podem ser removidos limpando os dados do navegador.</p>
               </section>
 
               <section>
                 <h2 className="text-lg font-bold text-foreground mb-2">4. Gerenciamento de Cookies</h2>
-                <p>Você pode configurar seu navegador para recusar cookies. No entanto, como utilizamos apenas cookies essenciais, desabilitá-los impedirá o funcionamento adequado da plataforma, especialmente a autenticação.</p>
+                <p>Você pode gerenciar suas preferências de cookies a qualquer momento clicando no botão "Gerenciar cookies" acima ou configurando seu navegador para recusar cookies. Cookies essenciais não podem ser desativados pois são necessários para o funcionamento da plataforma.</p>
               </section>
 
               <section>
-                <h2 className="text-lg font-bold text-foreground mb-2">5. Contato</h2>
-                <p>Para dúvidas sobre o uso de cookies, entre em contato pelo email sergio.araujo@ufrn.br.</p>
+                <h2 className="text-lg font-bold text-foreground mb-2">5. Retenção de Dados</h2>
+                <p>Os dados analíticos coletados são armazenados por até 12 meses e usados exclusivamente para fins de melhoria da plataforma. Dados de marketing (UTM) são vinculados ao perfil do usuário caso ele crie uma conta.</p>
+              </section>
+
+              <section>
+                <h2 className="text-lg font-bold text-foreground mb-2">6. Contato</h2>
+                <p>Para dúvidas sobre o uso de cookies, entre em contato pelo email sergio.araujo@ufrn.br ou acesse nossa <a href="/public-contact" className="text-primary underline">página de contato</a>.</p>
               </section>
             </div>
           </div>
