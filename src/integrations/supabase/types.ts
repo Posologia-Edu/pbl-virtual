@@ -1306,6 +1306,51 @@ export type Database = {
         }
         Relationships: []
       }
+      visitor_analytics: {
+        Row: {
+          created_at: string
+          cta_clicks: Json
+          id: string
+          pages_visited: Json
+          plan_interest: string | null
+          preferred_language: string | null
+          session_fingerprint: string
+          updated_at: string
+          user_id: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_clicks?: Json
+          id?: string
+          pages_visited?: Json
+          plan_interest?: string | null
+          preferred_language?: string | null
+          session_fingerprint: string
+          updated_at?: string
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_clicks?: Json
+          id?: string
+          pages_visited?: Json
+          plan_interest?: string | null
+          preferred_language?: string | null
+          session_fingerprint?: string
+          updated_at?: string
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
