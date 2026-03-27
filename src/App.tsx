@@ -18,6 +18,8 @@ import DemoSession from "./pages/DemoSession";
 import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
 import Documentation from "./pages/Documentation";
+import SemesterPlanning from "./pages/SemesterPlanning";
+import StudentDashboard from "./pages/StudentDashboard";
 import Contact from "./pages/Contact";
 import PublicContact from "./pages/PublicContact";
 import Terms from "./pages/Terms";
