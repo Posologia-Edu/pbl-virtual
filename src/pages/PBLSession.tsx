@@ -828,6 +828,14 @@ export default function PBLSession() {
               {rightPanel === "ai-cotutor" && roomId && (
                 <AICotutorPanel roomId={roomId} sessionId={currentSessionId} moduleId={moduleId} />
               )}
+              {rightPanel === "attendance" && roomId && (
+                <AttendancePanel
+                  roomId={roomId}
+                  sessionId={activeSession?.id}
+                  isProfessor={isProfessor}
+                  participants={participants}
+                />
+              )}
             </div>
           )}
         </div>
