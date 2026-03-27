@@ -1041,6 +1041,53 @@ export type Database = {
           },
         ]
       }
+      semester_sessions: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          professor_id: string
+          room_id: string
+          scheduled_date: string
+          scheduled_time: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          professor_id: string
+          room_id: string
+          scheduled_date: string
+          scheduled_time?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          professor_id?: string
+          room_id?: string
+          scheduled_date?: string
+          scheduled_time?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semester_sessions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_minutes: {
         Row: {
           content: Json
