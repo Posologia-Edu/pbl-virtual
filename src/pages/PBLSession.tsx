@@ -18,6 +18,7 @@ import SessionMinutesPanel from "@/components/SessionMinutesPanel";
 import ObjectivesBankPanel from "@/components/ObjectivesBankPanel";
 import AICotutorPanel from "@/components/AICotutorPanel";
 import AttendancePanel from "@/components/AttendancePanel";
+import ScientificSearchPanel from "@/components/ScientificSearchPanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
