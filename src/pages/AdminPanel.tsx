@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3 } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
@@ -19,6 +19,7 @@ import InviteAdminTab from "@/components/admin/InviteAdminTab";
 import SubscriptionTab from "@/components/admin/SubscriptionTab";
 import AIKeysTab from "@/components/admin/AIKeysTab";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
+import PipelineTab from "@/components/admin/PipelineTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -176,6 +177,9 @@ export default function AdminPanel() {
             {isSuperAdmin && (
               <TabsTrigger value="analytics"><BarChart3 className="mr-2 h-4 w-4" /> Analytics</TabsTrigger>
             )}
+            {isSuperAdmin && (
+              <TabsTrigger value="pipeline"><Rocket className="mr-2 h-4 w-4" /> Pipeline</TabsTrigger>
+            )}
             <TabsTrigger value="security"><KeyRound className="mr-2 h-4 w-4" /> {t("admin.security")}</TabsTrigger>
           </TabsList>
 
@@ -274,6 +278,12 @@ export default function AdminPanel() {
           {isSuperAdmin && (
             <TabsContent value="analytics">
               <AnalyticsDashboard />
+            </TabsContent>
+          )}
+
+          {isSuperAdmin && (
+            <TabsContent value="pipeline">
+              <PipelineTab />
             </TabsContent>
           )}
 
