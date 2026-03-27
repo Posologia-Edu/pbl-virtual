@@ -17,11 +17,12 @@ import ReferencesPanel from "@/components/ReferencesPanel";
 import SessionMinutesPanel from "@/components/SessionMinutesPanel";
 import ObjectivesBankPanel from "@/components/ObjectivesBankPanel";
 import AICotutorPanel from "@/components/AICotutorPanel";
+import AttendancePanel from "@/components/AttendancePanel";
 import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -42,7 +43,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
 
   // Multi-scenario session states
@@ -414,7 +415,7 @@ export default function PBLSession() {
   const isCoordinator = user?.id === room?.coordinator_id;
   const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
@@ -566,6 +567,16 @@ export default function PBLSession() {
               }`}
             >
               <Bot className="h-4 w-4" /> Co-tutor IA
+            </button>
+          )}
+          {!isViewingHistory && activeSession && (
+            <button
+              onClick={() => togglePanel("attendance")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "attendance" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <MapPin className="h-4 w-4" /> Frequência
             </button>
           )}
           {isProfessor && hasMultiScenarios && (
@@ -816,6 +827,14 @@ export default function PBLSession() {
               )}
               {rightPanel === "ai-cotutor" && roomId && (
                 <AICotutorPanel roomId={roomId} sessionId={currentSessionId} moduleId={moduleId} />
+              )}
+              {rightPanel === "attendance" && roomId && (
+                <AttendancePanel
+                  roomId={roomId}
+                  sessionId={activeSession?.id}
+                  isProfessor={isProfessor}
+                  participants={participants}
+                />
               )}
             </div>
           )}
