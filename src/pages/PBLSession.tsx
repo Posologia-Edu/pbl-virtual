@@ -569,6 +569,16 @@ export default function PBLSession() {
               <Bot className="h-4 w-4" /> Co-tutor IA
             </button>
           )}
+          {!isViewingHistory && activeSession && (
+            <button
+              onClick={() => togglePanel("attendance")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "attendance" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <MapPin className="h-4 w-4" /> Frequência
+            </button>
+          )}
           {isProfessor && hasMultiScenarios && (
             <>
               <div className="h-px bg-border my-1" />
