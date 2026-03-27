@@ -164,6 +164,54 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance: {
+        Row: {
+          checked_in_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          method: string
+          room_id: string
+          session_id: string | null
+          student_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          method?: string
+          room_id: string
+          session_id?: string | null
+          student_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          method?: string
+          room_id?: string
+          session_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       badge_definitions: {
         Row: {
           category: string
@@ -864,9 +912,13 @@ export type Database = {
       }
       rooms: {
         Row: {
+          attendance_qr_code: string | null
           coordinator_id: string | null
           created_at: string | null
           current_step: number | null
+          geo_latitude: number | null
+          geo_longitude: number | null
+          geo_radius_meters: number | null
           group_id: string
           id: string
           is_scenario_released: boolean | null
@@ -882,9 +934,13 @@ export type Database = {
           tutor_questions: Json | null
         }
         Insert: {
+          attendance_qr_code?: string | null
           coordinator_id?: string | null
           created_at?: string | null
           current_step?: number | null
+          geo_latitude?: number | null
+          geo_longitude?: number | null
+          geo_radius_meters?: number | null
           group_id: string
           id?: string
           is_scenario_released?: boolean | null
@@ -900,9 +956,13 @@ export type Database = {
           tutor_questions?: Json | null
         }
         Update: {
+          attendance_qr_code?: string | null
           coordinator_id?: string | null
           created_at?: string | null
           current_step?: number | null
+          geo_latitude?: number | null
+          geo_longitude?: number | null
+          geo_radius_meters?: number | null
           group_id?: string
           id?: string
           is_scenario_released?: boolean | null
