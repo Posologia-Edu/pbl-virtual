@@ -164,11 +164,23 @@ export default function Dashboard() {
                   {isInstitutionAdmin ? t("dashboard.institutionAdminSubtitle") : isProfessor ? t("dashboard.professorSubtitle") : isAdmin ? t("dashboard.adminSubtitle") : t("dashboard.studentSubtitle")}
                 </p>
               </div>
-              {isProfessor && (
-                <Button onClick={() => setShowCreateRoom(true)} className="rounded-xl shadow-sm gap-2 self-start sm:self-auto">
-                  <Plus className="h-4 w-4" /> {t("dashboard.newRoom")}
-                </Button>
-              )}
+              <div className="flex gap-2 self-start sm:self-auto">
+                {isStudent && (
+                  <Button variant="outline" onClick={() => navigate("/student-dashboard")} className="rounded-xl gap-2">
+                    <GraduationCap className="h-4 w-4" /> Meu Painel
+                  </Button>
+                )}
+                {isProfessor && (
+                  <>
+                    <Button variant="outline" onClick={() => navigate("/semester")} className="rounded-xl gap-2">
+                      <Clock className="h-4 w-4" /> Planejamento
+                    </Button>
+                    <Button onClick={() => setShowCreateRoom(true)} className="rounded-xl shadow-sm gap-2">
+                      <Plus className="h-4 w-4" /> {t("dashboard.newRoom")}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
