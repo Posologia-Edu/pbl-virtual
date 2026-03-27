@@ -714,6 +714,9 @@ export default function PBLSession() {
                         sessionId={currentSessionId}
                         readOnly={isViewingHistory}
                       />
+                      <ScientificSearchPanel
+                        scenarioContent={displayScenarioContent || undefined}
+                      />
                       <SessionMinutesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
