@@ -704,6 +704,42 @@ export type Database = {
           },
         ]
       }
+      pipeline_updates: {
+        Row: {
+          batch_date: string | null
+          completed_at: string | null
+          created_at: string
+          description: string
+          id: string
+          is_auto_generated: boolean
+          priority: string
+          status: string
+          title: string
+        }
+        Insert: {
+          batch_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_auto_generated?: boolean
+          priority?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          batch_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_auto_generated?: boolean
+          priority?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       professor_notes: {
         Row: {
           content: string
