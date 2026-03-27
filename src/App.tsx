@@ -25,6 +25,8 @@ import Privacy from "./pages/Privacy";
 import Cookies from "./pages/Cookies";
 import NotFound from "./pages/NotFound";
 import CookieConsentBanner from "./components/CookieConsentBanner";
+import FloatingAgent from "./components/FloatingAgent";
+import { Bot, Sparkles } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,38 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function OracleAgentWrapper() {
+  const { user } = useAuth();
+  if (!user) return null;
+  return (
+    <FloatingAgent
+      agentType="oracle"
+      title="Oráculo PBL Flow"
+      subtitle="Seu guia completo do sistema"
+      welcomeMessage="Olá! 👋 Sou o Oráculo do PBL Flow. Posso te ajudar a entender qualquer funcionalidade do sistema e te ensinar a usá-la. O que você precisa fazer?"
+      placeholder="Pergunte sobre qualquer funcionalidade..."
+      accentColor="bg-gradient-to-br from-primary to-accent"
+      icon={<Bot className="h-5 w-5" />}
+    />
+  );
+}
+
+function SalesAgentWrapper() {
+  const { user } = useAuth();
+  if (user) return null;
+  return (
+    <FloatingAgent
+      agentType="sales"
+      title="Consultor PBL Flow"
+      subtitle="Conheça a plataforma ideal para PBL"
+      welcomeMessage="Olá! 😊 Sou o consultor do PBL Flow. Posso te ajudar a encontrar o plano ideal para sua instituição. Me conta: você já usa metodologias ativas como PBL nas suas aulas?"
+      placeholder="Tire suas dúvidas sobre o PBL Flow..."
+      accentColor="bg-gradient-to-br from-emerald-500 to-teal-600"
+      icon={<Sparkles className="h-5 w-5" />}
+    />
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -63,7 +97,7 @@ const App = () => (
               <Route path="/" element={<LandingPage />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/docs" element={<Documentation />} />
+              <Route path="/docs" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
               <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/demo" element={<ProtectedRoute><DemoSession /></ProtectedRoute>} />
@@ -80,6 +114,8 @@ const App = () => (
               <Route path="/cookies" element={<Cookies />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <OracleAgentWrapper />
+            <SalesAgentWrapper />
           </BrandingProvider>
         </AuthProvider>
         <CookieConsentBanner />
