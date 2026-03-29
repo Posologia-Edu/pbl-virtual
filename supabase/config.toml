@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.search-articles]
 verify_jwt = false
+
+[functions.predict-risk]
+verify_jwt = false

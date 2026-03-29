@@ -11,9 +11,10 @@ import {
   ResponsiveContainer, BarChart, Bar, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
-import { Download, TrendingUp, Users, BarChart3, ArrowLeft, Lock } from "lucide-react";
+import { Download, TrendingUp, Users, BarChart3, ArrowLeft, Lock, Brain } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import UpgradeOverlay from "@/components/UpgradeOverlay";
+import RiskAnalysisPanel from "@/components/RiskAnalysisPanel";
 
 const GRADES: Record<string, number> = {
   O: 0, I: 25, PS: 50, S: 75, MS: 100,
@@ -253,8 +254,24 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="px-6 lg:px-10 py-6 max-w-7xl mx-auto" ref={reportRef}>
+        {/* Tabs */}
+        <div className="px-6 lg:px-10 py-6 max-w-7xl mx-auto">
+          <Tabs defaultValue="performance" className="space-y-6">
+            <TabsList className="print:hidden">
+              <TabsTrigger value="performance" className="gap-2">
+                <BarChart3 className="h-4 w-4" /> Desempenho
+              </TabsTrigger>
+              <TabsTrigger value="risk" className="gap-2">
+                <Brain className="h-4 w-4" /> Análise de Risco
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="risk">
+              <RiskAnalysisPanel rooms={rooms} />
+            </TabsContent>
+
+            <TabsContent value="performance">
+        <div ref={reportRef}>
           {!selectedRoom ? (
             <div className="clinical-card flex flex-col items-center justify-center py-16 text-center">
               <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
@@ -471,6 +488,9 @@ export default function Reports() {
               </Card>
             </div>
           )}
+        </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </Layout>
