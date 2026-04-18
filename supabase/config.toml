@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.predict-risk]
 verify_jwt = false
+
+[functions.public-api]
+verify_jwt = false
