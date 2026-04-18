@@ -151,7 +151,6 @@ serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -244,7 +243,7 @@ Agora proponha as 5 NOVAS funcionalidades de alto impacto, contextualizadas ao P
       if (!t || seenTitles.has(t)) return false;
       seenTitles.add(t);
       const existsInRoadmap = existingNorm.some((e) => e === t || e.includes(t) || t.includes(e));
-      const existsInImplemented = implementedNorm.some((e) => e.includes(t));
+      const existsInImplemented = implementedNorm.some((e) => e === t || e.includes(t) || t.includes(e));
       return !existsInRoadmap && !existsInImplemented;
     });
 
