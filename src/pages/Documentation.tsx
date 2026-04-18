@@ -272,9 +272,22 @@ const technicalSections: DocSection[] = [
       "Disponível no plano Enterprise.",
     ],
   },
+  {
+    id: "tech-public-api", icon: Webhook,
+    title: "API Pública para Integrações",
+    desc: "REST API para sistemas externos (SIS, LMS)",
+    steps: [
+      "Base URL: https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api",
+      "Autenticação: header 'Authorization: Bearer pbl_live_xxx'. Gere chaves no Painel Admin → API & Integrações.",
+      "Escopo: cada chave é vinculada a uma instituição; todas as queries são automaticamente restritas à instituição da chave.",
+      "Endpoints (GET): /v1/health, /v1/institution, /v1/courses, /v1/courses/:id, /v1/groups, /v1/rooms, /v1/users, /v1/sessions, /v1/evaluations, /v1/attendance.",
+      "Endpoints (POST, requer escopo 'write'): /v1/courses (criar curso), /v1/users (provisionar aluno/professor + matrícula).",
+      "Paginação: parâmetros ?page=1&page_size=20 (máx 100). Resposta: { data, meta: { page, page_size, total } }.",
+      "Exemplo: curl -H 'Authorization: Bearer pbl_live_xxx' https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api/v1/courses",
+      "Versionamento: prefixo /v1/. Mudanças incompatíveis serão lançadas como /v2/. Códigos HTTP padrão (200, 201, 401, 403, 404, 422, 500).",
+    ],
+  },
 ];
-
-function AccordionItem({ section }: { section: DocSection }) {
   const [open, setOpen] = useState(false);
   const Icon = section.icon;
 
