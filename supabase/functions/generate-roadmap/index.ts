@@ -1,3 +1,4 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -25,28 +26,7 @@ Sua tarefa: propor EXATAMENTE 5 novas funcionalidades de ALTO IMPACTO para o sis
 
 Responda APENAS via tool call, em português do Brasil.`;
 
-serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
-
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-    // Fetch existing roadmap + changelog so the AI doesn't repeat
-    const { data: existing } = await admin
-      .from("pipeline_updates")
-      .select("title, status")
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    const existingTitles = (existing || []).map((u: any) => `- ${u.title} [${u.status}]`).join("\n") || "(nenhum)";
-
-    // Inventory of features actually implemented in the system (from memory + codebase)
-    const implementedFeatures = `
+const IMPLEMENTED_FEATURES = `
 - Salas PBL com cenários múltiplos e sessões tutoriais isoladas (7 passos do PBL)
 - Chat em tempo real, Whiteboard colaborativo, Timer controlado pelo coordenador
 - Banco de Referências com upload de arquivos e busca em PubMed/SciELO
@@ -73,11 +53,30 @@ serve(async (req: Request) => {
 - Formulário de contato (Resend)
 - Agentes IA flutuantes: Oráculo (suporte interno) e Consultor de Vendas (landing)
 - Cookie consent LGPD/GDPR + Visitor Analytics
-- Pipeline de Atualizações (Roadmap + Changelog) — VOCÊ ESTÁ PROPONDO PARA ELE
+- Pipeline de Atualizações (Roadmap + Changelog)
 `.trim();
 
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const { data: existing } = await admin
+      .from("pipeline_updates")
+      .select("title, status")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const existingTitles = (existing || []).map((u: any) => `- ${u.title} [${u.status}]`).join("\n") || "(nenhum)";
+
     const userPrompt = `## Funcionalidades JÁ IMPLEMENTADAS no sistema (NÃO repita nada parecido):
-${implementedFeatures}
+${IMPLEMENTED_FEATURES}
 
 ## Itens JÁ presentes no Roadmap ou Changelog (NÃO repita):
 ${existingTitles}
@@ -152,7 +151,6 @@ Agora proponha as 5 NOVAS funcionalidades de alto impacto, contextualizadas ao P
     const features: Array<{ title: string; description: string; priority: string }> = parsed.features || [];
     if (!Array.isArray(features) || features.length === 0) throw new Error("IA retornou lista vazia");
 
-    // Filter against existing titles (defensive — case-insensitive substring match)
     const existingNorm = (existing || []).map((u: any) => u.title.toLowerCase().trim());
     const fresh = features.filter((f) => {
       const t = f.title.toLowerCase().trim();
@@ -189,8 +187,3 @@ Agora proponha as 5 NOVAS funcionalidades de alto impacto, contextualizadas ao P
     });
   }
 });
-
-// @ts-ignore - Deno global
-declare const Deno: any;
-// @ts-ignore - serve from Deno std
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
