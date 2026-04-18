@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, Clock, CheckCircle2, Trash2, Rocket } from "lucide-react";
+import { Plus, Sparkles, Clock, CheckCircle2, Trash2, Rocket, Loader2, Wand2 } from "lucide-react";
 
 interface PipelineUpdate {
   id: string;
@@ -23,38 +23,6 @@ interface PipelineUpdate {
   completed_at: string | null;
 }
 
-const ROADMAP_SUGGESTIONS: Array<{ title: string; description: string; priority: string }> = [
-  { title: "App Mobile (PWA)", description: "Versão mobile progressiva para acesso offline e notificações push.", priority: "alta" },
-  { title: "Análise de Desempenho por Competência", description: "Dashboard de competências cruzando resultados de múltiplas avaliações por aluno.", priority: "alta" },
-  { title: "IA para Feedback Personalizado", description: "Feedback automático por IA adaptado ao perfil de erros de cada aluno.", priority: "alta" },
-  { title: "Integração com LMS", description: "Conectores para Moodle, Canvas e Google Classroom para importação/exportação de dados.", priority: "media" },
-  { title: "Banco de Casos Clínicos Compartilhado", description: "Marketplace específico para casos clínicos reutilizáveis entre professores e instituições.", priority: "media" },
-  { title: "Relatórios Avançados em PDF", description: "Geração automatizada de relatórios detalhados com gráficos exportáveis em PDF.", priority: "alta" },
-  { title: "Sistema de Notificações em Tempo Real", description: "Notificações push e in-app para sessões, avaliações e prazos importantes.", priority: "alta" },
-  { title: "Gamificação Avançada", description: "Sistema de pontuação, rankings e recompensas para engajamento dos alunos.", priority: "media" },
-  { title: "Modo Escuro Completo", description: "Tema escuro completo e consistente em toda a plataforma.", priority: "baixa" },
-  { title: "Exportação de Dados em Massa", description: "Exportação de dados completos em CSV/Excel para análise externa.", priority: "media" },
-  { title: "Dashboard do Aluno", description: "Painel personalizado para o aluno acompanhar progresso, badges e avaliações.", priority: "alta" },
-  { title: "API Pública para Integrações", description: "API REST documentada para integração com sistemas externos de universidades.", priority: "media" },
-  { title: "Suporte a Múltiplos Idiomas", description: "Expansão de traduções para francês, alemão e italiano.", priority: "baixa" },
-  { title: "Gravação de Sessões Tutorial", description: "Registro em vídeo/áudio das sessões para revisão posterior.", priority: "media" },
-  { title: "Planejamento de Semestre", description: "Calendário integrado para planejamento de sessões ao longo do semestre.", priority: "alta" },
-  { title: "Chat com IA Contextual", description: "Chat inteligente que entende o contexto da sessão e do cenário em andamento.", priority: "alta" },
-  { title: "Sistema de Mentoria", description: "Pareamento automático de alunos experientes com novatos para mentoria.", priority: "media" },
-  { title: "Análise de Sentimento do Chat", description: "IA que analisa o tom das discussões para identificar engajamento e conflitos.", priority: "media" },
-  { title: "Templates de Cenários", description: "Biblioteca de templates prontos para diferentes áreas da saúde.", priority: "alta" },
-  { title: "Painel de Frequência", description: "Controle de presença automatizado com geolocalização ou QR Code.", priority: "media" },
-  { title: "Integração com Calendário", description: "Sincronização com Google Calendar e Outlook para agendamento de sessões.", priority: "baixa" },
-  { title: "Sistema de Rubricas Customizáveis", description: "Criação de rubricas de avaliação personalizadas por disciplina.", priority: "alta" },
-  { title: "Portfólio Digital do Aluno", description: "Compilação automática de participações, avaliações e badges em portfólio.", priority: "media" },
-  { title: "Análise Preditiva de Risco", description: "IA que identifica alunos em risco de reprovação baseado em padrões de participação.", priority: "alta" },
-  { title: "Fórum de Discussão Assíncrono", description: "Espaço para discussões fora das sessões com moderação de professor.", priority: "baixa" },
-  { title: "Backup e Auditoria Completa", description: "Log de auditoria detalhado e backup automatizado de todos os dados.", priority: "media" },
-  { title: "Acessibilidade WCAG 2.1", description: "Conformidade completa com padrões de acessibilidade web.", priority: "alta" },
-  { title: "Comparativo entre Turmas", description: "Dashboard comparando métricas de desempenho entre diferentes turmas.", priority: "media" },
-  { title: "Avaliação 360° Automatizada", description: "Ciclo completo de auto-avaliação, avaliação de pares e professor com relatório consolidado.", priority: "alta" },
-  { title: "Integração com Repositórios Científicos", description: "Busca automática de artigos do PubMed e Scielo relevantes ao cenário.", priority: "media" },
-];
 
 const priorityConfig: Record<string, { label: string; className: string }> = {
   alta: { label: "Alta", className: "bg-red-500 text-white hover:bg-red-600 border-transparent" },
@@ -70,14 +38,11 @@ export default function PipelineTab() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newPriority, setNewPriority] = useState("media");
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     fetchUpdates();
   }, []);
-
-  useEffect(() => {
-    checkAndGenerateRoadmap();
-  }, [updates]);
 
   const fetchUpdates = async () => {
     const { data, error } = await supabase
@@ -88,53 +53,23 @@ export default function PipelineTab() {
     setLoading(false);
   };
 
-  const checkAndGenerateRoadmap = async () => {
-    if (loading || updates.length === 0 && !loading) {
-      // Check if we need to generate - either no data at all, or last batch is > 30 days old
-      const roadmapItems = updates.filter((u) => u.status === "roadmap");
-      const lastBatch = updates.length > 0
-        ? updates.reduce((latest, u) => {
-            if (u.batch_date && (!latest || u.batch_date > latest)) return u.batch_date;
-            return latest;
-          }, null as string | null)
-        : null;
-
-      const daysSinceLastBatch = lastBatch
-        ? Math.floor((Date.now() - new Date(lastBatch).getTime()) / (1000 * 60 * 60 * 24))
-        : Infinity;
-
-      if (roadmapItems.length === 0 && (daysSinceLastBatch >= 30 || updates.length === 0)) {
-        await generateRoadmapBatch();
+  const generateWithAI = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-roadmap");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const inserted = data?.inserted ?? 0;
+      if (inserted > 0) {
+        toast.success(`${inserted} novas funcionalidades propostas pela IA!`);
+        fetchUpdates();
+      } else {
+        toast.info(data?.message || "Nenhuma nova proposta foi gerada. Tente novamente.");
       }
-    }
-  };
-
-  const generateRoadmapBatch = async () => {
-    // Get existing titles to avoid duplicates
-    const existingTitles = new Set(updates.map((u) => u.title));
-    const available = ROADMAP_SUGGESTIONS.filter((s) => !existingTitles.has(s.title));
-
-    if (available.length === 0) return;
-
-    // Pick 7-8 random items
-    const count = Math.min(7 + Math.floor(Math.random() * 2), available.length);
-    const shuffled = [...available].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, count);
-
-    const batchDate = new Date().toISOString().split("T")[0];
-    const inserts = selected.map((s) => ({
-      title: s.title,
-      description: s.description,
-      priority: s.priority,
-      status: "roadmap" as const,
-      is_auto_generated: true,
-      batch_date: batchDate,
-    }));
-
-    const { error } = await supabase.from("pipeline_updates").insert(inserts as any);
-    if (!error) {
-      toast.success(`${count} novas atualizações propostas para o Roadmap!`);
-      fetchUpdates();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar funcionalidades com IA");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -192,12 +127,22 @@ export default function PipelineTab() {
             Histórico de funcionalidades e planejamento futuro do sistema.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Nova Entrada
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+            onClick={generateWithAI}
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            {generating ? "Gerando..." : "Gerar funcionalidades com IA"}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" /> Nova Entrada
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nova Entrada no Roadmap</DialogTitle>
@@ -217,8 +162,9 @@ export default function PipelineTab() {
               </Select>
               <Button onClick={handleCreate} className="w-full">Adicionar</Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Tabs */}
