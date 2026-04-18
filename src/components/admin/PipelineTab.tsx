@@ -38,14 +38,11 @@ export default function PipelineTab() {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newPriority, setNewPriority] = useState("media");
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     fetchUpdates();
   }, []);
-
-  useEffect(() => {
-    checkAndGenerateRoadmap();
-  }, [updates]);
 
   const fetchUpdates = async () => {
     const { data, error } = await supabase
@@ -56,53 +53,23 @@ export default function PipelineTab() {
     setLoading(false);
   };
 
-  const checkAndGenerateRoadmap = async () => {
-    if (loading || updates.length === 0 && !loading) {
-      // Check if we need to generate - either no data at all, or last batch is > 30 days old
-      const roadmapItems = updates.filter((u) => u.status === "roadmap");
-      const lastBatch = updates.length > 0
-        ? updates.reduce((latest, u) => {
-            if (u.batch_date && (!latest || u.batch_date > latest)) return u.batch_date;
-            return latest;
-          }, null as string | null)
-        : null;
-
-      const daysSinceLastBatch = lastBatch
-        ? Math.floor((Date.now() - new Date(lastBatch).getTime()) / (1000 * 60 * 60 * 24))
-        : Infinity;
-
-      if (roadmapItems.length === 0 && (daysSinceLastBatch >= 30 || updates.length === 0)) {
-        await generateRoadmapBatch();
+  const generateWithAI = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-roadmap");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const inserted = data?.inserted ?? 0;
+      if (inserted > 0) {
+        toast.success(`${inserted} novas funcionalidades propostas pela IA!`);
+        fetchUpdates();
+      } else {
+        toast.info(data?.message || "Nenhuma nova proposta foi gerada. Tente novamente.");
       }
-    }
-  };
-
-  const generateRoadmapBatch = async () => {
-    // Get existing titles to avoid duplicates
-    const existingTitles = new Set(updates.map((u) => u.title));
-    const available = ROADMAP_SUGGESTIONS.filter((s) => !existingTitles.has(s.title));
-
-    if (available.length === 0) return;
-
-    // Pick 7-8 random items
-    const count = Math.min(7 + Math.floor(Math.random() * 2), available.length);
-    const shuffled = [...available].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, count);
-
-    const batchDate = new Date().toISOString().split("T")[0];
-    const inserts = selected.map((s) => ({
-      title: s.title,
-      description: s.description,
-      priority: s.priority,
-      status: "roadmap" as const,
-      is_auto_generated: true,
-      batch_date: batchDate,
-    }));
-
-    const { error } = await supabase.from("pipeline_updates").insert(inserts as any);
-    if (!error) {
-      toast.success(`${count} novas atualizações propostas para o Roadmap!`);
-      fetchUpdates();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar funcionalidades com IA");
+    } finally {
+      setGenerating(false);
     }
   };
 
