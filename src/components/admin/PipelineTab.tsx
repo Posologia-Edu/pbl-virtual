@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, Clock, CheckCircle2, Trash2, Rocket } from "lucide-react";
+import { Plus, Sparkles, Clock, CheckCircle2, Trash2, Rocket, Loader2, Wand2 } from "lucide-react";
 
 interface PipelineUpdate {
   id: string;
