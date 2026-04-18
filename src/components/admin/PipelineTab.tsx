@@ -162,8 +162,9 @@ export default function PipelineTab() {
               </Select>
               <Button onClick={handleCreate} className="w-full">Adicionar</Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Tabs */}
