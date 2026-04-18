@@ -1,95 +1,83 @@
 
+Plan: Build a documented public REST API for external university integrations.
 
-## Associar plano ao admin convidado e gerenciar via superadmin
+## Approach
 
-### Contexto atual
-- Admins convidados recebem uma assinatura "Convidado (Cortesia)" com limites maximos (999 alunos, 999 salas, tudo habilitado)
-- O superadmin nao escolhe qual plano atribuir ao convidado
-- Nao ha como alterar o plano de um convidado depois
-- Nao ha como revogar o acesso de um convidado pela UI (so via `revoke_access` que ja existe no backend mas nao esta exposto na UI)
-- A aba "Assinatura" do admin institucional mostra "Acesso cortesia — sem cobranca recorrente" para convidados
+Create a Supabase edge function `public-api` that exposes a versioned REST API (`/v1/...`) authenticated via API keys (not Supabase JWTs), so external university systems (SIS, LMS) can integrate. Add a management UI in the admin panel for institution admins to issue/revoke API keys. Add a documentation page explaining endpoints.
 
-### O que sera feito
+## Database changes
 
-**1. Formulario de convite com selecao de plano**
+New table `api_keys`:
+- `id`, `institution_id`, `name`, `key_prefix` (visible, e.g. `pbl_live_abc123`), `key_hash` (sha256 of full key), `scopes` (text[]), `created_by`, `created_at`, `last_used_at`, `revoked_at`, `expires_at`
+- RLS: institution admins manage only their institution's keys; superadmin manages all
 
-No `InviteAdminTab.tsx`, adicionar um seletor de plano (Starter, Professional, Enterprise) ao formulario de convite. O superadmin escolhe qual plano atribuir ao admin convidado antes de enviar.
+New table `api_request_log` (audit/observability):
+- `id`, `api_key_id`, `institution_id`, `endpoint`, `method`, `status_code`, `created_at`
+- RLS: institution admin reads own; insert via service role only
 
-**2. Edge Function `invite-admin` — receber `plan_name` no convite**
+Helper SQL function `hash_api_key(text)` using `digest()` from pgcrypto.
 
-Na acao `invite`, aceitar o campo `plan_name` (starter | professional | enterprise). Esse valor sera salvo na tabela `admin_invites` em uma nova coluna `assigned_plan`.
+## Edge function: `public-api` (verify_jwt = false)
 
-**3. Migracao: coluna `assigned_plan` em `admin_invites`**
+Routes (all scoped to authenticated key's institution):
 
-Adicionar coluna `assigned_plan text` (nullable) na tabela `admin_invites` para registrar qual plano foi atribuido pelo superadmin.
+- `GET  /v1/health` — ping
+- `GET  /v1/institution` — institution info
+- `GET  /v1/courses` — list courses (paginated)
+- `GET  /v1/courses/:id` — course detail
+- `GET  /v1/groups` — list groups
+- `GET  /v1/rooms` — list rooms
+- `GET  /v1/users` — list members (students/professors) in institution
+- `GET  /v1/sessions` — list tutorial sessions
+- `GET  /v1/evaluations` — aggregated grades (filter by `course_id`, `student_id`, date range)
+- `GET  /v1/attendance` — attendance records
+- `POST /v1/users` — provision a student/professor (creates auth user + course membership)
+- `POST /v1/courses` — create a course
 
-**4. Edge Function `setup-institution` — usar plano atribuido**
+Auth: header `Authorization: Bearer pbl_live_xxx`. Function hashes the key, looks it up, validates `revoked_at`/`expires_at`, scopes all queries to `institution_id`, logs the request. Returns standard JSON `{ data, meta: { page, total } }` and proper HTTP status codes (401, 403, 404, 422, 429-style messaging without enforcement).
 
-Na acao `setup-invited`, em vez de criar uma assinatura com limites maximos fixos, buscar o `assigned_plan` do convite e aplicar os limites do tier correspondente (usando o mapeamento TIERS ja existente). A assinatura criada tera o `plan_name` correto (starter/professional/enterprise) com os limites reais do plano.
+Input validation with `zod`. CORS enabled. Use service role internally but always filter by the key's `institution_id`.
 
-**5. Edge Function `invite-admin` — acao `update_plan`**
+## Frontend
 
-Nova acao que permite ao superadmin alterar o plano de um admin convidado:
-- Recebe `invite_id` e `plan_name`
-- Verifica que a assinatura e de tipo convidado (`stripe_customer_id` comeca com `invited_`)
-- Atualiza `admin_invites.assigned_plan` e a linha correspondente em `subscriptions` com os novos limites
-- Se a assinatura nao for de tipo convidado (e real do Stripe), retorna erro 403 — apenas o proprio admin pode alterar via Stripe
+**New tab in `AdminPanel.tsx`: "API & Integrações"** (component `src/components/admin/ApiKeysTab.tsx`):
+- List existing keys (name, prefix, last used, status)
+- "Create key" dialog → choose name, scopes (read/write), optional expiry → shows full key ONCE with copy button + warning
+- Revoke action
 
-**6. Edge Function `invite-admin` — acao `revoke` na UI**
+**Documentation update in `src/pages/Documentation.tsx`**: add a new "API Pública" section (logged-in only, already gated) with:
+- Base URL: `https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api`
+- Authentication instructions
+- Endpoint reference table with example `curl` requests and JSON responses
+- Rate-limit note (best-effort, no enforcement) and versioning policy
 
-A acao `revoke_access` ja existe no backend. Expor na UI do `InviteAdminTab.tsx` com um botao "Revogar Acesso" com confirmacao (AlertDialog) para cada admin convidado ativo.
+## Files to create / edit
 
-**7. UI: lista de convites com plano e acoes**
+Create:
+- `supabase/functions/public-api/index.ts`
+- `src/components/admin/ApiKeysTab.tsx`
+- Migration: `api_keys`, `api_request_log`, `hash_api_key()` function, RLS policies
 
-No `InviteAdminTab.tsx`, a lista de convites passara a exibir:
-- O plano atribuido (badge colorido: Starter/Professional/Enterprise)
-- Um seletor para alterar o plano (apenas para convidados, nao assinantes Stripe)
-- Botao "Revogar" com confirmacao
+Edit:
+- `supabase/config.toml` (register `public-api` with `verify_jwt = false`)
+- `src/pages/AdminPanel.tsx` (add new tab)
+- `src/pages/Documentation.tsx` (add API reference section)
+- `src/i18n/locales/{en,es,pt}.json` (labels)
 
-**8. UI: aba Assinatura para admin convidado**
+## Technical notes
 
-No `SubscriptionTab.tsx`, quando o admin for convidado, em vez de mostrar "Acesso cortesia", exibir o nome real do plano (Starter/Professional/Enterprise) com os limites corretos, e uma nota "Plano atribuido pelo administrador do sistema".
+- Keys are stored hashed (SHA-256 via pgcrypto); only the prefix is shown after creation
+- All queries inside the function are scoped by `institution_id` derived from the key — never trust client-supplied institution IDs
+- Write endpoints (`POST /v1/users`, `POST /v1/courses`) require a `write` scope on the key
+- Per project rules: no backend rate limiting will be added
+- Existing AI provider key pattern (`ai_provider_keys`) is the model for the management UI
 
-### Detalhes tecnicos
-
-```text
-Fluxo do convite:
-  Superadmin -> seleciona email + plano -> invite-admin(action:invite, email, plan_name)
-    -> salva em admin_invites com assigned_plan
-    -> envia email
-
-Fluxo do setup:
-  Admin convidado -> login -> setup-institution(action:setup-invited)
-    -> busca admin_invites.assigned_plan
-    -> cria subscription com limites do TIERS[plan_name]
-
-Fluxo de alteracao:
-  Superadmin -> invite-admin(action:update_plan, invite_id, plan_name)
-    -> valida que e convidado (stripe_customer_id starts with "invited_")
-    -> atualiza admin_invites.assigned_plan
-    -> atualiza subscriptions com novos limites
-
-Fluxo de revogacao:
-  Superadmin -> invite-admin(action:revoke_access, institution_id)
-    -> deleta toda a hierarquia (ja implementado)
-```
-
-Mapeamento de planos (ja existe em `setup-institution`):
+## Diagram
 
 ```text
-starter       -> 30 alunos, 3 salas, IA basica (50), sem cenarios IA, sem peers, sem badges, sem relatorios completos
-professional  -> 150 alunos, ilimitadas salas, IA avancada (500), cenarios IA, peers, badges, relatorios completos
-enterprise    -> ilimitado tudo, white-label
+External System ──Bearer key──▶ public-api edge fn ──▶ hash+lookup api_keys
+                                       │
+                                       ├── scope to institution_id
+                                       ├── route → courses/groups/users/...
+                                       └── log to api_request_log
 ```
-
-### Arquivos a criar/modificar
-
-| Arquivo | Acao |
-|---------|------|
-| `supabase/migrations/...` | Nova coluna `assigned_plan` em `admin_invites` |
-| `supabase/functions/invite-admin/index.ts` | Acao `invite` aceita `plan_name`, nova acao `update_plan`, lista retorna `assigned_plan` |
-| `supabase/functions/setup-institution/index.ts` | Acao `setup-invited` busca e aplica `assigned_plan` do convite |
-| `src/components/admin/InviteAdminTab.tsx` | Seletor de plano no formulario, exibicao de plano na lista, botoes de alterar plano e revogar |
-| `src/components/admin/SubscriptionTab.tsx` | Exibir plano real para convidados em vez de "Cortesia" generico |
-| `src/integrations/supabase/types.ts` | Atualizar tipos para incluir `assigned_plan` em `admin_invites` |
-
