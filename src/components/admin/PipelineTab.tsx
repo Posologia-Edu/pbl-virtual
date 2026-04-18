@@ -127,12 +127,22 @@ export default function PipelineTab() {
             Histórico de funcionalidades e planejamento futuro do sistema.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Nova Entrada
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+            onClick={generateWithAI}
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            {generating ? "Gerando..." : "Gerar funcionalidades com IA"}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" /> Nova Entrada
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nova Entrada no Roadmap</DialogTitle>
