@@ -288,6 +288,8 @@ const technicalSections: DocSection[] = [
     ],
   },
 ];
+
+function AccordionItem({ section }: { section: DocSection }) {
   const [open, setOpen] = useState(false);
   const Icon = section.icon;
 
