@@ -253,6 +253,18 @@ export default function AdminPanel() {
             />
           </TabsContent>
 
+          <TabsContent value="adaptive">
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
+            <AdaptiveScenariosTab
+              groups={groups} scenarios={scenarios} selectedCourseId={selectedCourseId} onRefresh={fetchAll}
+            />
+          </TabsContent>
+
           <TabsContent value="branding">
             <BrandingTab institutions={visibleInstitutions} onRefresh={fetchAll} readOnly={false} />
           </TabsContent>
