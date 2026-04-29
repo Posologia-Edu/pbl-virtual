@@ -435,7 +435,11 @@ export default function AdminPanel() {
           <TabsContent value="security">
             <SecurityTab />
           </TabsContent>
-        </Tabs>
+                </div>
+              </div>
+            </div>
+          </Tabs>
+        </div>
       </div>
     </Layout>
   );
