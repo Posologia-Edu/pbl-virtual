@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
@@ -21,6 +21,7 @@ import AIKeysTab from "@/components/admin/AIKeysTab";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import PipelineTab from "@/components/admin/PipelineTab";
 import ApiKeysTab from "@/components/admin/ApiKeysTab";
+import AdaptiveScenariosTab from "@/components/admin/AdaptiveScenariosTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -162,6 +163,7 @@ export default function AdminPanel() {
             <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> {t("admin.groups")}</TabsTrigger>
             <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> {t("admin.modules")}</TabsTrigger>
             <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> {t("admin.scenarios")}</TabsTrigger>
+            <TabsTrigger value="adaptive"><Sparkles className="mr-2 h-4 w-4" /> Adaptativos</TabsTrigger>
             <TabsTrigger value="branding"><Palette className="mr-2 h-4 w-4" /> {t("admin.branding")}</TabsTrigger>
             {isSuperAdmin && (
               <TabsTrigger value="financial"><CreditCard className="mr-2 h-4 w-4" /> Financeiro</TabsTrigger>
@@ -248,6 +250,18 @@ export default function AdminPanel() {
               scenarios={scenarios} modules={modules} rooms={rooms}
               courses={visibleCourses} institutions={visibleInstitutions} groups={groups}
               selectedCourseId={selectedCourseId} onRefresh={fetchAll} readOnly={false}
+            />
+          </TabsContent>
+
+          <TabsContent value="adaptive">
+            <CourseContextSelector
+              institutions={visibleInstitutions} courses={visibleCourses}
+              selectedInstitutionId={selectedInstitutionId} selectedCourseId={selectedCourseId}
+              onInstitutionChange={isSuperAdmin ? setSelectedInstitutionId : () => {}} onCourseChange={setSelectedCourseId}
+              lockInstitution={isInstitutionAdmin && !isSuperAdmin}
+            />
+            <AdaptiveScenariosTab
+              groups={groups} scenarios={scenarios} selectedCourseId={selectedCourseId} onRefresh={fetchAll}
             />
           </TabsContent>
 
