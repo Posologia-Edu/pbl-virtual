@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.generate-roadmap]
 verify_jwt = false
+
+[functions.analyze-performance]
+verify_jwt = false
+
+[functions.generate-adaptive-scenario]
+verify_jwt = false
