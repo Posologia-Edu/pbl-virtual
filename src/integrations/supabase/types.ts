@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      adaptive_scenarios: {
+        Row: {
+          base_scenario_id: string | null
+          created_at: string
+          created_by: string
+          gaps_payload: Json
+          id: string
+          scenario_id: string
+          source_type: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          base_scenario_id?: string | null
+          created_at?: string
+          created_by: string
+          gaps_payload?: Json
+          id?: string
+          scenario_id: string
+          source_type: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          base_scenario_id?: string | null
+          created_at?: string
+          created_by?: string
+          gaps_payload?: Json
+          id?: string
+          scenario_id?: string
+          source_type?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       admin_invites: {
         Row: {
           activated_at: string | null
@@ -1088,6 +1124,7 @@ export type Database = {
           course_id: string | null
           created_at: string
           id: string
+          is_adaptive: boolean
           is_hidden: boolean
           module_id: string | null
           title: string
@@ -1100,6 +1137,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_adaptive?: boolean
           is_hidden?: boolean
           module_id?: string | null
           title: string
@@ -1112,6 +1150,7 @@ export type Database = {
           course_id?: string | null
           created_at?: string
           id?: string
+          is_adaptive?: boolean
           is_hidden?: boolean
           module_id?: string | null
           title?: string
