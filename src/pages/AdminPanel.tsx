@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook, Sparkles } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook, Sparkles, Search, Settings2, ShieldCheck, LayoutGrid, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
