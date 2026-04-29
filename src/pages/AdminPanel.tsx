@@ -163,6 +163,7 @@ export default function AdminPanel() {
             <TabsTrigger value="groups"><Users className="mr-2 h-4 w-4" /> {t("admin.groups")}</TabsTrigger>
             <TabsTrigger value="modules"><FolderOpen className="mr-2 h-4 w-4" /> {t("admin.modules")}</TabsTrigger>
             <TabsTrigger value="scenarios"><FileText className="mr-2 h-4 w-4" /> {t("admin.scenarios")}</TabsTrigger>
+            <TabsTrigger value="adaptive"><Sparkles className="mr-2 h-4 w-4" /> Adaptativos</TabsTrigger>
             <TabsTrigger value="branding"><Palette className="mr-2 h-4 w-4" /> {t("admin.branding")}</TabsTrigger>
             {isSuperAdmin && (
               <TabsTrigger value="financial"><CreditCard className="mr-2 h-4 w-4" /> Financeiro</TabsTrigger>
