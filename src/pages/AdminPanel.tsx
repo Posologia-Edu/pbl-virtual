@@ -21,6 +21,7 @@ import AIKeysTab from "@/components/admin/AIKeysTab";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import PipelineTab from "@/components/admin/PipelineTab";
 import ApiKeysTab from "@/components/admin/ApiKeysTab";
+import AdaptiveScenariosTab from "@/components/admin/AdaptiveScenariosTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
