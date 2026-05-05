@@ -404,6 +404,23 @@ Deno.serve(async (req) => {
   }
 });
 
+// Helper: check whether an institution's owner is a Superadmin
+async function isInstitutionOwnedBySuperadmin(institutionId: string, serviceClient: any): Promise<boolean> {
+  const { data: inst } = await serviceClient
+    .from("institutions")
+    .select("owner_id")
+    .eq("id", institutionId)
+    .maybeSingle();
+  if (!inst?.owner_id) return false;
+  const { data: roleRow } = await serviceClient
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", inst.owner_id)
+    .eq("role", "admin")
+    .maybeSingle();
+  return !!roleRow;
+}
+
 // Helper: check local subscription for users who may not have a Stripe customer
 async function getLocalSubscription(userId: string, serviceClient: any) {
   // 1. Check if user is a subscription owner
