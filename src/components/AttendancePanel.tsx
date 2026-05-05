@@ -183,11 +183,13 @@ export default function AttendancePanel({
 
   // QR Code check-in
   const [showQrInput, setShowQrInput] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [qrInput, setQrInput] = useState("");
 
-  const checkInQr = async () => {
+  const checkInQr = async (codeOverride?: string) => {
     if (!sessionId || !user || alreadyCheckedIn) return;
-    if (qrInput.trim() !== roomGeo.qr) {
+    const code = (codeOverride ?? qrInput).trim();
+    if (code !== roomGeo.qr) {
       toast({ title: "Código QR inválido", variant: "destructive" });
       return;
     }
@@ -211,6 +213,7 @@ export default function AttendancePanel({
     }
     setCheckingIn(false);
     setShowQrInput(false);
+    setQrInput("");
   };
 
   // Professor: save settings
