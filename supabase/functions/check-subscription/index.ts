@@ -367,9 +367,24 @@ Deno.serve(async (req) => {
           if (!planName) planName = instSub.plan_name;
         }
       }
+
+      // Superadmin-owned institution: grant Enterprise features automatically
+      const isSuperOwned = await isInstitutionOwnedBySuperadmin(effectiveInstitutionId, serviceClient);
+      if (isSuperOwned) {
+        subFeatures = {
+          max_ai_interactions: 99999,
+          ai_scenario_generation: true,
+          peer_evaluation_enabled: true,
+          badges_enabled: true,
+          full_reports_enabled: true,
+          whitelabel_enabled: true,
+        };
+        if (!planName) planName = "enterprise";
+      }
     }
 
     return new Response(JSON.stringify({
+      subscribed: hasActiveSub || (effectiveInstitutionId ? await isInstitutionOwnedBySuperadmin(effectiveInstitutionId, serviceClient) : false) || false,
       subscribed: hasActiveSub,
       product_id: productId,
       plan_name: planName,
