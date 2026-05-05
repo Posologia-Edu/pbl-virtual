@@ -513,6 +513,12 @@ export default function AttendancePanel({
           </div>
         )}
       </div>
+
+      <QrScannerDialog
+        open={showScanner}
+        onOpenChange={setShowScanner}
+        onScan={(decoded) => checkInQr(decoded)}
+      />
     </div>
   );
 }
