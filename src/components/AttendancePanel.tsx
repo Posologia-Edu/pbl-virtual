@@ -391,12 +391,21 @@ export default function AttendancePanel({
                 {roomGeo.qr && (
                   <>
                     <Button
-                      onClick={() => setShowQrInput(!showQrInput)}
+                      onClick={() => setShowScanner(true)}
                       className="w-full justify-start gap-2"
                       variant="outline"
                     >
-                      <QrCode className="h-4 w-4 text-primary" />
-                      Check-in por QR Code
+                      <Camera className="h-4 w-4 text-primary" />
+                      Escanear QR Code com a câmera
+                    </Button>
+                    <Button
+                      onClick={() => setShowQrInput(!showQrInput)}
+                      className="w-full justify-start gap-2"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      <Keyboard className="h-4 w-4 text-muted-foreground" />
+                      Inserir código manualmente
                     </Button>
                     {showQrInput && (
                       <div className="flex gap-2">
@@ -407,7 +416,7 @@ export default function AttendancePanel({
                           onKeyDown={(e) => e.key === "Enter" && checkInQr()}
                           className="h-9 text-sm"
                         />
-                        <Button onClick={checkInQr} disabled={checkingIn} size="sm" className="shrink-0">
+                        <Button onClick={() => checkInQr()} disabled={checkingIn} size="sm" className="shrink-0">
                           {checkingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         </Button>
                       </div>
