@@ -265,12 +265,12 @@ export default function AttendancePanel({
   };
 
   const getParticipantName = (studentId: string) => {
-    const p = participants.find((p) => p.user_id === studentId);
+    const p = participants.find((p) => p.student_id === studentId);
     return p?.full_name || "Aluno";
   };
 
   const presentCount = records.length;
-  const totalStudents = participants.filter((p) => p.user_id !== undefined).length;
+  const totalStudents = participants.filter((p) => p.student_id !== undefined).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -463,11 +463,11 @@ export default function AttendancePanel({
             ) : (
               <>
                 {participants.map((p) => {
-                  const record = records.find((r) => r.student_id === p.user_id);
+                  const record = records.find((r) => r.student_id === p.student_id);
                   const isPresent = !!record;
                   return (
                     <div
-                      key={p.user_id}
+                      key={p.student_id}
                       className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                         isPresent ? "bg-emerald-500/5" : "bg-muted/20"
                       }`}
