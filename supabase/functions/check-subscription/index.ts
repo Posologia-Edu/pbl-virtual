@@ -384,8 +384,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub || (effectiveInstitutionId ? await isInstitutionOwnedBySuperadmin(effectiveInstitutionId, serviceClient) : false) || false,
-      subscribed: hasActiveSub,
+      subscribed: hasActiveSub || (effectiveInstitutionId ? await isInstitutionOwnedBySuperadmin(effectiveInstitutionId, serviceClient) : false),
       product_id: productId,
       plan_name: planName,
       subscription_end: subscriptionEnd,
