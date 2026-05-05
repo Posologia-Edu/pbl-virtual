@@ -501,17 +501,61 @@ async function getLocalSubscription(userId: string, serviceClient: any) {
           ai_interactions_used: aiInteractionsUsed,
         };
       }
+      // No active sub for the institution: if owner is Superadmin, grant Enterprise
+      const superOwned = await isInstitutionOwnedBySuperadmin(instId, serviceClient);
+      if (superOwned) {
+        let aiInteractionsUsed = 0;
+        const monthYear = new Date().toISOString().slice(0, 7);
+        const { data: aiCount } = await serviceClient
+          .from("ai_interaction_counts")
+          .select("interaction_count")
+          .eq("institution_id", instId)
+          .eq("month_year", monthYear)
+          .maybeSingle();
+        aiInteractionsUsed = aiCount?.interaction_count ?? 0;
+        return {
+          subscribed: true,
+          product_id: null,
+          plan_name: "enterprise",
+          subscription_end: null,
+          institution_id: instId,
+          max_ai_interactions: 99999,
+          ai_scenario_generation: true,
+          peer_evaluation_enabled: true,
+          badges_enabled: true,
+          full_reports_enabled: true,
+          whitelabel_enabled: true,
+          ai_interactions_used: aiInteractionsUsed,
+        };
+      }
     }
   }
 
   // 3. Check if user owns an institution (without active sub)
   const { data: inst } = await serviceClient
     .from("institutions")
-    .select("id")
+    .select("id, owner_id")
     .eq("owner_id", userId)
     .maybeSingle();
 
   if (inst) {
+    const superOwned = await isInstitutionOwnedBySuperadmin(inst.id, serviceClient);
+    if (superOwned) {
+      return {
+        subscribed: true,
+        product_id: null,
+        plan_name: "enterprise",
+        subscription_end: null,
+        institution_id: inst.id,
+        max_ai_interactions: 99999,
+        ai_scenario_generation: true,
+        peer_evaluation_enabled: true,
+        badges_enabled: true,
+        full_reports_enabled: true,
+        whitelabel_enabled: true,
+        ai_interactions_used: 0,
+      };
+    }
     return {
       subscribed: false,
       product_id: null,
