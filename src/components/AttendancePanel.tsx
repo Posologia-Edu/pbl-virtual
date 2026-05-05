@@ -7,8 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
 import {
   MapPin, QrCode, Check, Clock, RefreshCw, Settings2,
-  UserCheck, AlertCircle, Loader2, Navigation,
+  UserCheck, AlertCircle, Loader2, Navigation, Camera, Keyboard,
 } from "lucide-react";
+import QrScannerDialog from "@/components/QrScannerDialog";
 
 interface AttendancePanelProps {
   roomId: string;
@@ -182,11 +183,13 @@ export default function AttendancePanel({
 
   // QR Code check-in
   const [showQrInput, setShowQrInput] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [qrInput, setQrInput] = useState("");
 
-  const checkInQr = async () => {
+  const checkInQr = async (codeOverride?: string) => {
     if (!sessionId || !user || alreadyCheckedIn) return;
-    if (qrInput.trim() !== roomGeo.qr) {
+    const code = (codeOverride ?? qrInput).trim();
+    if (code !== roomGeo.qr) {
       toast({ title: "Código QR inválido", variant: "destructive" });
       return;
     }
@@ -210,6 +213,7 @@ export default function AttendancePanel({
     }
     setCheckingIn(false);
     setShowQrInput(false);
+    setQrInput("");
   };
 
   // Professor: save settings
@@ -387,12 +391,21 @@ export default function AttendancePanel({
                 {roomGeo.qr && (
                   <>
                     <Button
-                      onClick={() => setShowQrInput(!showQrInput)}
+                      onClick={() => setShowScanner(true)}
                       className="w-full justify-start gap-2"
                       variant="outline"
                     >
-                      <QrCode className="h-4 w-4 text-primary" />
-                      Check-in por QR Code
+                      <Camera className="h-4 w-4 text-primary" />
+                      Escanear QR Code com a câmera
+                    </Button>
+                    <Button
+                      onClick={() => setShowQrInput(!showQrInput)}
+                      className="w-full justify-start gap-2"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      <Keyboard className="h-4 w-4 text-muted-foreground" />
+                      Inserir código manualmente
                     </Button>
                     {showQrInput && (
                       <div className="flex gap-2">
@@ -403,7 +416,7 @@ export default function AttendancePanel({
                           onKeyDown={(e) => e.key === "Enter" && checkInQr()}
                           className="h-9 text-sm"
                         />
-                        <Button onClick={checkInQr} disabled={checkingIn} size="sm" className="shrink-0">
+                        <Button onClick={() => checkInQr()} disabled={checkingIn} size="sm" className="shrink-0">
                           {checkingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         </Button>
                       </div>
@@ -500,6 +513,12 @@ export default function AttendancePanel({
           </div>
         )}
       </div>
+
+      <QrScannerDialog
+        open={showScanner}
+        onOpenChange={setShowScanner}
+        onScan={(decoded) => checkInQr(decoded)}
+      />
     </div>
   );
 }
