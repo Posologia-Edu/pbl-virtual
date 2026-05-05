@@ -7,8 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
 import {
   MapPin, QrCode, Check, Clock, RefreshCw, Settings2,
-  UserCheck, AlertCircle, Loader2, Navigation,
+  UserCheck, AlertCircle, Loader2, Navigation, Camera, Keyboard,
 } from "lucide-react";
+import QrScannerDialog from "@/components/QrScannerDialog";
 
 interface AttendancePanelProps {
   roomId: string;
