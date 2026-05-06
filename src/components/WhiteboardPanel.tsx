@@ -94,7 +94,9 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -- Load initial state from session --
+  // -- Load initial state from session + Realtime subscription --
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
     if (!sessionId) return;
     (supabase as any).from("tutorial_sessions")
@@ -108,7 +110,7 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
         }
       });
 
-    const ch = supabase.channel(`wb-${sessionId}`)
+    const ch = supabase.channel(`wb-${sessionId}`, { config: { broadcast: { self: false } } })
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "tutorial_sessions", filter: `id=eq.${sessionId}`,
       }, (payload: any) => {
@@ -118,9 +120,20 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
           setObjects(next);
         }
       })
+      .on("broadcast", { event: "wb-update" }, (payload: any) => {
+        const next = payload?.payload?.objects;
+        if (Array.isArray(next)) {
+          skipNextSync.current = true;
+          setObjects(next);
+        }
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(ch); };
+    broadcastChannelRef.current = ch;
+    return () => {
+      broadcastChannelRef.current = null;
+      supabase.removeChannel(ch);
+    };
   }, [sessionId]);
 
   // -- Persist on changes (only if can edit) --
@@ -130,11 +143,20 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
       skipNextSync.current = false;
       return;
     }
+    // Broadcast immediately for low latency
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.send({
+        type: "broadcast",
+        event: "wb-update",
+        payload: { objects },
+      });
+    }
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      (supabase as any).from("tutorial_sessions")
+    saveTimer.current = setTimeout(async () => {
+      const { error } = await (supabase as any).from("tutorial_sessions")
         .update({ whiteboard_state: { objects } })
         .eq("id", sessionId);
+      if (error) console.error("[Whiteboard] save error:", error);
     }, 300);
   }, [objects, sessionId, readOnly]);
 
