@@ -17,6 +17,11 @@ import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import ReferencesPanel from "@/components/ReferencesPanel";
 import SessionMinutesPanel from "@/components/SessionMinutesPanel";
 import ObjectivesBankPanel from "@/components/ObjectivesBankPanel";
+import ObjectivesKanbanPanel from "@/components/ObjectivesKanbanPanel";
+import PresentationCommentsPanel from "@/components/PresentationCommentsPanel";
+import VerdictPanel from "@/components/VerdictPanel";
+import ArguitionCardPanel from "@/components/ArguitionCardPanel";
+import FinalizeP7Dialog from "@/components/FinalizeP7Dialog";
 import AICotutorPanel from "@/components/AICotutorPanel";
 import AttendancePanel from "@/components/AttendancePanel";
 import ScientificSearchPanel from "@/components/ScientificSearchPanel";
@@ -24,7 +29,7 @@ import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot, MapPin,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -59,6 +64,15 @@ export default function PBLSession() {
   const [historyStep, setHistoryStep] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [moduleId, setModuleId] = useState<string | null>(null);
+
+  // P7 state
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(1);
+  const [p5Objectives, setP5Objectives] = useState<{ id: string; content: string }[]>([]);
+  const [verdictState, setVerdictState] = useState<{ isFinalized: boolean; addressedAll: boolean; hasContent: boolean }>({ isFinalized: false, addressedAll: false, hasContent: false });
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [evaluationReady, setEvaluationReady] = useState(false);
+  const [peerEvalReady, setPeerEvalReady] = useState(false);
 
   const currentSessionId = viewingHistorySessionId || activeSession?.id;
   const isViewingHistory = !!viewingHistorySessionId;
@@ -196,6 +210,46 @@ export default function PBLSession() {
     };
     fetchModule();
   }, [room?.group_id]);
+
+  // ---- Fetch P5 objectives for current session (used by P7 panels) ----
+  useEffect(() => {
+    const sid = activeSession?.id;
+    if (!sid || !roomId) { setP5Objectives([]); return; }
+    const fetchObjs = async () => {
+      const { data } = await (supabase as any)
+        .from("step_items").select("id, content")
+        .eq("room_id", roomId).eq("session_id", sid).eq("step", 5)
+        .order("created_at");
+      setP5Objectives((data || []).map((d: any) => ({ id: d.id, content: d.content })));
+    };
+    fetchObjs();
+    const ch = supabase.channel(`p5-${sid}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "step_items", filter: `session_id=eq.${sid}` }, () => fetchObjs())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [activeSession?.id, roomId]);
+
+  // ---- Check evaluation / peer-eval readiness for finalize dialog ----
+  useEffect(() => {
+    const sid = activeSession?.id;
+    if (!sid || !roomId || activeStep !== 7) return;
+    const check = async () => {
+      // Professor: needs at least one evaluation per participant
+      if (isProfessor && participants.length > 0) {
+        const { data: evals } = await (supabase as any)
+          .from("evaluations").select("student_id").eq("session_id", sid).eq("archived", false);
+        const evaluatedIds = new Set((evals || []).map((e: any) => e.student_id));
+        setEvaluationReady(participants.every((p: any) => evaluatedIds.has(p.student_id)));
+      }
+      // Student: needs at least one peer-eval submitted
+      if (!isProfessor && user) {
+        const { data: peer } = await (supabase as any)
+          .from("peer_evaluations").select("id").eq("session_id", sid).eq("evaluator_id", user.id).limit(1);
+        setPeerEvalReady(!!peer && peer.length > 0);
+      }
+    };
+    check();
+  }, [activeSession?.id, roomId, activeStep, isProfessor, participants, user, verdictState]);
 
   // ---- Fetch step items (filtered by session) ----
   useEffect(() => {
@@ -723,30 +777,73 @@ export default function PBLSession() {
                     </div>
                   )}
 
-                  {/* Closing phase (P7) — presentation + references + minutes */}
-                  {(isViewingHistory ? historyStep : activeStep) === 7 && (
+                  {/* Closing phase (P7) — Kanban + presentation + comments + verdict + AI + minutes */}
+                  {(isViewingHistory ? historyStep : activeStep) === 7 && currentSessionId && (
                     <>
-                      {currentSessionId && (
-                        <PresentationPanel
+                      <ObjectivesKanbanPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        isProfessor={isProfessor}
+                        moduleId={moduleId}
+                      />
+
+                      <PresentationPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        isReporter={isReporter && !isViewingHistory}
+                        userId={user?.id || null}
+                        onPresentationLoaded={setPresentationId}
+                      />
+
+                      {presentationId && !isViewingHistory && (
+                        <PresentationCommentsPanel
                           roomId={roomId!}
                           sessionId={currentSessionId}
-                          isReporter={isReporter && !isViewingHistory}
-                          userId={user?.id || null}
+                          presentationId={presentationId}
+                          isProfessor={isProfessor}
+                          currentSlide={currentSlide}
+                          onSlideChange={setCurrentSlide}
                         />
                       )}
+
+                      {isProfessor && presentationId && !isViewingHistory && (
+                        <ArguitionCardPanel
+                          sessionId={currentSessionId}
+                          roomId={roomId!}
+                          presentationId={presentationId}
+                        />
+                      )}
+
+                      {!isViewingHistory && (
+                        <VerdictPanel
+                          roomId={roomId!}
+                          sessionId={currentSessionId}
+                          isReporter={isReporter}
+                          isProfessor={isProfessor}
+                          objectives={p5Objectives}
+                          onChange={setVerdictState}
+                        />
+                      )}
+
                       <ReferencesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
                         readOnly={isViewingHistory}
                       />
-                      <ScientificSearchPanel
-                        scenarioContent={displayScenarioContent || undefined}
-                      />
+                      <ScientificSearchPanel scenarioContent={displayScenarioContent || undefined} />
                       <SessionMinutesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
                         sessionLabel={sessionLabel}
                       />
+
+                      {!isViewingHistory && (
+                        <div className="flex justify-end pt-2">
+                          <Button size="lg" onClick={() => setShowFinalizeDialog(true)}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" /> Finalizar P7
+                          </Button>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -895,6 +992,18 @@ export default function PBLSession() {
           )}
         </div>
       </div>
+
+      <FinalizeP7Dialog
+        open={showFinalizeDialog}
+        onOpenChange={setShowFinalizeDialog}
+        isProfessor={isProfessor}
+        verdictReady={verdictState.isFinalized && verdictState.addressedAll && verdictState.hasContent}
+        evaluationReady={evaluationReady}
+        peerEvalReady={peerEvalReady}
+        onOpenEvaluation={() => setRightPanel("eval")}
+        onOpenPeerEval={() => setRightPanel("peer-eval")}
+        onOpenVerdict={() => { /* verdict is inline in P7 */ }}
+      />
     </div>
   );
 }
