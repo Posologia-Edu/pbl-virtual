@@ -1388,6 +1388,42 @@ export type Database = {
           },
         ]
       }
+      speaking_segments: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          offset_seconds: number
+          recorded_by: string
+          room_id: string
+          session_id: string
+          step: number
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          offset_seconds?: number
+          recorded_by: string
+          room_id: string
+          session_id: string
+          step?: number
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          offset_seconds?: number
+          recorded_by?: string
+          room_id?: string
+          session_id?: string
+          step?: number
+          student_id?: string
+        }
+        Relationships: []
+      }
       step_items: {
         Row: {
           author_id: string

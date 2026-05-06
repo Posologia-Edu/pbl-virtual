@@ -29,6 +29,8 @@ interface Props {
   professorId?: string | null;
   roomId?: string | null;
   isCoordinator?: boolean;
+  currentStep?: number;
+  sessionStartedAt?: string | null;
 }
 
 const roleConfig = {
@@ -46,6 +48,7 @@ const fmt = (s: number) => {
 export default function ParticipantsPanel({
   participants, coordinatorId, reporterId, isProfessor, onAssignRole,
   onlineUserIds = new Set(), sessionId, professorId, roomId, isCoordinator,
+  currentStep = 0, sessionStartedAt = null,
 }: Props) {
   const [selectedStudent, setSelectedStudent] = useState<Participant | null>(null);
   const [noteContent, setNoteContent] = useState("");
@@ -53,12 +56,18 @@ export default function ParticipantsPanel({
   const [loadingNote, setLoadingNote] = useState(false);
 
   // Speaking time tracking
-  const [speakingTimes, setSpeakingTimes] = useState<Record<string, number>>({});
+  const [speakingTotals, setSpeakingTotals] = useState<Record<string, number>>({});
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+  const [currentSegmentSec, setCurrentSegmentSec] = useState(0);
   const tickerRef = useRef<ReturnType<typeof setInterval>>();
   const startedAtRef = useRef<number | null>(null);
+  const currentStepRef = useRef(currentStep);
+  const sessionStartRef = useRef<string | null>(sessionStartedAt);
 
-  // Fetch speaking times + realtime
+  useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
+  useEffect(() => { sessionStartRef.current = sessionStartedAt; }, [sessionStartedAt]);
+
+  // Fetch totals + realtime
   const fetchTimes = useCallback(async () => {
     if (!sessionId) return;
     const { data } = await (supabase as any)
@@ -68,7 +77,7 @@ export default function ParticipantsPanel({
     if (data) {
       const map: Record<string, number> = {};
       data.forEach((d: any) => { map[d.student_id] = d.total_seconds; });
-      setSpeakingTimes(map);
+      setSpeakingTotals(map);
     }
   }, [sessionId]);
 
@@ -83,24 +92,37 @@ export default function ParticipantsPanel({
     return () => { supabase.removeChannel(ch); };
   }, [sessionId, fetchTimes]);
 
-  // Local ticker for active speaker (visual only)
+  // Local ticker for active speaker (visual: current segment from 0)
   useEffect(() => {
     if (activeSpeakerId) {
       startedAtRef.current = Date.now();
+      setCurrentSegmentSec(0);
       tickerRef.current = setInterval(() => {
-        setSpeakingTimes((prev) => ({
-          ...prev,
-          [activeSpeakerId]: (prev[activeSpeakerId] || 0) + 1,
-        }));
+        setCurrentSegmentSec((s) => s + 1);
       }, 1000);
     }
     return () => clearInterval(tickerRef.current);
   }, [activeSpeakerId]);
 
-  const persistDelta = async (studentId: string, addedSeconds: number) => {
+  const persistDelta = async (studentId: string, addedSeconds: number, startedAtMs: number) => {
     if (!sessionId || !roomId || addedSeconds <= 0) return;
-    // Try update; if no row, insert
-    const newTotal = (speakingTimes[studentId] || 0);
+
+    // Compute offset within session (seconds since session started)
+    const sessionStartMs = sessionStartRef.current ? new Date(sessionStartRef.current).getTime() : startedAtMs;
+    const offset = Math.max(0, Math.round((startedAtMs - sessionStartMs) / 1000));
+
+    // Insert segment
+    await (supabase as any).from("speaking_segments").insert({
+      room_id: roomId,
+      session_id: sessionId,
+      student_id: studentId,
+      step: currentStepRef.current,
+      offset_seconds: offset,
+      duration_seconds: addedSeconds,
+      recorded_by: (await supabase.auth.getUser()).data.user?.id,
+    });
+
+    // Update aggregate total
     const { data: existing } = await (supabase as any)
       .from("participant_speaking_times")
       .select("id, total_seconds")
@@ -126,17 +148,21 @@ export default function ParticipantsPanel({
     if (isCoordinator && sessionId && !isProfessor) {
       const now = Date.now();
       if (activeSpeakerId === p.student_id) {
-        // Pause
+        // Pause: persist current segment
         const elapsed = startedAtRef.current ? Math.round((now - startedAtRef.current) / 1000) : 0;
+        const startedAt = startedAtRef.current || now;
         clearInterval(tickerRef.current);
         setActiveSpeakerId(null);
-        await persistDelta(p.student_id, elapsed);
+        setCurrentSegmentSec(0);
+        if (elapsed > 0) await persistDelta(p.student_id, elapsed, startedAt);
         return;
       }
-      // Switch: persist previous, start new
+      // Switch: persist previous segment, start new from 0
       if (activeSpeakerId && startedAtRef.current) {
         const elapsed = Math.round((now - startedAtRef.current) / 1000);
-        await persistDelta(activeSpeakerId, elapsed);
+        const startedAt = startedAtRef.current;
+        const prevId = activeSpeakerId;
+        if (elapsed > 0) await persistDelta(prevId, elapsed, startedAt);
       }
       clearInterval(tickerRef.current);
       setActiveSpeakerId(p.student_id);
@@ -154,7 +180,7 @@ export default function ParticipantsPanel({
     return () => {
       if (activeSpeakerId && startedAtRef.current) {
         const elapsed = Math.round((Date.now() - startedAtRef.current) / 1000);
-        persistDelta(activeSpeakerId, elapsed);
+        if (elapsed > 0) persistDelta(activeSpeakerId, elapsed, startedAtRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,7 +283,8 @@ export default function ParticipantsPanel({
         const Icon = cfg.icon;
         const isOnline = onlineUserIds.has(p.student_id);
         const isActive = activeSpeakerId === p.student_id;
-        const speakSec = speakingTimes[p.student_id] || 0;
+        const totalSec = speakingTotals[p.student_id] || 0;
+        const speakSec = isActive ? currentSegmentSec : totalSec;
         const clickable = (isProfessor && sessionId) || (isCoordinator && !isProfessor && sessionId);
 
         return (

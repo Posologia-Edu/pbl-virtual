@@ -78,6 +78,29 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
   const skipNextSync = useRef(false);
   const hasLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const objectsRef = useRef<WhiteboardObject[]>([]);
+  const dirtyRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const readOnlyRef = useRef(readOnly);
+
+  useEffect(() => { objectsRef.current = objects; }, [objects]);
+  useEffect(() => { sessionIdRef.current = sessionId ?? null; }, [sessionId]);
+  useEffect(() => { readOnlyRef.current = readOnly; }, [readOnly]);
+
+  // Flush pending save on unmount so reporter changes are not lost
+  useEffect(() => {
+    return () => {
+      if (!sessionIdRef.current || readOnlyRef.current) return;
+      if (!dirtyRef.current) return;
+      clearTimeout(saveTimer.current);
+      const payload = { objects: objectsRef.current };
+      // Best-effort sync save before unmount
+      (supabase as any).from("tutorial_sessions")
+        .update({ whiteboard_state: payload })
+        .eq("id", sessionIdRef.current)
+        .then(({ error }: any) => { if (error) console.error("[Whiteboard] flush error:", error); });
+    };
+  }, []);
 
   // -- Resize --
   useEffect(() => {
@@ -155,11 +178,13 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
       });
     }
     clearTimeout(saveTimer.current);
+    dirtyRef.current = true;
     saveTimer.current = setTimeout(async () => {
       const { error } = await (supabase as any).from("tutorial_sessions")
         .update({ whiteboard_state: { objects } })
         .eq("id", sessionId);
       if (error) console.error("[Whiteboard] save error:", error);
+      else dirtyRef.current = false;
     }, 300);
   }, [objects, sessionId, readOnly]);
 
