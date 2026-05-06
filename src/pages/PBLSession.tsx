@@ -537,14 +537,14 @@ export default function PBLSession() {
           >
             <MessageSquare className="h-4 w-4" /> Chat
           </button>
-          {isReporter && !isViewingHistory && (
+          {!isViewingHistory && (
             <button
               onClick={() => togglePanel("whiteboard")}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
                 rightPanel === "whiteboard" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
               }`}
             >
-              <PenTool className="h-4 w-4" /> Whiteboard
+              <PenTool className="h-4 w-4" /> Whiteboard {!isReporter && <span className="text-[10px] text-muted-foreground">(ao vivo)</span>}
             </button>
           )}
           {isProfessor && !isViewingHistory && (
