@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import {
   Eraser, Pen, Type, Share2, Undo2, Trash2,
   Square, Circle, Triangle, Minus, ArrowRight,
-  Diamond, MousePointer,
+  Diamond, MousePointer, Eye,
 } from "lucide-react";
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
 
 type Tool =
   | "select"
@@ -25,7 +26,7 @@ type Tool =
 
 interface WhiteboardObject {
   id: string;
-  type: "text" | "rect" | "circle" | "triangle" | "diamond" | "line" | "arrow";
+  type: "text" | "rect" | "circle" | "triangle" | "diamond" | "line" | "arrow" | "stroke";
   x: number;
   y: number;
   width: number;
@@ -33,13 +34,16 @@ interface WhiteboardObject {
   text?: string;
   color: string;
   lineWidth: number;
-  // For line/arrow: endpoint
   x2?: number;
   y2?: number;
+  // For freehand stroke
+  points?: { x: number; y: number }[];
 }
 
 interface Props {
-  onShareToChat: (imageDataUrl: string) => void;
+  onShareToChat?: (imageDataUrl: string) => void;
+  sessionId?: string | null;
+  readOnly?: boolean;
 }
 
 const SHAPE_TOOLS: { tool: Tool; icon: typeof Square; label: string }[] = [
@@ -54,32 +58,27 @@ const LINE_TOOLS: { tool: Tool; icon: typeof Minus; label: string }[] = [
   { tool: "arrow", icon: ArrowRight, label: "Seta" },
 ];
 
-export default function WhiteboardPanel({ onShareToChat }: Props) {
+export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("pen");
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#1a1a2e");
   const [lineWidth, setLineWidth] = useState(2);
-
-  // Freehand drawing stored as image snapshots for undo
-  const [history, setHistory] = useState<string[]>([]);
-  // Objects layer (shapes, text, lines, arrows)
   const [objects, setObjects] = useState<WhiteboardObject[]>([]);
-  const [objectsHistory, setObjectsHistory] = useState<WhiteboardObject[][]>([]);
+  const [historyStack, setHistoryStack] = useState<WhiteboardObject[][]>([]);
 
-  // Shape drawing state
   const shapeStart = useRef<{ x: number; y: number } | null>(null);
-
-  // Select / drag state
+  const currentStroke = useRef<{ x: number; y: number }[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const dragStart = useRef<{ x: number; y: number; ox: number; oy: number; ox2?: number; oy2?: number } | null>(null);
-
-  // Inline text editing
   const [editingText, setEditingText] = useState<{ x: number; y: number } | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
-  // -- resize canvas --
+  const skipNextSync = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // -- Resize --
   useEffect(() => {
     const resize = () => {
       const canvas = canvasRef.current;
@@ -95,7 +94,51 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -- redraw everything when objects change --
+  // -- Load initial state from session --
+  useEffect(() => {
+    if (!sessionId) return;
+    (supabase as any).from("tutorial_sessions")
+      .select("whiteboard_state")
+      .eq("id", sessionId)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.whiteboard_state?.objects) {
+          skipNextSync.current = true;
+          setObjects(data.whiteboard_state.objects);
+        }
+      });
+
+    const ch = supabase.channel(`wb-${sessionId}`)
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "tutorial_sessions", filter: `id=eq.${sessionId}`,
+      }, (payload: any) => {
+        const next = payload.new?.whiteboard_state?.objects;
+        if (Array.isArray(next)) {
+          skipNextSync.current = true;
+          setObjects(next);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, [sessionId]);
+
+  // -- Persist on changes (only if can edit) --
+  useEffect(() => {
+    if (!sessionId || readOnly) return;
+    if (skipNextSync.current) {
+      skipNextSync.current = false;
+      return;
+    }
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      (supabase as any).from("tutorial_sessions")
+        .update({ whiteboard_state: { objects } })
+        .eq("id", sessionId);
+    }, 300);
+  }, [objects, sessionId, readOnly]);
+
+  // -- Redraw --
   useEffect(() => {
     redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,20 +148,9 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!ctx || !canvas) return;
-
-    // Restore freehand base from last history entry
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (history.length > 0) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0);
-        drawObjects(ctx);
-      };
-      img.src = history[history.length - 1];
-    } else {
-      drawObjects(ctx);
-    }
-  }, [history, objects, selectedId]);
+    drawObjects(ctx);
+  }, [objects, selectedId]);
 
   const drawObjects = (ctx: CanvasRenderingContext2D) => {
     objects.forEach((obj) => {
@@ -131,20 +163,28 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
       ctx.globalCompositeOperation = "source-over";
 
       switch (obj.type) {
+        case "stroke": {
+          if (!obj.points || obj.points.length < 1) break;
+          ctx.beginPath();
+          ctx.moveTo(obj.points[0].x, obj.points[0].y);
+          for (let i = 1; i < obj.points.length; i++) {
+            ctx.lineTo(obj.points[i].x, obj.points[i].y);
+          }
+          ctx.stroke();
+          break;
+        }
         case "rect":
           ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
           break;
         case "circle": {
           const cx = obj.x + obj.width / 2;
           const cy = obj.y + obj.height / 2;
-          const rx = Math.abs(obj.width / 2);
-          const ry = Math.abs(obj.height / 2);
           ctx.beginPath();
-          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx, cy, Math.abs(obj.width / 2), Math.abs(obj.height / 2), 0, 0, Math.PI * 2);
           ctx.stroke();
           break;
         }
-        case "triangle": {
+        case "triangle":
           ctx.beginPath();
           ctx.moveTo(obj.x + obj.width / 2, obj.y);
           ctx.lineTo(obj.x + obj.width, obj.y + obj.height);
@@ -152,8 +192,7 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           ctx.closePath();
           ctx.stroke();
           break;
-        }
-        case "diamond": {
+        case "diamond":
           ctx.beginPath();
           ctx.moveTo(obj.x + obj.width / 2, obj.y);
           ctx.lineTo(obj.x + obj.width, obj.y + obj.height / 2);
@@ -162,14 +201,12 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           ctx.closePath();
           ctx.stroke();
           break;
-        }
-        case "line": {
+        case "line":
           ctx.beginPath();
           ctx.moveTo(obj.x, obj.y);
           ctx.lineTo(obj.x2 ?? obj.x, obj.y2 ?? obj.y);
           ctx.stroke();
           break;
-        }
         case "arrow": {
           const x2 = obj.x2 ?? obj.x;
           const y2 = obj.y2 ?? obj.y;
@@ -177,7 +214,6 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           ctx.moveTo(obj.x, obj.y);
           ctx.lineTo(x2, y2);
           ctx.stroke();
-          // Arrowhead
           const angle = Math.atan2(y2 - obj.y, x2 - obj.x);
           const headLen = 12;
           ctx.beginPath();
@@ -188,15 +224,13 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           ctx.stroke();
           break;
         }
-        case "text": {
+        case "text":
           ctx.font = "16px sans-serif";
           ctx.fillText(obj.text || "", obj.x, obj.y + 16);
           break;
-        }
       }
 
-      // Selection outline
-      if (obj.id === selectedId) {
+      if (obj.id === selectedId && !readOnly) {
         ctx.setLineDash([4, 4]);
         ctx.strokeStyle = "hsl(217, 91%, 60%)";
         ctx.lineWidth = 1;
@@ -208,12 +242,11 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
         } else if (obj.type === "text") {
           ctx.strokeRect(obj.x - 2, obj.y - 2, (obj.width || 80) + 4, 24);
-        } else {
+        } else if (obj.type !== "stroke") {
           ctx.strokeRect(obj.x - 2, obj.y - 2, obj.width + 4, obj.height + 4);
         }
         ctx.setLineDash([]);
       }
-
       ctx.restore();
     });
   };
@@ -228,32 +261,14 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const saveCanvasSnapshot = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    // Only save the freehand layer (without objects)
-    // We'll just save the current full canvas as a data URL
+  const pushHistory = () => {
+    setHistoryStack((prev) => [...prev.slice(-30), [...objects]]);
   };
 
-  const saveFreehandSnapshot = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    // Draw only freehand (clear, draw freehand base, save, then redraw objects)
-    const dataUrl = canvas.toDataURL("image/png");
-    setHistory((prev) => [...prev.slice(-20), dataUrl]);
-  };
-
-  const pushObjectsHistory = () => {
-    setObjectsHistory((prev) => [...prev.slice(-20), [...objects]]);
-  };
-
-  // -- Hit test for select tool --
   const hitTest = (x: number, y: number): WhiteboardObject | null => {
-    // Reverse order so topmost objects are hit first
     for (let i = objects.length - 1; i >= 0; i--) {
       const obj = objects[i];
+      if (obj.type === "stroke") continue;
       if (obj.type === "line" || obj.type === "arrow") {
         const minX = Math.min(obj.x, obj.x2 ?? obj.x) - 8;
         const minY = Math.min(obj.y, obj.y2 ?? obj.y) - 8;
@@ -269,15 +284,15 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     return null;
   };
 
-  // -- Mouse handlers --
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (readOnly) return;
     const pos = getPos(e);
 
     if (tool === "select") {
       const hit = hitTest(pos.x, pos.y);
       setSelectedId(hit?.id ?? null);
       if (hit) {
-        pushObjectsHistory();
+        pushHistory();
         dragStart.current = { x: pos.x, y: pos.y, ox: hit.x, oy: hit.y, ox2: hit.x2, oy2: hit.y2 };
       }
       return;
@@ -290,26 +305,33 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     }
 
     if (["rect", "circle", "triangle", "diamond", "line", "arrow"].includes(tool)) {
-      pushObjectsHistory();
+      pushHistory();
       shapeStart.current = pos;
       setIsDrawing(true);
       return;
     }
 
-    // pen / eraser
-    saveFreehandSnapshot();
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    if (tool === "pen") {
+      pushHistory();
+      currentStroke.current = [pos];
+      setIsDrawing(true);
+      return;
+    }
+
+    if (tool === "eraser") {
+      // Erase by clicking on objects
+      const hit = hitTest(pos.x, pos.y);
+      if (hit) {
+        pushHistory();
+        setObjects((prev) => prev.filter((o) => o.id !== hit.id));
+      }
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (readOnly) return;
     const pos = getPos(e);
 
-    // Dragging selected object
     if (tool === "select" && dragStart.current && selectedId) {
       const dx = pos.x - dragStart.current.x;
       const dy = pos.y - dragStart.current.y;
@@ -331,14 +353,32 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
 
     if (!isDrawing) return;
 
-    // Shape preview
+    if (tool === "pen") {
+      currentStroke.current.push(pos);
+      // Live preview without committing to state every frame
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx && currentStroke.current.length >= 2) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        const a = currentStroke.current[currentStroke.current.length - 2];
+        const b = currentStroke.current[currentStroke.current.length - 1];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+      return;
+    }
+
     if (shapeStart.current && ["rect", "circle", "triangle", "diamond", "line", "arrow"].includes(tool)) {
-      // We create/update a temporary object
       const start = shapeStart.current;
       const w = pos.x - start.x;
       const h = pos.y - start.y;
       const tempId = "__drawing__";
-
       setObjects((prev) => {
         const filtered = prev.filter((o) => o.id !== tempId);
         const newObj: WhiteboardObject = {
@@ -354,48 +394,43 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
         };
         return [...filtered, newObj];
       });
-      return;
     }
-
-    // Freehand pen / eraser
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!ctx) return;
-    ctx.lineWidth = tool === "eraser" ? 20 : lineWidth;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
-    ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
   };
 
   const handleMouseUp = () => {
+    if (readOnly) return;
     if (tool === "select") {
       dragStart.current = null;
       return;
     }
 
+    if (tool === "pen" && currentStroke.current.length > 0) {
+      const points = currentStroke.current;
+      const xs = points.map((p) => p.x);
+      const ys = points.map((p) => p.y);
+      setObjects((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          type: "stroke",
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+          color,
+          lineWidth,
+          points,
+        },
+      ]);
+      currentStroke.current = [];
+    }
+
     if (shapeStart.current && isDrawing) {
-      // Finalize shape – replace temp id with real id
       setObjects((prev) =>
         prev.map((o) => (o.id === "__drawing__" ? { ...o, id: crypto.randomUUID() } : o))
       );
       shapeStart.current = null;
     }
-
-    // Save freehand snapshot after pen/eraser stroke
-    if (tool === "pen" || tool === "eraser") {
-      // Snapshot the canvas (which has freehand drawn on it)
-      const canvas = canvasRef.current;
-      if (canvas) {
-        // We need to save only the freehand part. Since objects are drawn in redraw,
-        // we capture the current state before objects overlay gets redrawn next cycle.
-        const dataUrl = canvas.toDataURL("image/png");
-        setHistory((prev) => [...prev.slice(-20), dataUrl]);
-      }
-    }
-
     setIsDrawing(false);
   };
 
@@ -404,9 +439,8 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
       setEditingText(null);
       return;
     }
-    pushObjectsHistory();
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    pushHistory();
+    const ctx = canvasRef.current?.getContext("2d");
     let textWidth = 80;
     if (ctx) {
       ctx.font = "16px sans-serif";
@@ -430,55 +464,35 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
   };
 
   const undo = () => {
-    // Undo objects first, then freehand
-    if (objectsHistory.length > 0) {
-      const prev = objectsHistory[objectsHistory.length - 1];
-      setObjects(prev);
-      setObjectsHistory((h) => h.slice(0, -1));
-      return;
-    }
-    if (history.length > 1) {
-      setHistory((h) => h.slice(0, -1));
-    } else if (history.length === 1) {
-      setHistory([]);
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    if (historyStack.length === 0) return;
+    const prev = historyStack[historyStack.length - 1];
+    setObjects(prev);
+    setHistoryStack((h) => h.slice(0, -1));
   };
 
   const clearCanvas = () => {
-    pushObjectsHistory();
-    if (history.length > 0) {
-      setHistory((prev) => [...prev]); // keep freehand history for undo
-    }
+    pushHistory();
     setObjects([]);
-    setHistory([]);
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const deleteSelected = () => {
     if (!selectedId) return;
-    pushObjectsHistory();
+    pushHistory();
     setObjects((prev) => prev.filter((o) => o.id !== selectedId));
     setSelectedId(null);
   };
 
   const shareToChat = () => {
+    if (!onShareToChat) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Ensure objects are drawn on canvas for sharing
-    const ctx = canvas.getContext("2d");
-    if (ctx) drawObjects(ctx);
     const dataUrl = canvas.toDataURL("image/png");
     onShareToChat(dataUrl);
   };
 
-  // Handle keyboard
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (readOnly) return;
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedId && tool === "select" && document.activeElement?.tagName !== "INPUT") {
           deleteSelected();
@@ -488,14 +502,14 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, tool]);
+  }, [selectedId, tool, readOnly]);
 
   const currentShapeTool = SHAPE_TOOLS.find((s) => s.tool === tool);
   const currentLineTool = LINE_TOOLS.find((l) => l.tool === tool);
-
   const COLORS = ["#1a1a2e", "#e74c3c", "#2ecc71", "#3498db", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22"];
 
   const getCursor = () => {
+    if (readOnly) return "cursor-not-allowed";
     if (tool === "select") return "cursor-default";
     if (tool === "text") return "cursor-text";
     if (tool === "eraser") return "cursor-cell";
@@ -504,103 +518,104 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
       <div className="border-b border-border px-3 py-1.5 flex items-center gap-1 flex-wrap">
-        <h3 className="text-sm font-semibold text-foreground mr-2">Whiteboard</h3>
+        <h3 className="text-sm font-semibold text-foreground mr-2 flex items-center gap-1">
+          Whiteboard
+          {readOnly && (
+            <span className="text-[10px] font-normal text-muted-foreground flex items-center gap-1">
+              <Eye className="h-3 w-3" /> ao vivo
+            </span>
+          )}
+        </h3>
 
-        {/* Select */}
-        <Button variant={tool === "select" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("select")} title="Selecionar / Mover">
-          <MousePointer className="h-3.5 w-3.5" />
-        </Button>
-
-        {/* Pen */}
-        <Button variant={tool === "pen" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("pen")} title="Caneta">
-          <Pen className="h-3.5 w-3.5" />
-        </Button>
-
-        {/* Eraser */}
-        <Button variant={tool === "eraser" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("eraser")} title="Borracha">
-          <Eraser className="h-3.5 w-3.5" />
-        </Button>
-
-        {/* Text */}
-        <Button variant={tool === "text" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("text")} title="Texto">
-          <Type className="h-3.5 w-3.5" />
-        </Button>
-
-        <div className="w-px h-5 bg-border mx-0.5" />
-
-        {/* Shapes dropdown */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant={currentShapeTool ? "default" : "outline"} size="icon" className="h-7 w-7" title="Formas">
-              {currentShapeTool ? <currentShapeTool.icon className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+        {!readOnly && (
+          <>
+            <Button variant={tool === "select" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("select")} title="Selecionar / Mover">
+              <MousePointer className="h-3.5 w-3.5" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-1.5 flex gap-1" side="bottom" align="start">
-            {SHAPE_TOOLS.map((s) => (
-              <Button key={s.tool} variant={tool === s.tool ? "default" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setTool(s.tool)} title={s.label}>
-                <s.icon className="h-4 w-4" />
-              </Button>
-            ))}
-          </PopoverContent>
-        </Popover>
-
-        {/* Lines dropdown */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant={currentLineTool ? "default" : "outline"} size="icon" className="h-7 w-7" title="Linhas / Setas">
-              {currentLineTool ? <currentLineTool.icon className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+            <Button variant={tool === "pen" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("pen")} title="Caneta">
+              <Pen className="h-3.5 w-3.5" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-1.5 flex gap-1" side="bottom" align="start">
-            {LINE_TOOLS.map((l) => (
-              <Button key={l.tool} variant={tool === l.tool ? "default" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setTool(l.tool)} title={l.label}>
-                <l.icon className="h-4 w-4" />
-              </Button>
-            ))}
-          </PopoverContent>
-        </Popover>
+            <Button variant={tool === "eraser" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("eraser")} title="Borracha (clique no objeto)">
+              <Eraser className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant={tool === "text" ? "default" : "outline"} size="icon" className="h-7 w-7" onClick={() => setTool("text")} title="Texto">
+              <Type className="h-3.5 w-3.5" />
+            </Button>
 
-        <div className="w-px h-5 bg-border mx-0.5" />
+            <div className="w-px h-5 bg-border mx-0.5" />
 
-        {/* Colors */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="h-6 w-6 rounded-full border-2 border-border" style={{ backgroundColor: color }} title="Cor" />
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-2 grid grid-cols-4 gap-1.5" side="bottom" align="start">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
-                style={{ backgroundColor: c }}
-                onClick={() => setColor(c)}
-              />
-            ))}
-          </PopoverContent>
-        </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={currentShapeTool ? "default" : "outline"} size="icon" className="h-7 w-7" title="Formas">
+                  {currentShapeTool ? <currentShapeTool.icon className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1.5 flex gap-1" side="bottom" align="start">
+                {SHAPE_TOOLS.map((s) => (
+                  <Button key={s.tool} variant={tool === s.tool ? "default" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setTool(s.tool)} title={s.label}>
+                    <s.icon className="h-4 w-4" />
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
 
-        {/* Line width */}
-        <input type="range" min={1} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-16 h-4 ml-1" title="Espessura" />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={currentLineTool ? "default" : "outline"} size="icon" className="h-7 w-7" title="Linhas / Setas">
+                  {currentLineTool ? <currentLineTool.icon className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1.5 flex gap-1" side="bottom" align="start">
+                {LINE_TOOLS.map((l) => (
+                  <Button key={l.tool} variant={tool === l.tool ? "default" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setTool(l.tool)} title={l.label}>
+                    <l.icon className="h-4 w-4" />
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
 
-        <div className="w-px h-5 bg-border mx-0.5" />
+            <div className="w-px h-5 bg-border mx-0.5" />
 
-        <Button variant="outline" size="icon" className="h-7 w-7" onClick={undo} title="Desfazer">
-          <Undo2 className="h-3.5 w-3.5" />
-        </Button>
-        <Button variant="outline" size="icon" className="h-7 w-7" onClick={clearCanvas} title="Limpar">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="h-6 w-6 rounded-full border-2 border-border" style={{ backgroundColor: color }} title="Cor" />
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2 grid grid-cols-4 gap-1.5" side="bottom" align="start">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    className={`h-6 w-6 rounded-full border-2 ${color === c ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
+                    style={{ backgroundColor: c }}
+                    onClick={() => setColor(c)}
+                  />
+                ))}
+              </PopoverContent>
+            </Popover>
 
-        <div className="w-px h-5 bg-border mx-0.5" />
+            <input type="range" min={1} max={8} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} className="w-16 h-4 ml-1" title="Espessura" />
 
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={shareToChat}>
-          <Share2 className="h-3.5 w-3.5" /> Compartilhar
-        </Button>
+            <div className="w-px h-5 bg-border mx-0.5" />
+
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={undo} title="Desfazer">
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={clearCanvas} title="Limpar">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+
+            {onShareToChat && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={shareToChat}>
+                  <Share2 className="h-3.5 w-3.5" /> Compartilhar
+                </Button>
+              </>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Canvas area */}
       <div ref={containerRef} className="flex-1 bg-white relative overflow-hidden">
         <canvas
           ref={canvasRef}
@@ -613,8 +628,7 @@ export default function WhiteboardPanel({ onShareToChat }: Props) {
           onTouchMove={handleMouseMove}
           onTouchEnd={handleMouseUp}
         />
-        {/* Inline text input */}
-        {editingText && (
+        {editingText && !readOnly && (
           <input
             ref={textInputRef}
             className="absolute bg-transparent border border-primary/50 outline-none text-base px-1 py-0.5 rounded"
