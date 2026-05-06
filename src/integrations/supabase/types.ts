@@ -295,6 +295,39 @@ export type Database = {
           },
         ]
       }
+      arguition_cards: {
+        Row: {
+          coverage_summary: string | null
+          created_at: string
+          generated_by: string | null
+          id: string
+          presentation_id: string
+          questions: Json
+          room_id: string
+          session_id: string
+        }
+        Insert: {
+          coverage_summary?: string | null
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          presentation_id: string
+          questions?: Json
+          room_id: string
+          session_id: string
+        }
+        Update: {
+          coverage_summary?: string | null
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          presentation_id?: string
+          questions?: Json
+          room_id?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           checked_in_at: string
@@ -946,6 +979,45 @@ export type Database = {
         }
         Relationships: []
       }
+      presentation_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          presentation_id: string
+          resolved: boolean
+          room_id: string
+          session_id: string
+          slide_number: number
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          presentation_id: string
+          resolved?: boolean
+          room_id: string
+          session_id: string
+          slide_number?: number
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          presentation_id?: string
+          resolved?: boolean
+          room_id?: string
+          session_id?: string
+          slide_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       professor_notes: {
         Row: {
           content: string
@@ -1297,6 +1369,36 @@ export type Database = {
           },
         ]
       }
+      session_objective_references: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          objective_step_item_id: string
+          reference_id: string
+          room_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          objective_step_item_id: string
+          reference_id: string
+          room_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          objective_step_item_id?: string
+          reference_id?: string
+          room_id?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
       session_presentations: {
         Row: {
           created_at: string
@@ -1387,6 +1489,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      session_verdicts: {
+        Row: {
+          content: string
+          created_at: string
+          finalized_at: string | null
+          finalized_by: string | null
+          id: string
+          objectives_addressed: Json
+          room_id: string
+          session_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          objectives_addressed?: Json
+          room_id: string
+          session_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          objectives_addressed?: Json
+          room_id?: string
+          session_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       speaking_segments: {
         Row: {
