@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, FileText, Trash2, Loader2, ExternalLink, ChevronLeft, ChevronRight, Pin } from "lucide-react";
+import { Upload, FileText, Trash2, Loader2, ExternalLink, ChevronLeft, ChevronRight, Pin, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -28,6 +28,7 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [viewerRefresh, setViewerRefresh] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchPres = async () => {
@@ -116,11 +117,21 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
   };
 
   const isPdf = presentation?.mime_type === "application/pdf";
-  const viewerUrl = presentation
-    ? isPdf
-      ? presentation.file_url
-      : `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(presentation.file_url)}`
-    : null;
+  const viewerUrl = useMemo(() => {
+    if (!presentation) return null;
+    if (isPdf) return `${presentation.file_url}#page=${currentSlide || 1}`;
+
+    const source = `${presentation.file_url}${presentation.file_url.includes("?") ? "&" : "?"}v=${viewerRefresh}`;
+    const params = new URLSearchParams({ src: source });
+    if (typeof currentSlide === "number") params.set("wdSlideIndex", String(Math.max(1, currentSlide)));
+    return `https://view.officeapps.live.com/op/embed.aspx?${params.toString()}`;
+  }, [presentation, isPdf, currentSlide, viewerRefresh]);
+
+  const updateSlide = (slide: number) => {
+    const nextSlide = Math.max(1, slide);
+    onSlideChange?.(nextSlide);
+    if (!isPdf) setViewerRefresh((value) => value + 1);
+  };
 
   return (
     <div className="clinical-card p-5">
@@ -186,18 +197,23 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onSlideChange(Math.max(1, currentSlide - 1))}>
+                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateSlide(currentSlide - 1)}>
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
                 <span className="text-muted-foreground">Slide</span>
                 <Input
                   type="number" min={1} value={currentSlide}
-                  onChange={(e) => onSlideChange(Math.max(1, parseInt(e.target.value || "1")))}
+                  onChange={(e) => updateSlide(parseInt(e.target.value || "1"))}
                   className="h-7 w-16 text-xs px-2"
                 />
-                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onSlideChange(currentSlide + 1)}>
+                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateSlide(currentSlide + 1)}>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
+                {!isPdf && (
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setViewerRefresh((value) => value + 1)} title="Recarregar no slide selecionado">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           )}
