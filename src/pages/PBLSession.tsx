@@ -777,30 +777,73 @@ export default function PBLSession() {
                     </div>
                   )}
 
-                  {/* Closing phase (P7) — presentation + references + minutes */}
-                  {(isViewingHistory ? historyStep : activeStep) === 7 && (
+                  {/* Closing phase (P7) — Kanban + presentation + comments + verdict + AI + minutes */}
+                  {(isViewingHistory ? historyStep : activeStep) === 7 && currentSessionId && (
                     <>
-                      {currentSessionId && (
-                        <PresentationPanel
+                      <ObjectivesKanbanPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        isProfessor={isProfessor}
+                        moduleId={moduleId}
+                      />
+
+                      <PresentationPanel
+                        roomId={roomId!}
+                        sessionId={currentSessionId}
+                        isReporter={isReporter && !isViewingHistory}
+                        userId={user?.id || null}
+                        onPresentationLoaded={setPresentationId}
+                      />
+
+                      {presentationId && !isViewingHistory && (
+                        <PresentationCommentsPanel
                           roomId={roomId!}
                           sessionId={currentSessionId}
-                          isReporter={isReporter && !isViewingHistory}
-                          userId={user?.id || null}
+                          presentationId={presentationId}
+                          isProfessor={isProfessor}
+                          currentSlide={currentSlide}
+                          onSlideChange={setCurrentSlide}
                         />
                       )}
+
+                      {isProfessor && presentationId && !isViewingHistory && (
+                        <ArguitionCardPanel
+                          sessionId={currentSessionId}
+                          roomId={roomId!}
+                          presentationId={presentationId}
+                        />
+                      )}
+
+                      {!isViewingHistory && (
+                        <VerdictPanel
+                          roomId={roomId!}
+                          sessionId={currentSessionId}
+                          isReporter={isReporter}
+                          isProfessor={isProfessor}
+                          objectives={p5Objectives}
+                          onChange={setVerdictState}
+                        />
+                      )}
+
                       <ReferencesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
                         readOnly={isViewingHistory}
                       />
-                      <ScientificSearchPanel
-                        scenarioContent={displayScenarioContent || undefined}
-                      />
+                      <ScientificSearchPanel scenarioContent={displayScenarioContent || undefined} />
                       <SessionMinutesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
                         sessionLabel={sessionLabel}
                       />
+
+                      {!isViewingHistory && (
+                        <div className="flex justify-end pt-2">
+                          <Button size="lg" onClick={() => setShowFinalizeDialog(true)}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" /> Finalizar P7
+                          </Button>
+                        </div>
+                      )}
                     </>
                   )}
 
