@@ -124,6 +124,7 @@ export default function Reports() {
         });
         setSpeakingTotals(totals);
       }
+      setSpeakingSegments((segRes?.data as any[]) || []);
 
       setSelectedStudent("__all__");
       setLoading(false);
