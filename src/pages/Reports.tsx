@@ -50,6 +50,7 @@ export default function Reports() {
   const [evaluations, setEvaluations] = useState<EvalRow[]>([]);
   const [criteria, setCriteria] = useState<CriterionRow[]>([]);
   const [speakingTotals, setSpeakingTotals] = useState<Record<string, number>>({});
+  const [speakingSegments, setSpeakingSegments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
