@@ -468,10 +468,11 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
       ctx.font = "16px sans-serif";
       textWidth = ctx.measureText(text).width;
     }
+    const newId = crypto.randomUUID();
     setObjects((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: newId,
         type: "text",
         x: editingText.x,
         y: editingText.y,
@@ -483,6 +484,9 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
       },
     ]);
     setEditingText(null);
+    // Switch to select tool so user can immediately drag the text
+    setTool("select");
+    setSelectedId(newId);
   };
 
   const undo = () => {
