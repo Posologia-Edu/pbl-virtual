@@ -463,6 +463,7 @@ export default function Reports() {
                             P{pn}
                           </th>
                         ))}
+                        <th className="text-center py-2 px-3 text-muted-foreground font-medium">Tempo de fala</th>
                       </tr>
                       <tr className="border-b border-border">
                         <th />
@@ -472,10 +473,15 @@ export default function Reports() {
                             <th className="text-center py-1 px-2 text-[11px] text-muted-foreground/70 font-normal">Fech.</th>
                           </Fragment>
                         ))}
+                        <th className="text-center py-1 px-3 text-[11px] text-muted-foreground/70 font-normal">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {students.map((s) => (
+                      {students.map((s) => {
+                        const sec = speakingTotals[s.student_id] || 0;
+                        const m = Math.floor(sec / 60);
+                        const r = sec % 60;
+                        return (
                         <tr key={s.student_id} className="border-b border-border/40 hover:bg-secondary/30 transition-colors">
                           <td className="py-2 px-3 font-medium text-foreground">{s.full_name}</td>
                           {problemNumbers.map((pn) => {
@@ -483,17 +489,17 @@ export default function Reports() {
                             const closing = getScore(s.student_id, pn, "closing");
                             return (
                               <Fragment key={pn}>
-                                <td className="text-center py-2 px-2">
-                                  <ScoreBadge value={opening} />
-                                </td>
-                                <td className="text-center py-2 px-2">
-                                  <ScoreBadge value={closing} />
-                                </td>
+                                <td className="text-center py-2 px-2"><ScoreBadge value={opening} /></td>
+                                <td className="text-center py-2 px-2"><ScoreBadge value={closing} /></td>
                               </Fragment>
                             );
                           })}
+                          <td className="text-center py-2 px-3 font-mono text-xs tabular-nums text-foreground">
+                            {sec > 0 ? `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}` : "—"}
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </CardContent>
