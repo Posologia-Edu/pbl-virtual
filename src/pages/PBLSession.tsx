@@ -273,9 +273,14 @@ export default function PBLSession() {
     }
     setActiveStep(step);
     if (isProfessor && activeSession) {
+      const phase = step === 7 ? "closing" : "opening";
       await (supabase as any).from("tutorial_sessions")
-        .update({ current_step: step })
+        .update({ current_step: step, timer_phase: phase })
         .eq("id", activeSession.id);
+      // Reset timer when entering closing phase so coordinator must start the 110-min countdown
+      if (step === 7) {
+        await supabase.from("rooms").update({ timer_running: false, timer_end_at: null }).eq("id", roomId!);
+      }
     }
   };
 
