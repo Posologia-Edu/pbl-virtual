@@ -17,6 +17,11 @@ import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import ReferencesPanel from "@/components/ReferencesPanel";
 import SessionMinutesPanel from "@/components/SessionMinutesPanel";
 import ObjectivesBankPanel from "@/components/ObjectivesBankPanel";
+import ObjectivesKanbanPanel from "@/components/ObjectivesKanbanPanel";
+import PresentationCommentsPanel from "@/components/PresentationCommentsPanel";
+import VerdictPanel from "@/components/VerdictPanel";
+import ArguitionCardPanel from "@/components/ArguitionCardPanel";
+import FinalizeP7Dialog from "@/components/FinalizeP7Dialog";
 import AICotutorPanel from "@/components/AICotutorPanel";
 import AttendancePanel from "@/components/AttendancePanel";
 import ScientificSearchPanel from "@/components/ScientificSearchPanel";
@@ -24,7 +29,7 @@ import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot, MapPin,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2,
 } from "lucide-react";
 
 const PBL_STEPS = [
@@ -59,6 +64,15 @@ export default function PBLSession() {
   const [historyStep, setHistoryStep] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [moduleId, setModuleId] = useState<string | null>(null);
+
+  // P7 state
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(1);
+  const [p5Objectives, setP5Objectives] = useState<{ id: string; content: string }[]>([]);
+  const [verdictState, setVerdictState] = useState<{ isFinalized: boolean; addressedAll: boolean; hasContent: boolean }>({ isFinalized: false, addressedAll: false, hasContent: false });
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [evaluationReady, setEvaluationReady] = useState(false);
+  const [peerEvalReady, setPeerEvalReady] = useState(false);
 
   const currentSessionId = viewingHistorySessionId || activeSession?.id;
   const isViewingHistory = !!viewingHistorySessionId;
