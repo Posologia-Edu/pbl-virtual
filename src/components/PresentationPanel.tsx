@@ -24,7 +24,7 @@ interface Presentation {
   uploaded_by: string;
 }
 
-export default function PresentationPanel({ roomId, sessionId, isReporter, userId, onPresentationLoaded }: Props) {
+export default function PresentationPanel({ roomId, sessionId, isReporter, userId, onPresentationLoaded, currentSlide, onSlideChange }: Props) {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
