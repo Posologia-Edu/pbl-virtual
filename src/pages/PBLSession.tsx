@@ -793,6 +793,8 @@ export default function PBLSession() {
                         isReporter={isReporter && !isViewingHistory}
                         userId={user?.id || null}
                         onPresentationLoaded={setPresentationId}
+                        currentSlide={currentSlide}
+                        onSlideChange={setCurrentSlide}
                       />
 
                       {presentationId && !isViewingHistory && (
