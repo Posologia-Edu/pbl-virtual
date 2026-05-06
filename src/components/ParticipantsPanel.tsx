@@ -48,6 +48,7 @@ const fmt = (s: number) => {
 export default function ParticipantsPanel({
   participants, coordinatorId, reporterId, isProfessor, onAssignRole,
   onlineUserIds = new Set(), sessionId, professorId, roomId, isCoordinator,
+  currentStep = 0, sessionStartedAt = null,
 }: Props) {
   const [selectedStudent, setSelectedStudent] = useState<Participant | null>(null);
   const [noteContent, setNoteContent] = useState("");
