@@ -130,6 +130,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
       reference_id: ref.id, created_by: user.id,
     });
     setUploading(null);
+    await fetchAll();
     toast({ title: "Arquivo anexado ao objetivo" });
   };
 
