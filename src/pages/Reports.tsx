@@ -100,6 +100,11 @@ export default function Reports() {
           .from("participant_speaking_times")
           .select("student_id, total_seconds")
           .eq("room_id", selectedRoom),
+        (supabase as any)
+          .from("speaking_segments")
+          .select("student_id, step, offset_seconds, duration_seconds, created_at")
+          .eq("room_id", selectedRoom)
+          .order("offset_seconds", { ascending: true }),
       ]);
 
       if (membersRes.data) {
