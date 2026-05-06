@@ -20,6 +20,16 @@ const GRADES: Record<string, number> = {
   O: 0, I: 25, PS: 50, S: 75, MS: 100,
 };
 
+const STEP_LABELS: Record<number, string> = {
+  0: "P0 — Cenário",
+  1: "P1 — Termos",
+  2: "P2 — Problema",
+  3: "P3 — Brainstorming",
+  4: "P4 — Síntese",
+  5: "P5 — Objetivos",
+  7: "P7 — Fechamento",
+};
+
 interface StudentData {
   student_id: string;
   full_name: string;
