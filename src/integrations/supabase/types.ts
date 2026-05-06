@@ -819,6 +819,33 @@ export type Database = {
           },
         ]
       }
+      participant_speaking_times: {
+        Row: {
+          id: string
+          room_id: string
+          session_id: string
+          student_id: string
+          total_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          room_id: string
+          session_id: string
+          student_id: string
+          total_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          room_id?: string
+          session_id?: string
+          student_id?: string
+          total_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       peer_evaluations: {
         Row: {
           archived: boolean
@@ -1270,6 +1297,42 @@ export type Database = {
           },
         ]
       }
+      session_presentations: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_url: string
+          id: string
+          mime_type: string
+          room_id: string
+          session_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_url: string
+          id?: string
+          mime_type: string
+          room_id: string
+          session_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_url?: string
+          id?: string
+          mime_type?: string
+          room_id?: string
+          session_id?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       session_references: {
         Row: {
           author_id: string
@@ -1476,7 +1539,9 @@ export type Database = {
           started_at: string | null
           status: string | null
           timer_end_at: string | null
+          timer_phase: string
           timer_running: boolean | null
+          whiteboard_state: Json
         }
         Insert: {
           coordinator_id?: string | null
@@ -1490,7 +1555,9 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           timer_end_at?: string | null
+          timer_phase?: string
           timer_running?: boolean | null
+          whiteboard_state?: Json
         }
         Update: {
           coordinator_id?: string | null
@@ -1504,7 +1571,9 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           timer_end_at?: string | null
+          timer_phase?: string
           timer_running?: boolean | null
+          whiteboard_state?: Json
         }
         Relationships: [
           {

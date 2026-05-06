@@ -11,6 +11,7 @@ import EvaluationPanel from "@/components/EvaluationPanel";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
+import PresentationPanel from "@/components/PresentationPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
 import PeerEvaluationPanel from "@/components/PeerEvaluationPanel";
 import ReferencesPanel from "@/components/ReferencesPanel";
@@ -31,8 +32,9 @@ const PBL_STEPS = [
   { id: 1, label: "Termos", icon: List, block: "Abertura" },
   { id: 2, label: "Problema", icon: HelpCircle, block: "Abertura" },
   { id: 3, label: "Brainstorming", icon: Brain, block: "Abertura" },
+  { id: 4, label: "Síntese (Mapa Mental)", icon: PenTool, block: "Abertura" },
   { id: 5, label: "Objetivos", icon: Target, block: "Abertura" },
-  { id: 7, label: "Síntese", icon: FileText, block: "Fechamento" },
+  { id: 7, label: "Fechamento", icon: FileText, block: "Fechamento" },
 ];
 
 export default function PBLSession() {
@@ -271,9 +273,14 @@ export default function PBLSession() {
     }
     setActiveStep(step);
     if (isProfessor && activeSession) {
+      const phase = step === 7 ? "closing" : "opening";
       await (supabase as any).from("tutorial_sessions")
-        .update({ current_step: step })
+        .update({ current_step: step, timer_phase: phase })
         .eq("id", activeSession.id);
+      // Reset timer when entering closing phase so coordinator must start the 110-min countdown
+      if (step === 7) {
+        await supabase.from("rooms").update({ timer_running: false, timer_end_at: null }).eq("id", roomId!);
+      }
     }
   };
 
@@ -530,14 +537,14 @@ export default function PBLSession() {
           >
             <MessageSquare className="h-4 w-4" /> Chat
           </button>
-          {isReporter && !isViewingHistory && (
+          {!isViewingHistory && (
             <button
               onClick={() => togglePanel("whiteboard")}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
                 rightPanel === "whiteboard" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
               }`}
             >
-              <PenTool className="h-4 w-4" /> Whiteboard
+              <PenTool className="h-4 w-4" /> Whiteboard {!isReporter && <span className="text-[10px] text-muted-foreground">(ao vivo)</span>}
             </button>
           )}
           {isProfessor && !isViewingHistory && (
@@ -613,7 +620,7 @@ export default function PBLSession() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!isViewingHistory && <TimerPanel isCoordinator={isCoordinator} roomId={roomId!} />}
+            {!isViewingHistory && <TimerPanel isCoordinator={isCoordinator} roomId={roomId!} timerPhase={(activeSession?.timer_phase as any) || (activeStep === 7 ? "closing" : "opening")} />}
           </div>
         </header>
 
@@ -706,9 +713,17 @@ export default function PBLSession() {
                     </div>
                   )}
 
-                  {/* References panel for step 7 (Síntese) */}
+                  {/* Closing phase (P7) — presentation + references + minutes */}
                   {(isViewingHistory ? historyStep : activeStep) === 7 && (
                     <>
+                      {currentSessionId && (
+                        <PresentationPanel
+                          roomId={roomId!}
+                          sessionId={currentSessionId}
+                          isReporter={isReporter && !isViewingHistory}
+                          userId={user?.id || null}
+                        />
+                      )}
                       <ReferencesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
@@ -723,6 +738,19 @@ export default function PBLSession() {
                         sessionLabel={sessionLabel}
                       />
                     </>
+                  )}
+
+                  {/* Step 4 — Síntese (Mapa Mental no Whiteboard) — auto-open whiteboard hint */}
+                  {(isViewingHistory ? historyStep : activeStep) === 4 && (
+                    <div className="clinical-card p-5 border-primary/30">
+                      <h3 className="text-base font-semibold text-foreground mb-1 flex items-center gap-2">
+                        <PenTool className="h-4 w-4 text-primary" /> Síntese — Mapa Mental
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        O <strong>relator</strong> deve usar o whiteboard para construir o mapa mental integrando o brainstorming (P3).
+                        Todos da sala visualizam em tempo real e podem opinar pelo chat.
+                      </p>
+                    </div>
                   )}
 
                   {/* Objectives Bank for step 5 */}
@@ -765,19 +793,19 @@ export default function PBLSession() {
                         </div>
                       )}
 
-                      {/* Input (only for active session, not history) */}
-                      {!isViewingHistory && activeSession && (
+                      {/* Input — only the reporter can write contributions; everyone sees them in real time */}
+                      {!isViewingHistory && activeSession && isReporter && (
                         <div className="flex gap-2 pt-2">
                           {(isViewingHistory ? historyStep : activeStep) === 7 ? (
                             <Textarea
-                              placeholder="Escreva sua contribuição..."
+                              placeholder="Relator: escreva a contribuição do grupo..."
                               value={newItem}
                               onChange={(e) => setNewItem(e.target.value)}
                               className="min-h-[80px]"
                             />
                           ) : (
                             <Input
-                              placeholder="Adicionar contribuição..."
+                              placeholder="Relator: escreva a contribuição do grupo..."
                               value={newItem}
                               onChange={(e) => setNewItem(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && addItem()}
@@ -787,6 +815,11 @@ export default function PBLSession() {
                             <Send className="h-4 w-4" />
                           </Button>
                         </div>
+                      )}
+                      {!isViewingHistory && activeSession && !isReporter && (
+                        <p className="text-xs text-muted-foreground italic pt-2 px-1">
+                          Apenas o relator pode registrar contribuições. Use o chat para sugerir ideias.
+                        </p>
                       )}
                     </div>
                   )}
@@ -804,8 +837,12 @@ export default function PBLSession() {
               {rightPanel === "eval" && roomId && (
                 <EvaluationPanel roomId={roomId} sessionId={activeSession?.id} />
               )}
-              {rightPanel === "whiteboard" && isReporter && (
-                <WhiteboardPanel onShareToChat={handleShareWhiteboard} />
+              {rightPanel === "whiteboard" && (
+                <WhiteboardPanel
+                  onShareToChat={isReporter ? handleShareWhiteboard : undefined}
+                  sessionId={currentSessionId}
+                  readOnly={!isReporter || isViewingHistory}
+                />
               )}
               {rightPanel === "participants" && (
                 <div className="flex flex-col h-full">
@@ -822,6 +859,8 @@ export default function PBLSession() {
                       onlineUserIds={onlineUserIds}
                       sessionId={currentSessionId}
                       professorId={room?.professor_id}
+                      roomId={roomId}
+                      isCoordinator={isCoordinator}
                     />
                   </div>
                 </div>
