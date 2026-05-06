@@ -9,6 +9,7 @@ interface Props {
   sessionId: string;
   isReporter: boolean;
   userId: string | null;
+  onPresentationLoaded?: (presentationId: string | null) => void;
 }
 
 interface Presentation {
@@ -20,7 +21,7 @@ interface Presentation {
   uploaded_by: string;
 }
 
-export default function PresentationPanel({ roomId, sessionId, isReporter, userId }: Props) {
+export default function PresentationPanel({ roomId, sessionId, isReporter, userId, onPresentationLoaded }: Props) {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
       .maybeSingle();
     setPresentation(data || null);
     setLoading(false);
+    onPresentationLoaded?.(data?.id || null);
   };
 
   useEffect(() => {
