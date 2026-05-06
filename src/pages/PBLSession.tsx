@@ -871,6 +871,8 @@ export default function PBLSession() {
                       professorId={room?.professor_id}
                       roomId={roomId}
                       isCoordinator={isCoordinator}
+                      currentStep={isViewingHistory ? historyStep : activeStep}
+                      sessionStartedAt={activeSession?.started_at}
                     />
                   </div>
                 </div>
