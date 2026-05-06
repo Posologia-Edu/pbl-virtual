@@ -79,7 +79,7 @@ export default function Reports() {
         .single();
       if (!room) { setLoading(false); return; }
 
-      const [membersRes, criteriaRes, evalsRes] = await Promise.all([
+      const [membersRes, criteriaRes, evalsRes, speakRes] = await Promise.all([
         supabase
           .from("group_members")
           .select("student_id, profiles!group_members_student_id_profiles_fkey(full_name)")
@@ -95,6 +95,10 @@ export default function Reports() {
           .eq("room_id", selectedRoom)
           .eq("archived", true)
           .not("problem_number", "is", null),
+        (supabase as any)
+          .from("participant_speaking_times")
+          .select("student_id, total_seconds")
+          .eq("room_id", selectedRoom),
       ]);
 
       if (membersRes.data) {
@@ -107,6 +111,13 @@ export default function Reports() {
       }
       if (criteriaRes.data) setCriteria(criteriaRes.data);
       if (evalsRes.data) setEvaluations(evalsRes.data as EvalRow[]);
+      if (speakRes.data) {
+        const totals: Record<string, number> = {};
+        (speakRes.data as any[]).forEach((r) => {
+          totals[r.student_id] = (totals[r.student_id] || 0) + (r.total_seconds || 0);
+        });
+        setSpeakingTotals(totals);
+      }
 
       setSelectedStudent("__all__");
       setLoading(false);
