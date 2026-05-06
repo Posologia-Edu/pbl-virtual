@@ -142,6 +142,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
     if (!remaining || remaining.length === 0) {
       await (supabase as any).from("session_references").delete().eq("id", refId);
     }
+    await fetchAll();
   };
 
   if (!sessionId) return null;
