@@ -100,6 +100,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
       reference_id: ref.id, created_by: user.id,
     });
     setLinks((s) => ({ ...s, [objId]: { url: "", title: "", show: false } }));
+    await fetchAll();
     toast({ title: "Referência adicionada ao objetivo" });
   };
 
