@@ -511,6 +511,63 @@ export default function Reports() {
                   </table>
                 </CardContent>
               </Card>
+
+              {/* Speaking segments timeline */}
+              <Card className="rounded-2xl border-border/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Participação por trecho
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const filtered = selectedStudent === "__all__"
+                      ? speakingSegments
+                      : speakingSegments.filter((s: any) => s.student_id === selectedStudent);
+                    if (filtered.length === 0) {
+                      return <p className="text-sm text-muted-foreground py-4 text-center">Sem registros de fala ainda.</p>;
+                    }
+                    const studentName = (id: string) => students.find((s) => s.student_id === id)?.full_name || "—";
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border">
+                              <th className="text-left py-2 px-3 text-muted-foreground font-medium">Aluno</th>
+                              <th className="text-left py-2 px-3 text-muted-foreground font-medium">Momento</th>
+                              <th className="text-left py-2 px-3 text-muted-foreground font-medium">Passo</th>
+                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Duração</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.map((seg: any, idx: number) => {
+                              const off = seg.offset_seconds || 0;
+                              const offM = Math.floor(off / 60);
+                              const offS = off % 60;
+                              const dur = seg.duration_seconds || 0;
+                              const durM = Math.floor(dur / 60);
+                              const durS = dur % 60;
+                              return (
+                                <tr key={idx} className="border-b border-border/40 hover:bg-secondary/30">
+                                  <td className="py-2 px-3 font-medium text-foreground">{studentName(seg.student_id)}</td>
+                                  <td className="py-2 px-3 font-mono tabular-nums text-foreground">
+                                    {String(offM).padStart(2, "0")}:{String(offS).padStart(2, "0")}
+                                  </td>
+                                  <td className="py-2 px-3 text-foreground">{STEP_LABELS[seg.step] || `P${seg.step}`}</td>
+                                  <td className="py-2 px-3 text-right font-mono tabular-nums text-foreground">
+                                    {durM > 0 ? `${durM}min ${durS}s` : `${durS}s`}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>
