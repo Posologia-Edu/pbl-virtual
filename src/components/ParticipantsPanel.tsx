@@ -29,6 +29,8 @@ interface Props {
   professorId?: string | null;
   roomId?: string | null;
   isCoordinator?: boolean;
+  currentStep?: number;
+  sessionStartedAt?: string | null;
 }
 
 const roleConfig = {
