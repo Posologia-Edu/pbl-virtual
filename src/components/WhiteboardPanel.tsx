@@ -76,6 +76,7 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
   const textInputRef = useRef<HTMLInputElement>(null);
 
   const skipNextSync = useRef(false);
+  const hasLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // -- Resize --
