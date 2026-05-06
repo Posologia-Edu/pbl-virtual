@@ -283,7 +283,8 @@ export default function ParticipantsPanel({
         const Icon = cfg.icon;
         const isOnline = onlineUserIds.has(p.student_id);
         const isActive = activeSpeakerId === p.student_id;
-        const speakSec = speakingTimes[p.student_id] || 0;
+        const totalSec = speakingTotals[p.student_id] || 0;
+        const speakSec = isActive ? currentSegmentSec : totalSec;
         const clickable = (isProfessor && sessionId) || (isCoordinator && !isProfessor && sessionId);
 
         return (
