@@ -177,45 +177,57 @@ Deno.serve(async (req) => {
     const scenarioContent = (session as any).room_scenarios?.scenario_content || "";
     const sessionLabel = (session as any).room_scenarios?.label || session.label || "";
 
-    const prompt = `Você é um secretário acadêmico especializado em sessões de Aprendizagem Baseada em Problemas (PBL/ABP).
+    const hasContributions = Object.keys(stepData).length > 0;
+    const hasReferences = Object.keys(refsGrouped).length > 0;
 
-Gere uma ATA FORMAL e ESTRUTURADA da sessão tutorial com base nos dados abaixo.
+    const contributionsBlock = hasContributions
+      ? Object.entries(stepData).map(([step, items]) => `### ${step}\n${items.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}`).join("\n\n")
+      : "(NENHUMA contribuição foi registrada pelos alunos durante a sessão)";
+
+    const prompt = `Você é um secretário acadêmico que TRANSCREVE fielmente uma sessão de Aprendizagem Baseada em Problemas (PBL/ABP).
+
+REGRAS ABSOLUTAS — leia antes de escrever qualquer coisa:
+1. Use EXCLUSIVAMENTE as contribuições e referências fornecidas abaixo. Nada mais.
+2. É TERMINANTEMENTE PROIBIDO inventar, inferir, completar, complementar, sugerir ou supor termos, hipóteses, objetivos, conclusões ou referências que não estejam explicitamente listados nos dados fornecidos.
+3. Se uma seção não tiver dados registrados, escreva literalmente: "Nenhuma contribuição registrada pelo grupo nesta etapa." NÃO preencha com informação do cenário clínico, conhecimento prévio ou suposições.
+4. O cenário clínico abaixo é apenas referência contextual — NÃO extraia termos, problemas ou hipóteses dele para a ata. Somente o que os alunos digitaram pode aparecer.
+5. Mantenha as palavras dos alunos. Você pode reorganizar e formatar, mas não reescrever significativamente nem adicionar interpretação.
+6. Atribua autoria quando indicada (entre parênteses ao lado de cada contribuição).
 
 ## Dados da Sessão
 - **Sala**: ${room.name}
 - **Sessão**: ${sessionLabel}
-- **Participantes**: ${participantNames.join(", ")}
+- **Participantes**: ${participantNames.join(", ") || "(não informados)"}
 
-## Cenário Clínico
+## Cenário Clínico (CONTEXTO APENAS — não usar como conteúdo da ata)
 ${scenarioContent || "(Não disponível)"}
 
-## Contribuições por Etapa
-${Object.entries(stepData).map(([step, items]) => `### ${step}\n${items.map((i, idx) => `${idx + 1}. ${i}`).join("\n")}`).join("\n\n")}
+## Contribuições registradas pelos alunos (ÚNICA fonte permitida)
+${contributionsBlock}
 
-## Referências Bibliográficas (por estudante)
-${referencesText}
+## Referências Bibliográficas registradas
+${hasReferences ? referencesText : "(Nenhuma referência registrada)"}
 
-## Instruções para a Ata
-Gere a ata com as seguintes seções, em formato formal acadêmico:
+## Estrutura da Ata
+Produza a ata com as seções abaixo, em formato formal acadêmico (português brasileiro). Para cada seção, use SOMENTE os itens que aparecem nas "Contribuições registradas". Se não houver itens para a seção, escreva "Nenhuma contribuição registrada pelo grupo nesta etapa."
 
-1. **CABEÇALHO**: Identificação da sessão (sala, sessão, data, participantes)
-2. **TERMOS IDENTIFICADOS**: Lista dos termos desconhecidos levantados pelo grupo
-3. **PROBLEMA CENTRAL**: Definição do problema identificado
-4. **HIPÓTESES LEVANTADAS**: Hipóteses formuladas durante o brainstorming
-5. **OBJETIVOS DE APRENDIZAGEM**: Objetivos definidos pelo grupo
-6. **SÍNTESE**: Resumo das conclusões e discussões do fechamento
-7. **REFERÊNCIAS**: Lista das referências bibliográficas trazidas pelos estudantes, agrupadas por autor
-8. **CONSIDERAÇÕES FINAIS**: Breve análise do progresso do grupo
+1. **CABEÇALHO**: sala, sessão, data (use a data atual), participantes
+2. **TERMOS IDENTIFICADOS**: somente os itens da etapa "Termos Desconhecidos"
+3. **PROBLEMA CENTRAL**: somente os itens da etapa "Definição do Problema"
+4. **HIPÓTESES LEVANTADAS**: somente os itens da etapa "Brainstorming / Hipóteses"
+5. **OBJETIVOS DE APRENDIZAGEM**: somente os itens da etapa "Objetivos de Aprendizagem"
+6. **SÍNTESE**: somente os itens da etapa "Síntese / Fechamento"
+7. **REFERÊNCIAS**: lista exatamente como fornecida, agrupada por autor
+8. **CONSIDERAÇÕES FINAIS**: 1 ou 2 frases factuais sobre o registro (ex.: "A sessão registrou X contribuições no total" ou "Não houve registros nesta sessão"). Não emita julgamentos sobre desempenho.
 
-A ata deve ser formal, objetiva e adequada para documentação acadêmica.
-Use linguagem formal em português brasileiro.`;
+LEMBRE-SE: ata ZERADA é melhor que ata com conteúdo inventado. Se um aluno não escreveu, a ata não pode ter aquela informação.`;
 
     try {
       const aiResult = await callAIWithFallback(
         adminClient,
         lovableApiKey,
         [
-          { role: "system", content: "Você é um assistente acadêmico que gera atas formais de sessões PBL. Responda apenas com o texto da ata, sem comentários adicionais." },
+          { role: "system", content: "Você é um secretário acadêmico que apenas TRANSCREVE contribuições já registradas. Nunca invente, infira ou complemente conteúdo. Se não há dados, declare ausência. Responda apenas com o texto da ata." },
           { role: "user", content: prompt },
         ]
       );
