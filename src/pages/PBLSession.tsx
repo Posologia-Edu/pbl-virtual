@@ -837,8 +837,12 @@ export default function PBLSession() {
               {rightPanel === "eval" && roomId && (
                 <EvaluationPanel roomId={roomId} sessionId={activeSession?.id} />
               )}
-              {rightPanel === "whiteboard" && isReporter && (
-                <WhiteboardPanel onShareToChat={handleShareWhiteboard} />
+              {rightPanel === "whiteboard" && (
+                <WhiteboardPanel
+                  onShareToChat={isReporter ? handleShareWhiteboard : undefined}
+                  sessionId={currentSessionId}
+                  readOnly={!isReporter || isViewingHistory}
+                />
               )}
               {rightPanel === "participants" && (
                 <div className="flex flex-col h-full">
