@@ -100,6 +100,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
       reference_id: ref.id, created_by: user.id,
     });
     setLinks((s) => ({ ...s, [objId]: { url: "", title: "", show: false } }));
+    await fetchAll();
     toast({ title: "Referência adicionada ao objetivo" });
   };
 
@@ -129,6 +130,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
       reference_id: ref.id, created_by: user.id,
     });
     setUploading(null);
+    await fetchAll();
     toast({ title: "Arquivo anexado ao objetivo" });
   };
 
@@ -140,6 +142,7 @@ export default function ObjectivesKanbanPanel({ roomId, sessionId, isProfessor, 
     if (!remaining || remaining.length === 0) {
       await (supabase as any).from("session_references").delete().eq("id", refId);
     }
+    await fetchAll();
   };
 
   if (!sessionId) return null;
