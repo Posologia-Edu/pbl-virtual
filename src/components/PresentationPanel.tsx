@@ -183,7 +183,7 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
           <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden border border-border">
             <iframe
               src={viewerUrl!}
-              className="w-full h-full"
+              className={`h-full w-full ${!isPdf && onSlideChange ? "pointer-events-none" : ""}`}
               title={presentation.file_name}
               allow="fullscreen"
             />
