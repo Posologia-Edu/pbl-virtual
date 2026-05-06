@@ -80,7 +80,7 @@ export default function Reports() {
         .single();
       if (!room) { setLoading(false); return; }
 
-      const [membersRes, criteriaRes, evalsRes, speakRes] = await Promise.all([
+      const [membersRes, criteriaRes, evalsRes, speakRes, segRes] = await Promise.all([
         supabase
           .from("group_members")
           .select("student_id, profiles!group_members_student_id_profiles_fkey(full_name)")
