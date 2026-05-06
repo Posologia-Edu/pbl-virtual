@@ -713,9 +713,17 @@ export default function PBLSession() {
                     </div>
                   )}
 
-                  {/* References panel for step 7 (Síntese) */}
+                  {/* Closing phase (P7) — presentation + references + minutes */}
                   {(isViewingHistory ? historyStep : activeStep) === 7 && (
                     <>
+                      {currentSessionId && (
+                        <PresentationPanel
+                          roomId={roomId!}
+                          sessionId={currentSessionId}
+                          isReporter={isReporter && !isViewingHistory}
+                          userId={user?.id || null}
+                        />
+                      )}
                       <ReferencesPanel
                         roomId={roomId!}
                         sessionId={currentSessionId}
@@ -730,6 +738,19 @@ export default function PBLSession() {
                         sessionLabel={sessionLabel}
                       />
                     </>
+                  )}
+
+                  {/* Step 4 — Síntese (Mapa Mental no Whiteboard) — auto-open whiteboard hint */}
+                  {(isViewingHistory ? historyStep : activeStep) === 4 && (
+                    <div className="clinical-card p-5 border-primary/30">
+                      <h3 className="text-base font-semibold text-foreground mb-1 flex items-center gap-2">
+                        <PenTool className="h-4 w-4 text-primary" /> Síntese — Mapa Mental
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        O <strong>relator</strong> deve usar o whiteboard para construir o mapa mental integrando o brainstorming (P3).
+                        Todos da sala visualizam em tempo real e podem opinar pelo chat.
+                      </p>
+                    </div>
                   )}
 
                   {/* Objectives Bank for step 5 */}
