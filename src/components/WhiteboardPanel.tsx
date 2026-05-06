@@ -76,6 +76,7 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
   const textInputRef = useRef<HTMLInputElement>(null);
 
   const skipNextSync = useRef(false);
+  const hasLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // -- Resize --
@@ -99,15 +100,16 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
 
   useEffect(() => {
     if (!sessionId) return;
+    hasLoaded.current = false;
     (supabase as any).from("tutorial_sessions")
       .select("whiteboard_state")
       .eq("id", sessionId)
       .maybeSingle()
       .then(({ data }: any) => {
-        if (data?.whiteboard_state?.objects) {
-          skipNextSync.current = true;
-          setObjects(data.whiteboard_state.objects);
-        }
+        const loaded = data?.whiteboard_state?.objects;
+        skipNextSync.current = true;
+        setObjects(Array.isArray(loaded) ? loaded : []);
+        hasLoaded.current = true;
       });
 
     const ch = supabase.channel(`wb-${sessionId}`, { config: { broadcast: { self: false } } })
@@ -139,6 +141,7 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
   // -- Persist on changes (only if can edit) --
   useEffect(() => {
     if (!sessionId || readOnly) return;
+    if (!hasLoaded.current) return; // Don't overwrite DB before initial load completes
     if (skipNextSync.current) {
       skipNextSync.current = false;
       return;
