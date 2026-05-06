@@ -180,20 +180,31 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
               <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
             </a>
           </div>
-          <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden border border-border">
+          <div className="relative aspect-video w-full bg-muted rounded-lg overflow-hidden border border-border">
             <iframe
               src={viewerUrl!}
               className="w-full h-full"
               title={presentation.file_name}
               allow="fullscreen"
             />
+            {onSlideChange && typeof currentSlide === "number" && (
+              <div className="absolute inset-x-0 bottom-0 z-10 flex h-9 items-center justify-center gap-3 border-t border-border bg-card/95 px-3 text-xs text-card-foreground shadow-lg backdrop-blur-md">
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateSlide(currentSlide - 1)}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="font-semibold">Slide {currentSlide}</span>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateSlide(currentSlide + 1)}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
           {onSlideChange && typeof currentSlide === "number" && (
             <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 text-xs">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Pin className="h-3.5 w-3.5 text-primary" />
                 <span>
-                  Sincronize o slide exibido para que os comentários ancorem no slide correto:
+                  Use a navegação sincronizada para que os comentários ancorem no slide correto:
                 </span>
               </div>
               <div className="flex items-center gap-1">
