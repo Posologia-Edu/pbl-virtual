@@ -178,11 +178,13 @@ export default function WhiteboardPanel({ onShareToChat, sessionId, readOnly = f
       });
     }
     clearTimeout(saveTimer.current);
+    dirtyRef.current = true;
     saveTimer.current = setTimeout(async () => {
       const { error } = await (supabase as any).from("tutorial_sessions")
         .update({ whiteboard_state: { objects } })
         .eq("id", sessionId);
       if (error) console.error("[Whiteboard] save error:", error);
+      else dirtyRef.current = false;
     }, 300);
   }, [objects, sessionId, readOnly]);
 
