@@ -793,19 +793,19 @@ export default function PBLSession() {
                         </div>
                       )}
 
-                      {/* Input (only for active session, not history) */}
-                      {!isViewingHistory && activeSession && (
+                      {/* Input — only the reporter can write contributions; everyone sees them in real time */}
+                      {!isViewingHistory && activeSession && isReporter && (
                         <div className="flex gap-2 pt-2">
                           {(isViewingHistory ? historyStep : activeStep) === 7 ? (
                             <Textarea
-                              placeholder="Escreva sua contribuição..."
+                              placeholder="Relator: escreva a contribuição do grupo..."
                               value={newItem}
                               onChange={(e) => setNewItem(e.target.value)}
                               className="min-h-[80px]"
                             />
                           ) : (
                             <Input
-                              placeholder="Adicionar contribuição..."
+                              placeholder="Relator: escreva a contribuição do grupo..."
                               value={newItem}
                               onChange={(e) => setNewItem(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && addItem()}
@@ -815,6 +815,11 @@ export default function PBLSession() {
                             <Send className="h-4 w-4" />
                           </Button>
                         </div>
+                      )}
+                      {!isViewingHistory && activeSession && !isReporter && (
+                        <p className="text-xs text-muted-foreground italic pt-2 px-1">
+                          Apenas o relator pode registrar contribuições. Use o chat para sugerir ideias.
+                        </p>
                       )}
                     </div>
                   )}
