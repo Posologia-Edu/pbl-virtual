@@ -177,6 +177,30 @@ export default function PresentationPanel({ roomId, sessionId, isReporter, userI
               allow="fullscreen"
             />
           </div>
+          {onSlideChange && typeof currentSlide === "number" && (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Pin className="h-3.5 w-3.5 text-primary" />
+                <span>
+                  Sincronize o slide exibido para que os comentários ancorem no slide correto:
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onSlideChange(Math.max(1, currentSlide - 1))}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="text-muted-foreground">Slide</span>
+                <Input
+                  type="number" min={1} value={currentSlide}
+                  onChange={(e) => onSlideChange(Math.max(1, parseInt(e.target.value || "1")))}
+                  className="h-7 w-16 text-xs px-2"
+                />
+                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onSlideChange(currentSlide + 1)}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
