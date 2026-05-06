@@ -992,6 +992,18 @@ export default function PBLSession() {
           )}
         </div>
       </div>
+
+      <FinalizeP7Dialog
+        open={showFinalizeDialog}
+        onOpenChange={setShowFinalizeDialog}
+        isProfessor={isProfessor}
+        verdictReady={verdictState.isFinalized && verdictState.addressedAll && verdictState.hasContent}
+        evaluationReady={evaluationReady}
+        peerEvalReady={peerEvalReady}
+        onOpenEvaluation={() => setRightPanel("eval")}
+        onOpenPeerEval={() => setRightPanel("peer-eval")}
+        onOpenVerdict={() => { /* verdict is inline in P7 */ }}
+      />
     </div>
   );
 }
