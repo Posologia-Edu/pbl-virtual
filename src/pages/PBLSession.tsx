@@ -620,7 +620,7 @@ export default function PBLSession() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            {!isViewingHistory && <TimerPanel isCoordinator={isCoordinator} roomId={roomId!} />}
+            {!isViewingHistory && <TimerPanel isCoordinator={isCoordinator} roomId={roomId!} timerPhase={(activeSession?.timer_phase as any) || (activeStep === 7 ? "closing" : "opening")} />}
           </div>
         </header>
 
