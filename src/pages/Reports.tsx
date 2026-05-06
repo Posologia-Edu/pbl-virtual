@@ -49,6 +49,7 @@ export default function Reports() {
   const [selectedStudent, setSelectedStudent] = useState<string>("__all__");
   const [evaluations, setEvaluations] = useState<EvalRow[]>([]);
   const [criteria, setCriteria] = useState<CriterionRow[]>([]);
+  const [speakingTotals, setSpeakingTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
