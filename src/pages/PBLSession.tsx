@@ -135,23 +135,33 @@ export default function PBLSession() {
     fetchScenariosAndSessions();
   }, [roomId]);
 
-  // Subscribe to active session changes
+  // Subscribe to tutorial_sessions changes for this room (covers inserts + updates)
   useEffect(() => {
-    if (!activeSession?.id) return;
+    if (!roomId) return;
     const channel = supabase
-      .channel(`session-${activeSession.id}`)
+      .channel(`tutorial-sessions-${roomId}`)
       .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "tutorial_sessions", filter: `id=eq.${activeSession.id}`,
+        event: "*", schema: "public", table: "tutorial_sessions", filter: `room_id=eq.${roomId}`,
       }, (payload) => {
         const updated = payload.new as any;
-        setActiveSession((prev: any) => ({ ...prev, ...updated }));
-        if (!viewingHistorySessionId && updated.current_step !== undefined) {
-          setActiveStep(updated.current_step);
+        if (!updated) return;
+        if (updated.status === "active") {
+          setActiveSession((prev: any) => (prev && prev.id === updated.id ? { ...prev, ...updated } : updated));
+          if (!viewingHistorySessionId && updated.current_step !== undefined) {
+            setActiveStep(updated.current_step);
+          }
         }
+        setAllSessions((prev: any[]) => {
+          const idx = prev.findIndex((s) => s.id === updated.id);
+          if (idx === -1) return [...prev, updated];
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...updated };
+          return copy;
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [activeSession?.id, viewingHistorySessionId]);
+  }, [roomId, viewingHistorySessionId]);
 
   // ---- Fetch participants ----
   useEffect(() => {
