@@ -211,6 +211,46 @@ export default function PBLSession() {
     fetchModule();
   }, [room?.group_id]);
 
+  // ---- Fetch P5 objectives for current session (used by P7 panels) ----
+  useEffect(() => {
+    const sid = activeSession?.id;
+    if (!sid || !roomId) { setP5Objectives([]); return; }
+    const fetchObjs = async () => {
+      const { data } = await (supabase as any)
+        .from("step_items").select("id, content")
+        .eq("room_id", roomId).eq("session_id", sid).eq("step", 5)
+        .order("created_at");
+      setP5Objectives((data || []).map((d: any) => ({ id: d.id, content: d.content })));
+    };
+    fetchObjs();
+    const ch = supabase.channel(`p5-${sid}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "step_items", filter: `session_id=eq.${sid}` }, () => fetchObjs())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [activeSession?.id, roomId]);
+
+  // ---- Check evaluation / peer-eval readiness for finalize dialog ----
+  useEffect(() => {
+    const sid = activeSession?.id;
+    if (!sid || !roomId || activeStep !== 7) return;
+    const check = async () => {
+      // Professor: needs at least one evaluation per participant
+      if (isProfessor && participants.length > 0) {
+        const { data: evals } = await (supabase as any)
+          .from("evaluations").select("student_id").eq("session_id", sid).eq("archived", false);
+        const evaluatedIds = new Set((evals || []).map((e: any) => e.student_id));
+        setEvaluationReady(participants.every((p: any) => evaluatedIds.has(p.student_id)));
+      }
+      // Student: needs at least one peer-eval submitted
+      if (!isProfessor && user) {
+        const { data: peer } = await (supabase as any)
+          .from("peer_evaluations").select("id").eq("session_id", sid).eq("evaluator_id", user.id).limit(1);
+        setPeerEvalReady(!!peer && peer.length > 0);
+      }
+    };
+    check();
+  }, [activeSession?.id, roomId, activeStep, isProfessor, participants, user, verdictState]);
+
   // ---- Fetch step items (filtered by session) ----
   useEffect(() => {
     if (!roomId) return;
