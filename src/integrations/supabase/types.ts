@@ -1016,7 +1016,15 @@ export type Database = {
           slide_number?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "presentation_comments_author_id_profiles_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       professor_notes: {
         Row: {
@@ -1397,7 +1405,22 @@ export type Database = {
           room_id?: string
           session_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "session_objective_references_objective_step_item_id_fkey"
+            columns: ["objective_step_item_id"]
+            isOneToOne: false
+            referencedRelation: "step_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_objective_references_reference_id_fkey"
+            columns: ["reference_id"]
+            isOneToOne: false
+            referencedRelation: "session_references"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_presentations: {
         Row: {

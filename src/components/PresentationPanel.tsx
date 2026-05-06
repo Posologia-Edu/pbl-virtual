@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Trash2, Loader2, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Upload, FileText, Trash2, Loader2, ExternalLink, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   isReporter: boolean;
   userId: string | null;
   onPresentationLoaded?: (presentationId: string | null) => void;
+  currentSlide?: number;
+  onSlideChange?: (n: number) => void;
 }
 
 interface Presentation {
