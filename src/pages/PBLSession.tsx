@@ -32,8 +32,9 @@ const PBL_STEPS = [
   { id: 1, label: "Termos", icon: List, block: "Abertura" },
   { id: 2, label: "Problema", icon: HelpCircle, block: "Abertura" },
   { id: 3, label: "Brainstorming", icon: Brain, block: "Abertura" },
+  { id: 4, label: "Síntese (Mapa Mental)", icon: PenTool, block: "Abertura" },
   { id: 5, label: "Objetivos", icon: Target, block: "Abertura" },
-  { id: 7, label: "Síntese", icon: FileText, block: "Fechamento" },
+  { id: 7, label: "Fechamento", icon: FileText, block: "Fechamento" },
 ];
 
 export default function PBLSession() {
