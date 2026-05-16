@@ -295,10 +295,17 @@ export default function Reports() {
               <TabsTrigger value="risk" className="gap-2">
                 <Brain className="h-4 w-4" /> Análise de Risco
               </TabsTrigger>
+              <TabsTrigger value="tutor" className="gap-2">
+                <Sparkles className="h-4 w-4" /> Apoio ao Tutor
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="risk">
               <RiskAnalysisPanel rooms={rooms} />
+            </TabsContent>
+
+            <TabsContent value="tutor">
+              <TutorSupportPanel rooms={rooms} />
             </TabsContent>
 
             <TabsContent value="performance">
