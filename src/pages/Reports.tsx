@@ -15,6 +15,8 @@ import { Download, TrendingUp, Users, BarChart3, ArrowLeft, Lock, Brain } from "
 import { toast } from "@/hooks/use-toast";
 import UpgradeOverlay from "@/components/UpgradeOverlay";
 import RiskAnalysisPanel from "@/components/RiskAnalysisPanel";
+import TutorSupportPanel from "@/components/TutorSupportPanel";
+import { Sparkles } from "lucide-react";
 
 const GRADES: Record<string, number> = {
   O: 0, I: 25, PS: 50, S: 75, MS: 100,
