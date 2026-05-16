@@ -15,6 +15,8 @@ import { Download, TrendingUp, Users, BarChart3, ArrowLeft, Lock, Brain } from "
 import { toast } from "@/hooks/use-toast";
 import UpgradeOverlay from "@/components/UpgradeOverlay";
 import RiskAnalysisPanel from "@/components/RiskAnalysisPanel";
+import TutorSupportPanel from "@/components/TutorSupportPanel";
+import { Sparkles } from "lucide-react";
 
 const GRADES: Record<string, number> = {
   O: 0, I: 25, PS: 50, S: 75, MS: 100,
@@ -293,10 +295,17 @@ export default function Reports() {
               <TabsTrigger value="risk" className="gap-2">
                 <Brain className="h-4 w-4" /> Análise de Risco
               </TabsTrigger>
+              <TabsTrigger value="tutor" className="gap-2">
+                <Sparkles className="h-4 w-4" /> Apoio ao Tutor
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="risk">
               <RiskAnalysisPanel rooms={rooms} />
+            </TabsContent>
+
+            <TabsContent value="tutor">
+              <TutorSupportPanel rooms={rooms} />
             </TabsContent>
 
             <TabsContent value="performance">
