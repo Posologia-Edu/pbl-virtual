@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Check, Archive, History, ArrowLeft } from "lucide-react";
+import { Pencil, Check, Archive, History, ArrowLeft, Sparkles } from "lucide-react";
+import EvaluationDialog from "./EvaluationDialog";
 
 const GRADES = [
   { label: "O", value: 0 },
