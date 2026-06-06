@@ -80,3 +80,7 @@ verify_jwt = false
 
 [functions.tutor-insights]
 verify_jwt = false
+
+[functions.suggest-evaluation]
+verify_jwt = false
+
