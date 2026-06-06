@@ -341,6 +341,15 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6"
+                            title="Sugerir nota com IA"
+                            onClick={() => setSuggestOpen({ criterionId: crit.id, criterionLabel: crit.label })}
+                          >
+                            <Sparkles className="h-3 w-3 text-primary" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
                             onClick={() => { setEditingCriterion(crit.id); setEditLabel(crit.label); }}
                           >
                             <Pencil className="h-3 w-3 text-muted-foreground" />
