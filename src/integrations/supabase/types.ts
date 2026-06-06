@@ -551,6 +551,54 @@ export type Database = {
           },
         ]
       }
+      evaluation_suggestions: {
+        Row: {
+          accepted: boolean
+          applied_grade: string | null
+          created_at: string
+          criterion_id: string
+          evidences: Json
+          id: string
+          professor_id: string
+          rationale: string
+          room_id: string
+          session_id: string | null
+          student_id: string
+          suggested_grade: string
+          updated_at: string
+        }
+        Insert: {
+          accepted?: boolean
+          applied_grade?: string | null
+          created_at?: string
+          criterion_id: string
+          evidences?: Json
+          id?: string
+          professor_id: string
+          rationale?: string
+          room_id: string
+          session_id?: string | null
+          student_id: string
+          suggested_grade: string
+          updated_at?: string
+        }
+        Update: {
+          accepted?: boolean
+          applied_grade?: string | null
+          created_at?: string
+          criterion_id?: string
+          evidences?: Json
+          id?: string
+          professor_id?: string
+          rationale?: string
+          room_id?: string
+          session_id?: string | null
+          student_id?: string
+          suggested_grade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       evaluations: {
         Row: {
           archived: boolean | null
