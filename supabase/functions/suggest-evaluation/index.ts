@@ -168,7 +168,7 @@ Regras:
       sala: room.name,
       chat_do_aluno: chat.slice(-60).map((m: any) => ({ t: m.created_at, msg: (m.content || "").slice(0, 300) })),
       comentarios_nos_slides: comments.map((c: any) => ({ slide: c.slide_number, t: c.created_at, msg: (c.content || "").slice(0, 250) })),
-      referencias_anexadas: refs.map((r: any) => ({ titulo: r.title, autor: r.author_name, t: r.created_at })),
+      referencias_anexadas: refs.map((r: any) => ({ titulo: r.title, tipo: r.ref_type, url: r.url, t: r.created_at })),
       media_avaliacao_pares_neste_criterio: peerAvg,
     };
 
