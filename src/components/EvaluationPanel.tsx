@@ -34,6 +34,7 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
   const [showHistory, setShowHistory] = useState(false);
   const [archivedEvals, setArchivedEvals] = useState<any[]>([]);
   const [historyStudent, setHistoryStudent] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState<{ criterionId: string; criterionLabel: string } | null>(null);
 
   useEffect(() => {
     fetchData();
