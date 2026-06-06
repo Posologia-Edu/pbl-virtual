@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Check, Archive, History, ArrowLeft } from "lucide-react";
+import { Pencil, Check, Archive, History, ArrowLeft, Sparkles } from "lucide-react";
+import EvaluationDialog from "./EvaluationDialog";
 
 const GRADES = [
   { label: "O", value: 0 },
@@ -33,6 +34,7 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
   const [showHistory, setShowHistory] = useState(false);
   const [archivedEvals, setArchivedEvals] = useState<any[]>([]);
   const [historyStudent, setHistoryStudent] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState<{ criterionId: string; criterionLabel: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -339,6 +341,15 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6"
+                            title="Sugerir nota com IA"
+                            onClick={() => setSuggestOpen({ criterionId: crit.id, criterionLabel: crit.label })}
+                          >
+                            <Sparkles className="h-3 w-3 text-primary" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
                             onClick={() => { setEditingCriterion(crit.id); setEditLabel(crit.label); }}
                           >
                             <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -384,6 +395,20 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
           <History className="mr-2 h-4 w-4" /> Histórico
         </Button>
       </div>
+
+      {suggestOpen && selectedStudent && (
+        <EvaluationDialog
+          open={!!suggestOpen}
+          onOpenChange={(v) => !v && setSuggestOpen(null)}
+          roomId={roomId}
+          sessionId={sessionId}
+          studentId={selectedStudent}
+          studentName={students.find((s) => s.student_id === selectedStudent)?.profiles?.full_name || "Aluno"}
+          criterionId={suggestOpen.criterionId}
+          criterionLabel={suggestOpen.criterionLabel}
+          onAccept={(grade) => setGrade(selectedStudent, suggestOpen.criterionId, grade)}
+        />
+      )}
     </div>
   );
 }
