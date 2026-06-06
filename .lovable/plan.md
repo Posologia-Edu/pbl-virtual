@@ -1,101 +1,111 @@
-## Plan: Motor de Cenários Adaptativos por Desempenho
+## Roadmap: 6 Funcionalidades Inovadoras para Professores/Tutores
 
-Um novo módulo no Painel Admin/Professor que analisa o desempenho recente (avaliações por critério, objetivos de aprendizagem cobertos, frequência) e usa IA para gerar **variações de cenários PBL ou sub-cenários** focados nas lacunas detectadas, reaproveitando a infraestrutura de geração já existente (`generate-scenario`, `ai_provider_keys`, fallback Lovable AI).
+Foco: **diferenciação no mercado** + **inovação com IA**, complementando o que já existe (Co-tutor, Análise Preditiva, Cenários Adaptativos, Painel de Apoio ao Tutor, Ata IA).
 
-## Como funciona (fluxo)
+---
 
-```text
-Professor seleciona Grupo (ou Aluno)
-        │
-        ▼
-analyze-performance edge fn ──► lê: evaluations, peer_evaluations,
-        │                              objective_sessions, learning_objectives,
-        │                              session_minutes (cenários já cursados)
-        ▼
-Calcula: critérios fracos (média < S=75),
-         objetivos não confirmados, conceitos pouco citados
-        │
-        ▼
-generate-adaptive-scenario edge fn ──► IA recebe:
-        │                                - cenário base (opcional)
-        │                                - lacunas + objetivos pendentes
-        │                                - histórico (evita repetição)
-        ▼
-Retorna: variação OU sub-cenário (mais curto, foco específico)
-        │
-        ▼
-Salvo em `scenarios` com flag adaptive + origem,
-e opcionalmente liberado direto numa sala existente.
-```
+### 1. 🎙️ Transcrição e Análise de Áudio em Tempo Real ("Tutor Ears")
+**O quê:** Captura o áudio da sessão presencial/online, transcreve em tempo real (Whisper) e analisa quem fala, por quanto tempo, e padrões de interação.
 
-## Mudanças no Banco
+**Por que é inovador:** Hoje a ata e a avaliação dependem do que aparece no chat/whiteboard. Em sessões presenciais, o tutor perde o registro do que foi falado oralmente. Ninguém no mercado EdTech PBL faz isso.
 
-Nova tabela `adaptive_scenarios` (vínculo entre cenário gerado e contexto de origem) — evita poluir a tabela `scenarios` existente:
+**Como conecta:**
+- Alimenta automaticamente a Ata da Sessão (P7) com transcrição limpa.
+- Gera "Mapa de Participação Oral" por aluno (tempo de fala, número de intervenções) → entra como critério na **Avaliação por Pares** e **Critérios de Avaliação**.
+- Detecta termos do glossário do cenário citados oralmente → reforça cobertura de objetivos.
 
-- `id`, `scenario_id` (FK lógica → scenarios.id)
-- `source_type` (`variation` | `subscenario`)
-- `target_type` (`group` | `student`), `target_id`
-- `base_scenario_id` (cenário do qual derivou, nullable)
-- `gaps_payload` jsonb (critérios fracos + objetivos pendentes usados no prompt)
-- `created_by`, `created_at`
+**Stack:** Edge function `transcribe-session` usando Lovable AI Gateway (Whisper), gravação opcional iniciada pelo Coordenador, armazenamento privado no bucket `references`.
 
-Adicionar coluna `is_adaptive boolean default false` em `scenarios` para badge na UI.
+---
 
-RLS: professor vê os adaptativos dos seus grupos; institution_admin vê os da sua instituição; superadmin tudo.
+### 2. 🧠 Mapa Conceitual Colaborativo Automático
+**O quê:** Durante o P3 (hipóteses) e P4 (objetivos), uma IA analisa o chat + whiteboard + termos citados e gera automaticamente um **mapa conceitual visual** (nós e relações) que evolui em tempo real.
 
-## Edge Functions (novas)
+**Por que é inovador:** Mapas conceituais são pilar pedagógico do PBL, mas hoje são manuais. Tornar isso automático e dinâmico é único.
 
-1. **`analyze-performance`** (verify_jwt=false, valida JWT em código)
-   - Input: `{ group_id?, student_id?, scenario_id? }`
-   - Agrega notas por critério (escala O/I/PS/S/MS → 0–100), objetivos de `learning_objectives` confirmados vs pendentes em `objective_sessions`, e termos do glossário pouco abordados nas atas (`session_minutes`).
-   - Output: `{ weakCriteria[], pendingObjectives[], coveredScenarios[], summary }`.
+**Como conecta:**
+- Novo painel ao lado do Whiteboard; o Relator pode editar/reorganizar.
+- Exportado junto da Ata em PDF.
+- Diff entre mapa de abertura (P3) e fechamento (P7) → métrica de **evolução cognitiva do grupo** (vai para o Painel de Apoio ao Tutor).
 
-2. **`generate-adaptive-scenario`** (verify_jwt=false)
-   - Reutiliza `callAIWithFallback` do `generate-scenario` (copiar helper).
-   - Prompt system: "Você é um designer de casos PBL. Gere um {variation|subscenario} focado nas lacunas a seguir, evitando repetir cenários já cursados. Para sub-cenário: máx 2 parágrafos + 1 pergunta-chave. Para variação: caso completo com novo contexto clínico/situacional mas mesmos objetivos de aprendizagem-alvo."
-   - Tool calling para retornar JSON estruturado: `{ title, content, tutor_questions[], tutor_glossary[], targeted_objectives[], targeted_criteria[] }`.
-   - Insere em `scenarios` (course_id/module_id herdado do base ou do grupo) e `adaptive_scenarios`.
-   - Loga em `ai_usage_log` com `prompt_type='adaptive_scenario'`.
+**Stack:** Edge function `generate-concept-map` (Gemini com tool calling), renderização com `react-flow` (ou D3), salvo em nova tabela `session_concept_maps`.
 
-## UI
+---
 
-Nova aba **"Cenários Adaptativos"** dentro do `AdminPanel.tsx` (e atalho dentro de `ScenariosTab` botão "Gerar adaptativo"):
+### 3. 🎭 Simulador de Paciente Virtual Interativo
+**O quê:** Para cenários clínicos, a IA assume o papel do paciente. Alunos conversam (chat ou voz) com o "paciente virtual" para coletar anamnese, e a IA responde em personagem, com sintomas/histórico coerentes.
 
-- Seletor: Grupo ou Aluno (filtrado por instituição/curso atuais).
-- Card "Diagnóstico de desempenho" mostrando critérios fracos, objetivos pendentes, cenários já vistos (vem de `analyze-performance`).
-- Toggle: **Variação completa** vs **Sub-cenário focado**.
-- Seletor opcional "Cenário base" (lista de `scenarios` do curso).
-- Botão **"Gerar com IA"** → chama `generate-adaptive-scenario`.
-- Preview do resultado com botões: *Salvar*, *Salvar e liberar para sala…* (reutiliza fluxo de release já existente em `ScenariosTab`).
-- Lista histórica de adaptativos gerados (badge "Adaptativo" + tooltip com lacunas-alvo).
+**Por que é inovador:** Eleva o PBL de "ler um caso" para "viver o caso". Diferencial gigante para área da saúde — concorre diretamente com simuladores caros (Body Interact, etc.) a fração do preço.
 
-No `ScenariosTab`: badge visual `Sparkles` "Adaptativo" para `is_adaptive=true`.
+**Como conecta:**
+- Aba opcional dentro da sessão tutorial ("Entrevistar Paciente").
+- Cada interação loga em `ai_usage_log` e conta para limites mensais.
+- Histórico da entrevista é citável como referência no P7 e alimenta a Ata.
+- Professor define no cenário o "dossiê oculto" do paciente (campo novo em `scenarios`).
 
-## Documentação
+**Stack:** Edge function `patient-simulator` com prompt persistente baseado no dossiê. Opção de voz via Web Speech API.
 
-Adicionar seção em `src/pages/Documentation.tsx` explicando o motor, escala de notas usada, como interpretar o diagnóstico e diferença entre variação x sub-cenário.
+---
 
-## Memória do projeto
+### 4. 🔬 Banco de Casos da Comunidade (Marketplace de Cenários)
+**O quê:** Tutores podem **publicar cenários** (anonimizados) para uma biblioteca compartilhada entre instituições assinantes. Outros tutores avaliam (estrelas), comentam e clonam para seu curso.
 
-Salvar `mem://funcionalidades/motor-cenarios-adaptativos` descrevendo o fluxo e a regra: sub-cenário ≤ 2 parágrafos com 1 pergunta-chave; variação reutiliza objetivos mas troca contexto.
+**Por que é inovador:** Cria efeito de rede — quanto mais instituições usam, mais valioso o produto fica. Reduz tempo de criação de cenários (hoje a maior dor de tutor novo).
 
-## Detalhes técnicos
+**Como conecta:**
+- Nova flag `is_public` + `published_at` em `scenarios`.
+- Tabela `scenario_reviews` (rating, comentário, autor).
+- Filtros por especialidade, módulo, dificuldade.
+- Tutor que clona vira "fork" — créditos ao autor original visíveis.
+- Superadmin pode destacar cenários de referência.
 
-- Reuso máximo: helper `callAIWithFallback` extraído (ou duplicado) de `generate-scenario`.
-- Conversão de notas: O=0, I=25, PS=50, S=75, MS=100 (já no Core memory). Critério "fraco" = média < 75 com ≥3 observações.
-- Anti-repetição: passar títulos de `coveredScenarios` no prompt + comparação normalizada (sem acentos/lowercase) antes de salvar.
-- Permissões: edge functions validam que `auth.uid()` é professor do grupo OU admin da instituição OU superadmin antes de gerar.
-- Custos: respeita 402/429 com toasts amigáveis.
-- Sem mudança no fluxo PBL existente — cenário adaptativo entra como qualquer outro `scenarios.id` no `room_scenarios`.
+**Stack:** Nova aba "Comunidade" em `ScenariosTab`. Moderação básica via flag de denúncia + revisão do superadmin.
 
-## Arquivos previstos
+---
 
-- `supabase/migrations/<novo>.sql` — tabela `adaptive_scenarios`, coluna `is_adaptive`, RLS.
-- `supabase/functions/analyze-performance/index.ts`
-- `supabase/functions/generate-adaptive-scenario/index.ts`
-- `supabase/config.toml` — registro das 2 funções.
-- `src/components/admin/AdaptiveScenariosTab.tsx` (novo).
-- `src/pages/AdminPanel.tsx` — nova aba.
-- `src/components/admin/ScenariosTab.tsx` — badge "Adaptativo" + atalho.
-- `src/pages/Documentation.tsx` — seção explicativa.
-- `mem://funcionalidades/motor-cenarios-adaptativos` + atualização do `mem://index.md`.
+### 5. 📋 Rubrica Inteligente com Justificativa em Linguagem Natural
+**O quê:** Ao avaliar um aluno por critérios, o tutor pode pedir à IA uma **sugestão de nota + justificativa** baseada nas evidências reais da sessão (chat do aluno, referências anexadas, contribuições no whiteboard, transcrição).
+
+**Por que é inovador:** Resolve a dor #1 do tutor: **avaliação subjetiva e demorada**. A IA não decide — apenas sugere com evidências citáveis. Tutor mantém controle.
+
+**Como conecta:**
+- Botão "✨ Sugerir avaliação" em cada critério do `EvaluationPanel`.
+- IA retorna `{nota_sugerida, justificativa, evidências[]}` com timestamps clicáveis.
+- Tutor aceita/edita. Toda alteração fica auditável.
+- Acelera a avaliação de 30min → 5min por sessão.
+
+**Stack:** Edge function `suggest-evaluation` (Gemini + tool calling). Reusa dados já agregados pelo `tutor-insights`.
+
+---
+
+### 6. 📅 Atalho de Reagendamento e Reposição Inteligente
+**O quê:** Quando um aluno tem ausência justificada ou cenário precisa ser reagendado, a IA sugere automaticamente:
+- Próximas datas livres compatíveis com o Planejamento Semestral.
+- Cenários equivalentes que cobrem os mesmos objetivos não cumpridos.
+- Grupo alternativo (de outro horário do mesmo módulo) onde o aluno pode fazer reposição.
+
+**Por que é inovador:** Gestão de reposição em curso de medicina/saúde é caos. Automatizar é diferencial enorme para coordenação.
+
+**Como conecta:**
+- Botão "Sugerir reposição" no `AttendancePanel` e em qualquer ausência.
+- Reusa `semester_sessions` e `learning_objectives`.
+- Gera notificação por e-mail (Resend) para aluno + tutor receptor com confirmação.
+
+**Stack:** Edge function `suggest-makeup` (regras + IA). Nova tabela `makeup_requests` (status, origem, destino).
+
+---
+
+## Resumo executivo
+
+| # | Funcionalidade | Esforço | Impacto | Diferencial |
+|---|----|----|----|----|
+| 1 | Transcrição de áudio | Alto | Alto | 🔥🔥🔥 |
+| 2 | Mapa conceitual auto | Médio | Alto | 🔥🔥🔥 |
+| 3 | Paciente virtual IA | Alto | Muito alto | 🔥🔥🔥🔥 |
+| 4 | Marketplace cenários | Médio | Alto (rede) | 🔥🔥 |
+| 5 | Rubrica inteligente | Baixo | Muito alto | 🔥🔥🔥 |
+| 6 | Reposição inteligente | Médio | Médio-alto | 🔥🔥 |
+
+**Sugestão de ordem:** começar pela **#5 (Rubrica Inteligente)** — menor esforço, dor imediata, demonstra ROI rápido. Depois **#3 (Paciente Virtual)** como grande diferencial de marketing e venda.
+
+Me diga quais quer implementar (uma, várias, ou todas em sequência) e eu executo.
