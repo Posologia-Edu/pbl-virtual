@@ -395,6 +395,20 @@ export default function EvaluationPanel({ roomId, sessionId }: Props) {
           <History className="mr-2 h-4 w-4" /> Histórico
         </Button>
       </div>
+
+      {suggestOpen && selectedStudent && (
+        <EvaluationDialog
+          open={!!suggestOpen}
+          onOpenChange={(v) => !v && setSuggestOpen(null)}
+          roomId={roomId}
+          sessionId={sessionId}
+          studentId={selectedStudent}
+          studentName={students.find((s) => s.student_id === selectedStudent)?.profiles?.full_name || "Aluno"}
+          criterionId={suggestOpen.criterionId}
+          criterionLabel={suggestOpen.criterionLabel}
+          onAccept={(grade) => setGrade(selectedStudent, suggestOpen.criterionId, grade)}
+        />
+      )}
     </div>
   );
 }
