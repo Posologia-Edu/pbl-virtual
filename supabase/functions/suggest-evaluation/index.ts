@@ -132,9 +132,9 @@ serve(async (req: Request) => {
 
     let refsQ: any = admin
       .from("session_references")
-      .select("title, author_name, created_at, student_id")
+      .select("title, url, ref_type, created_at")
       .eq("room_id", room_id)
-      .eq("student_id", student_id)
+      .eq("author_id", student_id)
       .order("created_at", { ascending: false })
       .limit(30);
     if (session_id) refsQ = refsQ.eq("session_id", session_id);
