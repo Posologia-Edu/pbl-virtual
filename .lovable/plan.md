@@ -1,111 +1,67 @@
-## Roadmap: 6 Funcionalidades Inovadoras para Professores/Tutores
+## Implementação: Rubrica Inteligente com Justificativa em Linguagem Natural
 
-Foco: **diferenciação no mercado** + **inovação com IA**, complementando o que já existe (Co-tutor, Análise Preditiva, Cenários Adaptativos, Painel de Apoio ao Tutor, Ata IA).
+Botão ✨ por critério no `EvaluationPanel` que pede à IA uma **nota sugerida + justificativa com evidências** baseadas nos dados reais da sessão. Tutor revisa, edita e aceita — IA nunca aplica sozinha.
 
----
+### Fluxo
+```text
+Tutor clica ✨ no critério X do aluno Y
+   ↓
+Edge fn `suggest-evaluation` agrega:
+   - Critério (label, fase, sala)
+   - Aluno (nome) + dados da sessão atual
+   - chat_messages do aluno na sessão
+   - session_references / session_objective_references anexadas por ele
+   - presentation_comments do aluno
+   - objective_sessions confirmados
+   - peer_evaluations recebidas (média atual)
+   ↓
+IA (Lovable AI Gateway, google/gemini-3-flash-preview, tool calling)
+retorna { grade: O|I|PS|S|MS, rationale: string, evidences: [{type, snippet, timestamp?}] }
+   ↓
+Dialog exibe nota sugerida + justificativa + evidências citáveis
+Tutor: [Aceitar] (aplica grade) | [Aceitar e editar nota] | [Descartar]
+```
 
-### 1. 🎙️ Transcrição e Análise de Áudio em Tempo Real ("Tutor Ears")
-**O quê:** Captura o áudio da sessão presencial/online, transcreve em tempo real (Whisper) e analisa quem fala, por quanto tempo, e padrões de interação.
+### Edge Function (nova): `supabase/functions/suggest-evaluation/index.ts`
+- Valida JWT em código (segue padrão das outras).
+- Input: `{ room_id, session_id?, student_id, criterion_id }`.
+- Valida que `auth.uid()` é o professor da sala (`rooms.professor_id`).
+- Agrega dados via service role; chama Lovable AI com tool `suggest_evaluation`.
+- Loga em `ai_usage_log` com `prompt_type='suggest_evaluation'`.
+- Trata 429/402 com mensagens amigáveis.
+- Registra a sugestão em nova tabela `evaluation_suggestions` para auditoria.
 
-**Por que é inovador:** Hoje a ata e a avaliação dependem do que aparece no chat/whiteboard. Em sessões presenciais, o tutor perde o registro do que foi falado oralmente. Ninguém no mercado EdTech PBL faz isso.
+### Nova tabela: `evaluation_suggestions` (auditoria)
+Campos de domínio: `room_id`, `session_id`, `student_id`, `criterion_id`, `professor_id`, `suggested_grade`, `rationale`, `evidences` (jsonb), `accepted` (bool, default false), `applied_grade`.
 
-**Como conecta:**
-- Alimenta automaticamente a Ata da Sessão (P7) com transcrição limpa.
-- Gera "Mapa de Participação Oral" por aluno (tempo de fala, número de intervenções) → entra como critério na **Avaliação por Pares** e **Critérios de Avaliação**.
-- Detecta termos do glossário do cenário citados oralmente → reforça cobertura de objetivos.
+RLS: apenas o professor da sala lê/insere/atualiza; superadmin gerencia.
 
-**Stack:** Edge function `transcribe-session` usando Lovable AI Gateway (Whisper), gravação opcional iniciada pelo Coordenador, armazenamento privado no bucket `references`.
+### UI: `src/components/EvaluationDialog.tsx` (novo)
+- Disparado por botão ✨ ao lado dos botões de nota no `EvaluationPanel`.
+- Estado: loading → resultado.
+- Mostra: nota sugerida (badge grande), justificativa (markdown leve), lista de evidências com tipo (Chat, Referência, Comentário, Objetivo, Pares).
+- Botões: **Aceitar sugestão** (aplica `setGrade` no critério), **Descartar**.
+- Ambas as ações atualizam `evaluation_suggestions.accepted/applied_grade`.
 
----
+### Integração em `EvaluationPanel.tsx`
+- Importa `EvaluationDialog`.
+- Adiciona estado `suggestOpen: {criterionId, studentId} | null`.
+- Botão Sparkles ao lado dos botões de nota (apenas no modo aluno selecionado).
+- Após aceitar, refaz `setGrade()` existente.
 
-### 2. 🧠 Mapa Conceitual Colaborativo Automático
-**O quê:** Durante o P3 (hipóteses) e P4 (objetivos), uma IA analisa o chat + whiteboard + termos citados e gera automaticamente um **mapa conceitual visual** (nós e relações) que evolui em tempo real.
+### Documentação
+- Adicionar seção em `src/pages/Documentation.tsx`: "Rubrica Inteligente" — como usar, quais evidências são consideradas, lembrete de que IA é assistiva.
 
-**Por que é inovador:** Mapas conceituais são pilar pedagógico do PBL, mas hoje são manuais. Tornar isso automático e dinâmico é único.
+### Memória
+- Salvar `mem://funcionalidades/rubrica-inteligente-ia` e referenciar em `mem://index.md`.
 
-**Como conecta:**
-- Novo painel ao lado do Whiteboard; o Relator pode editar/reorganizar.
-- Exportado junto da Ata em PDF.
-- Diff entre mapa de abertura (P3) e fechamento (P7) → métrica de **evolução cognitiva do grupo** (vai para o Painel de Apoio ao Tutor).
+### Arquivos
+- **Migration**: tabela `evaluation_suggestions` + RLS + GRANTs.
+- **Novos**: `supabase/functions/suggest-evaluation/index.ts`, `src/components/EvaluationDialog.tsx`.
+- **Edits**: `supabase/config.toml`, `src/components/EvaluationPanel.tsx`, `src/pages/Documentation.tsx`.
+- **Memória**: 1 arquivo novo + `mem://index.md`.
 
-**Stack:** Edge function `generate-concept-map` (Gemini com tool calling), renderização com `react-flow` (ou D3), salvo em nova tabela `session_concept_maps`.
-
----
-
-### 3. 🎭 Simulador de Paciente Virtual Interativo
-**O quê:** Para cenários clínicos, a IA assume o papel do paciente. Alunos conversam (chat ou voz) com o "paciente virtual" para coletar anamnese, e a IA responde em personagem, com sintomas/histórico coerentes.
-
-**Por que é inovador:** Eleva o PBL de "ler um caso" para "viver o caso". Diferencial gigante para área da saúde — concorre diretamente com simuladores caros (Body Interact, etc.) a fração do preço.
-
-**Como conecta:**
-- Aba opcional dentro da sessão tutorial ("Entrevistar Paciente").
-- Cada interação loga em `ai_usage_log` e conta para limites mensais.
-- Histórico da entrevista é citável como referência no P7 e alimenta a Ata.
-- Professor define no cenário o "dossiê oculto" do paciente (campo novo em `scenarios`).
-
-**Stack:** Edge function `patient-simulator` com prompt persistente baseado no dossiê. Opção de voz via Web Speech API.
-
----
-
-### 4. 🔬 Banco de Casos da Comunidade (Marketplace de Cenários)
-**O quê:** Tutores podem **publicar cenários** (anonimizados) para uma biblioteca compartilhada entre instituições assinantes. Outros tutores avaliam (estrelas), comentam e clonam para seu curso.
-
-**Por que é inovador:** Cria efeito de rede — quanto mais instituições usam, mais valioso o produto fica. Reduz tempo de criação de cenários (hoje a maior dor de tutor novo).
-
-**Como conecta:**
-- Nova flag `is_public` + `published_at` em `scenarios`.
-- Tabela `scenario_reviews` (rating, comentário, autor).
-- Filtros por especialidade, módulo, dificuldade.
-- Tutor que clona vira "fork" — créditos ao autor original visíveis.
-- Superadmin pode destacar cenários de referência.
-
-**Stack:** Nova aba "Comunidade" em `ScenariosTab`. Moderação básica via flag de denúncia + revisão do superadmin.
-
----
-
-### 5. 📋 Rubrica Inteligente com Justificativa em Linguagem Natural
-**O quê:** Ao avaliar um aluno por critérios, o tutor pode pedir à IA uma **sugestão de nota + justificativa** baseada nas evidências reais da sessão (chat do aluno, referências anexadas, contribuições no whiteboard, transcrição).
-
-**Por que é inovador:** Resolve a dor #1 do tutor: **avaliação subjetiva e demorada**. A IA não decide — apenas sugere com evidências citáveis. Tutor mantém controle.
-
-**Como conecta:**
-- Botão "✨ Sugerir avaliação" em cada critério do `EvaluationPanel`.
-- IA retorna `{nota_sugerida, justificativa, evidências[]}` com timestamps clicáveis.
-- Tutor aceita/edita. Toda alteração fica auditável.
-- Acelera a avaliação de 30min → 5min por sessão.
-
-**Stack:** Edge function `suggest-evaluation` (Gemini + tool calling). Reusa dados já agregados pelo `tutor-insights`.
-
----
-
-### 6. 📅 Atalho de Reagendamento e Reposição Inteligente
-**O quê:** Quando um aluno tem ausência justificada ou cenário precisa ser reagendado, a IA sugere automaticamente:
-- Próximas datas livres compatíveis com o Planejamento Semestral.
-- Cenários equivalentes que cobrem os mesmos objetivos não cumpridos.
-- Grupo alternativo (de outro horário do mesmo módulo) onde o aluno pode fazer reposição.
-
-**Por que é inovador:** Gestão de reposição em curso de medicina/saúde é caos. Automatizar é diferencial enorme para coordenação.
-
-**Como conecta:**
-- Botão "Sugerir reposição" no `AttendancePanel` e em qualquer ausência.
-- Reusa `semester_sessions` e `learning_objectives`.
-- Gera notificação por e-mail (Resend) para aluno + tutor receptor com confirmação.
-
-**Stack:** Edge function `suggest-makeup` (regras + IA). Nova tabela `makeup_requests` (status, origem, destino).
-
----
-
-## Resumo executivo
-
-| # | Funcionalidade | Esforço | Impacto | Diferencial |
-|---|----|----|----|----|
-| 1 | Transcrição de áudio | Alto | Alto | 🔥🔥🔥 |
-| 2 | Mapa conceitual auto | Médio | Alto | 🔥🔥🔥 |
-| 3 | Paciente virtual IA | Alto | Muito alto | 🔥🔥🔥🔥 |
-| 4 | Marketplace cenários | Médio | Alto (rede) | 🔥🔥 |
-| 5 | Rubrica inteligente | Baixo | Muito alto | 🔥🔥🔥 |
-| 6 | Reposição inteligente | Médio | Médio-alto | 🔥🔥 |
-
-**Sugestão de ordem:** começar pela **#5 (Rubrica Inteligente)** — menor esforço, dor imediata, demonstra ROI rápido. Depois **#3 (Paciente Virtual)** como grande diferencial de marketing e venda.
-
-Me diga quais quer implementar (uma, várias, ou todas em sequência) e eu executo.
+### Notas técnicas
+- Tool calling com schema enxuto (`grade` enum + `rationale` string + `evidences` array curto) para evitar limite de estados do Gemini.
+- Truncar histórico do chat a ~80 mensagens mais recentes da sessão para caber no contexto.
+- `evidences[].timestamp` é opcional; se vier, formatamos como hora local no Dialog.
