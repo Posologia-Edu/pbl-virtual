@@ -1377,6 +1377,75 @@ export type Database = {
           },
         ]
       }
+      session_audio_recordings: {
+        Row: {
+          audio_path: string
+          created_at: string
+          duration_seconds: number | null
+          error_message: string | null
+          id: string
+          label: string | null
+          mime_type: string | null
+          participation: Json | null
+          room_id: string
+          session_id: string | null
+          speaker_labels: Json | null
+          started_by: string
+          status: string
+          transcript: Json | null
+          updated_at: string
+        }
+        Insert: {
+          audio_path: string
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          participation?: Json | null
+          room_id: string
+          session_id?: string | null
+          speaker_labels?: Json | null
+          started_by: string
+          status?: string
+          transcript?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          audio_path?: string
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          participation?: Json | null
+          room_id?: string
+          session_id?: string | null
+          speaker_labels?: Json | null
+          started_by?: string
+          status?: string
+          transcript?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_audio_recordings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_audio_recordings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_minutes: {
         Row: {
           content: Json

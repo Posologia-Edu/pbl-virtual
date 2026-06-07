@@ -84,3 +84,8 @@ verify_jwt = false
 [functions.suggest-evaluation]
 verify_jwt = false
 
+[functions.transcribe-session]
+verify_jwt = false
+
+
+
