@@ -31,7 +31,7 @@ import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear, Network,
 } from "lucide-react";
 
 
