@@ -87,5 +87,8 @@ verify_jwt = false
 [functions.transcribe-session]
 verify_jwt = false
 
+[functions.generate-concept-map]
+verify_jwt = false
+
 
 
