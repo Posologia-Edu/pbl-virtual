@@ -962,7 +962,7 @@ export default function PBLSession() {
 
           {/* Right panel */}
           {rightPanel && (
-            <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" ? "w-[480px]" : "w-80"}`}>
+            <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" || rightPanel === "concept-map" ? "w-[520px]" : "w-80"}`}>
               {rightPanel === "chat" && roomId && (
                 <ChatPanel roomId={roomId} sessionId={currentSessionId} />
               )}
