@@ -54,7 +54,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
 
   // Multi-scenario session states
