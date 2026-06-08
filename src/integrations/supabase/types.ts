@@ -1446,6 +1446,63 @@ export type Database = {
           },
         ]
       }
+      session_concept_maps: {
+        Row: {
+          created_at: string
+          edges: Json
+          generated_by: string | null
+          id: string
+          is_manual_edit: boolean
+          nodes: Json
+          phase: string
+          room_id: string
+          session_id: string
+          source_signals: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          edges?: Json
+          generated_by?: string | null
+          id?: string
+          is_manual_edit?: boolean
+          nodes?: Json
+          phase: string
+          room_id: string
+          session_id: string
+          source_signals?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          edges?: Json
+          generated_by?: string | null
+          id?: string
+          is_manual_edit?: boolean
+          nodes?: Json
+          phase?: string
+          room_id?: string
+          session_id?: string
+          source_signals?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_concept_maps_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_concept_maps_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_minutes: {
         Row: {
           content: Json

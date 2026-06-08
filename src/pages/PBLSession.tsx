@@ -11,6 +11,7 @@ import EvaluationPanel from "@/components/EvaluationPanel";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
 import TutorEarsPanel from "@/components/TutorEarsPanel";
+import ConceptMapPanel from "@/components/ConceptMapPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
 import PresentationPanel from "@/components/PresentationPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
@@ -30,7 +31,7 @@ import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear, Network,
 } from "lucide-react";
 
 
@@ -53,7 +54,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
 
   // Multi-scenario session states
@@ -489,7 +490,7 @@ export default function PBLSession() {
   const isCoordinator = user?.id === room?.coordinator_id;
   const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
@@ -661,6 +662,16 @@ export default function PBLSession() {
               }`}
             >
               <Ear className="h-4 w-4" /> Tutor Ears
+            </button>
+          )}
+          {activeSession && (
+            <button
+              onClick={() => togglePanel("concept-map")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "concept-map" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <Network className="h-4 w-4" /> Mapa Conceitual
             </button>
           )}
           {isProfessor && hasMultiScenarios && (
@@ -951,7 +962,7 @@ export default function PBLSession() {
 
           {/* Right panel */}
           {rightPanel && (
-            <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" ? "w-[480px]" : "w-80"}`}>
+            <div className={`border-l border-border flex flex-col min-h-0 ${rightPanel === "whiteboard" || rightPanel === "concept-map" ? "w-[520px]" : "w-80"}`}>
               {rightPanel === "chat" && roomId && (
                 <ChatPanel roomId={roomId} sessionId={currentSessionId} />
               )}
@@ -1008,6 +1019,15 @@ export default function PBLSession() {
                   sessionId={activeSession?.id}
                   isCoordinator={isCoordinator}
                   isProfessor={isProfessor}
+                />
+              )}
+              {rightPanel === "concept-map" && roomId && activeSession?.id && (
+                <ConceptMapPanel
+                  roomId={roomId}
+                  sessionId={activeSession.id}
+                  phase={activeStep >= 7 ? "closing" : "opening"}
+                  isProfessor={isProfessor}
+                  isReporter={isReporter}
                 />
               )}
             </div>
