@@ -11,6 +11,7 @@ import EvaluationPanel from "@/components/EvaluationPanel";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
 import TutorEarsPanel from "@/components/TutorEarsPanel";
+import ConceptMapPanel from "@/components/ConceptMapPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
 import PresentationPanel from "@/components/PresentationPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
