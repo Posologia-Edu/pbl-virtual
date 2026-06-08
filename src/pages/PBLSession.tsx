@@ -664,6 +664,16 @@ export default function PBLSession() {
               <Ear className="h-4 w-4" /> Tutor Ears
             </button>
           )}
+          {activeSession && (
+            <button
+              onClick={() => togglePanel("concept-map")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "concept-map" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <Network className="h-4 w-4" /> Mapa Conceitual
+            </button>
+          )}
           {isProfessor && hasMultiScenarios && (
             <>
               <div className="h-px bg-border my-1" />
