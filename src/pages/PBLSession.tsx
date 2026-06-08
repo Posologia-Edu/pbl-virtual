@@ -1021,6 +1021,15 @@ export default function PBLSession() {
                   isProfessor={isProfessor}
                 />
               )}
+              {rightPanel === "concept-map" && roomId && activeSession?.id && (
+                <ConceptMapPanel
+                  roomId={roomId}
+                  sessionId={activeSession.id}
+                  phase={activeStep >= 7 ? "closing" : "opening"}
+                  isProfessor={isProfessor}
+                  isReporter={isReporter}
+                />
+              )}
             </div>
           )}
         </div>
