@@ -490,7 +490,7 @@ export default function PBLSession() {
   const isCoordinator = user?.id === room?.coordinator_id;
   const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
