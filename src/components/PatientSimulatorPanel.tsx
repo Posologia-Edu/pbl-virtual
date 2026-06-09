@@ -1,40 +1,107 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Send, Mic, MicOff, UserCircle2, Loader2, Quote } from "lucide-react";
+import { Send, Mic, MicOff, UserCircle2, Loader2, Quote, Timer, PlayCircle, Lock } from "lucide-react";
 
 interface Props {
   roomId: string;
   sessionId?: string;
+  isProfessor: boolean;
+  currentStep: number;
+  interviewPhase?: "opening" | "closing" | null;
+  interviewEndAt?: string | null;
 }
 
-interface Msg { role: "user" | "assistant"; content: string; id?: string; created_at?: string; }
+interface Msg {
+  role: "user" | "assistant";
+  content: string;
+  id?: string;
+  created_at?: string;
+  user_id?: string;
+}
 
-export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
+const WINDOW_SECONDS = 5 * 60;
+
+export default function PatientSimulatorPanel({
+  roomId,
+  sessionId,
+  isProfessor,
+  currentStep,
+  interviewPhase,
+  interviewEndAt,
+}: Props) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [names, setNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  const currentPhase: "opening" | "closing" = currentStep === 7 ? "closing" : "opening";
+  const endMs = interviewEndAt ? new Date(interviewEndAt).getTime() : 0;
+  const remaining = Math.max(0, Math.floor((endMs - now) / 1000));
+  const active = !!interviewEndAt && interviewPhase === currentPhase && remaining > 0;
+
   useEffect(() => {
-    (async () => {
+    const i = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(i);
+  }, []);
+
+  // Load history + realtime
+  useEffect(() => {
+    if (!roomId) return;
+    let alive = true;
+    const load = async () => {
       const q = supabase.from("patient_interviews" as any)
-        .select("id, role, content, created_at")
+        .select("id, role, content, created_at, user_id")
         .eq("room_id", roomId)
         .order("created_at", { ascending: true })
-        .limit(100);
+        .limit(200);
       const { data } = sessionId
         ? await q.eq("session_id", sessionId)
         : await q.is("session_id", null);
-      if (data) setMessages(data.filter((m: any) => m.role !== "system") as any);
-    })();
+      if (alive && data) setMessages(data.filter((m: any) => m.role !== "system") as any);
+    };
+    load();
+    const ch = supabase
+      .channel(`patient-${roomId}-${sessionId || "none"}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "patient_interviews",
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const m = payload.new as any;
+        if (m.role === "system") return;
+        if ((sessionId && m.session_id !== sessionId) || (!sessionId && m.session_id)) return;
+        setMessages((prev) => {
+          if (prev.some((x) => x.id === m.id)) return prev;
+          return [...prev, m];
+        });
+      })
+      .subscribe();
+    return () => { alive = false; supabase.removeChannel(ch); };
   }, [roomId, sessionId]);
+
+  // Fetch missing author names
+  useEffect(() => {
+    const missing = Array.from(new Set(messages.map((m) => m.user_id).filter((id): id is string => !!id && !names[id])));
+    if (missing.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("user_id, full_name").in("user_id", missing);
+      if (data) {
+        setNames((prev) => {
+          const next = { ...prev };
+          for (const p of data as any[]) next[p.user_id] = p.full_name || "Participante";
+          return next;
+        });
+      }
+    })();
+  }, [messages, names]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,9 +109,8 @@ export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
 
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
-    if (!content || loading) return;
+    if (!content || loading || !active) return;
     setInput("");
-    setMessages((p) => [...p, { role: "user", content }]);
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("patient-simulator", {
@@ -53,10 +119,8 @@ export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
       if (error || (data as any)?.error) {
         throw new Error((data as any)?.error || error?.message || "Erro");
       }
-      setMessages((p) => [...p, { role: "assistant", content: (data as any).reply }]);
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
-      setMessages((p) => p.slice(0, -1));
       setInput(content);
     } finally {
       setLoading(false);
@@ -106,6 +170,28 @@ export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
     else toast({ title: "Citado no P7", description: "Trecho da entrevista adicionado às referências." });
   };
 
+  const releaseInterview = async () => {
+    if (!sessionId) {
+      toast({ title: "Sessão necessária", description: "Inicie a sessão tutorial primeiro.", variant: "destructive" });
+      return;
+    }
+    const endAt = new Date(Date.now() + WINDOW_SECONDS * 1000).toISOString();
+    const { error } = await (supabase as any)
+      .from("tutorial_sessions")
+      .update({ patient_interview_phase: currentPhase, patient_interview_end_at: endAt })
+      .eq("id", sessionId);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Entrevista liberada", description: "5 minutos para o grupo entrevistar o paciente." });
+    }
+  };
+
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const phaseLabel = currentPhase === "opening" ? "Abertura" : "Fechamento";
+  const nameOf = (uid?: string) => (uid && (uid === user?.id ? "Você" : names[uid])) || "Participante";
+
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border px-4 py-3 flex items-center gap-2">
@@ -114,22 +200,53 @@ export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
           <h3 className="text-sm font-semibold text-foreground">Entrevistar Paciente</h3>
           <p className="text-[11px] text-muted-foreground">Simulador clínico — IA em personagem</p>
         </div>
+        {active && (
+          <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-mono tabular-nums ${
+            remaining <= 30 ? "bg-destructive/10 text-destructive animate-pulse" : "bg-primary/10 text-primary"
+          }`}>
+            <Timer className="h-3 w-3" />
+            {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+          </div>
+        )}
       </div>
+
+      {!active && (
+        <div className="border-b border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground space-y-2">
+          <div className="flex items-start gap-2">
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <p>
+              A entrevista com o paciente está <strong>bloqueada</strong>. O professor precisa liberar
+              uma janela de <strong>5 minutos</strong> ({phaseLabel.toLowerCase()}) para o grupo perguntar.
+            </p>
+          </div>
+          {isProfessor && (
+            <Button size="sm" onClick={releaseInterview} className="w-full gap-2" disabled={!sessionId}>
+              <PlayCircle className="h-4 w-4" />
+              Liberar entrevista — {phaseLabel} (5 min)
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
         {messages.length === 0 && !loading && (
           <div className="text-center text-xs text-muted-foreground py-8 px-4">
-            Comece se apresentando e fazendo perguntas de anamnese.
-            <br />Ex: "Bom dia, o que trouxe você aqui hoje?"
+            {active
+              ? <>Combinem com o coordenador a ordem das perguntas.<br />Ex: "Bom dia, o que trouxe você aqui hoje?"</>
+              : <>Nenhuma entrevista realizada ainda nesta fase.</>}
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+          <div key={m.id || i} className={`flex flex-col ${m.user_id === user?.id && m.role === "user" ? "items-end" : "items-start"}`}>
             <p className="text-[11px] text-muted-foreground mb-0.5">
-              {m.role === "user" ? "Você" : "🧑‍⚕️ Paciente"}
+              {m.role === "user" ? nameOf(m.user_id) : "🧑‍⚕️ Paciente"}
             </p>
             <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
-              m.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              m.role === "user"
+                ? m.user_id === user?.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-accent text-accent-foreground"
+                : "bg-secondary text-secondary-foreground"
             }`}>
               {m.content}
             </div>
@@ -156,21 +273,21 @@ export default function PatientSimulatorPanel({ roomId, sessionId }: Props) {
           size="icon"
           variant={listening ? "destructive" : "outline"}
           onClick={toggleVoice}
-          disabled={loading}
+          disabled={loading || !active}
           className="shrink-0"
           title={listening ? "Parar gravação" : "Falar"}
         >
           {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
         </Button>
         <Input
-          placeholder="Pergunte ao paciente..."
+          placeholder={active ? "Pergunte ao paciente..." : "Aguardando liberação do professor..."}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          disabled={loading}
+          disabled={loading || !active}
           className="text-sm"
         />
-        <Button size="icon" onClick={() => send()} disabled={loading || !input.trim()} className="shrink-0">
+        <Button size="icon" onClick={() => send()} disabled={loading || !input.trim() || !active} className="shrink-0">
           <Send className="h-4 w-4" />
         </Button>
       </div>
