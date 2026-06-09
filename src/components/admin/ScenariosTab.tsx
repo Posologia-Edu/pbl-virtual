@@ -39,6 +39,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
   const [editScenarioTitle, setEditScenarioTitle] = useState("");
   const [editScenarioContent, setEditScenarioContent] = useState("");
   const [editScenarioModuleId, setEditScenarioModuleId] = useState("");
+  const [editPatientDossier, setEditPatientDossier] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [releaseScenarioId, setReleaseScenarioId] = useState<string | null>(null);
@@ -96,7 +97,8 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
       title: editScenarioTitle.trim(),
       content: editScenarioContent.trim(),
       module_id: editScenarioModuleId || null,
-    }).eq("id", editingScenario.id);
+      patient_dossier: editPatientDossier.trim() || null,
+    } as any).eq("id", editingScenario.id);
     if (error) {
       toast({ title: "Erro", description: "Falha ao atualizar cenário.", variant: "destructive" });
     } else {
@@ -399,7 +401,7 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
                       <Send className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => { setEditingScenario(s); setEditScenarioTitle(s.title); setEditScenarioContent(s.content); setEditScenarioModuleId(s.module_id || ""); }}>
+                      onClick={() => { setEditingScenario(s); setEditScenarioTitle(s.title); setEditScenarioContent(s.content); setEditScenarioModuleId(s.module_id || ""); setEditPatientDossier(s.patient_dossier || ""); }}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
@@ -440,6 +442,16 @@ export default function ScenariosTab({ scenarios, modules, rooms, courses, insti
             <div className="space-y-2">
               <Label>Conteúdo</Label>
               <Textarea value={editScenarioContent} onChange={(e) => setEditScenarioContent(e.target.value)} className="min-h-[200px]" />
+            </div>
+            <div className="space-y-2">
+              <Label>Dossiê Oculto do Paciente (Simulador IA)</Label>
+              <p className="text-xs text-muted-foreground">Informações que só a IA-paciente conhece e revela conforme alunos perguntam: histórico, sintomas detalhados, hábitos, exames prévios, contexto psicossocial. Em branco = simulador desabilitado para uso clínico estruturado.</p>
+              <Textarea
+                value={editPatientDossier}
+                onChange={(e) => setEditPatientDossier(e.target.value)}
+                placeholder="Ex: João, 58 anos, dor torácica há 3 dias, tabagista 30 anos, HAS, pai faleceu de IAM aos 60..."
+                className="min-h-[140px]"
+              />
             </div>
           </div>
           <DialogFooter>

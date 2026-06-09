@@ -90,5 +90,11 @@ verify_jwt = false
 [functions.generate-concept-map]
 verify_jwt = false
 
+[functions.patient-simulator]
+verify_jwt = false
+
+
+
+
 
 

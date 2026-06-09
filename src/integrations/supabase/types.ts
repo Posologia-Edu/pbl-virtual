@@ -927,6 +927,51 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_interviews: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          room_id: string
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          room_id: string
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          room_id?: string
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_interviews_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_interviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutorial_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       peer_evaluations: {
         Row: {
           archived: boolean
@@ -1282,6 +1327,7 @@ export type Database = {
           is_adaptive: boolean
           is_hidden: boolean
           module_id: string | null
+          patient_dossier: string | null
           title: string
           tutor_glossary: Json | null
           tutor_questions: Json | null
@@ -1295,6 +1341,7 @@ export type Database = {
           is_adaptive?: boolean
           is_hidden?: boolean
           module_id?: string | null
+          patient_dossier?: string | null
           title: string
           tutor_glossary?: Json | null
           tutor_questions?: Json | null
@@ -1308,6 +1355,7 @@ export type Database = {
           is_adaptive?: boolean
           is_hidden?: boolean
           module_id?: string | null
+          patient_dossier?: string | null
           title?: string
           tutor_glossary?: Json | null
           tutor_questions?: Json | null
