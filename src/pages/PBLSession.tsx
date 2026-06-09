@@ -12,6 +12,7 @@ import ParticipantsPanel from "@/components/ParticipantsPanel";
 import TimerPanel from "@/components/TimerPanel";
 import TutorEarsPanel from "@/components/TutorEarsPanel";
 import ConceptMapPanel from "@/components/ConceptMapPanel";
+import PatientSimulatorPanel from "@/components/PatientSimulatorPanel";
 import WhiteboardPanel from "@/components/WhiteboardPanel";
 import PresentationPanel from "@/components/PresentationPanel";
 import SessionScenarioManager from "@/components/SessionScenarioManager";
@@ -31,7 +32,7 @@ import {
   BookOpen, List, HelpCircle, Brain, Target, FileText,
   Send, Plus, Trash2, Eye, EyeOff,
   ClipboardList, MessageSquare, ArrowLeft, Users, Timer, PenTool,
-  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear, Network,
+  Layers, History, ArrowRight, UserCheck, Bot, MapPin, CheckCircle2, Ear, Network, Stethoscope,
 } from "lucide-react";
 
 
@@ -54,7 +55,7 @@ export default function PBLSession() {
   const [activeStep, setActiveStep] = useState(0);
   const [items, setItems] = useState<any[]>([]);
   const [newItem, setNewItem] = useState("");
-  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map" | null>("chat");
+  const [rightPanel, setRightPanel] = useState<"chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map" | "patient" | null>("chat");
   const [participants, setParticipants] = useState<any[]>([]);
 
   // Multi-scenario session states
@@ -490,7 +491,7 @@ export default function PBLSession() {
   const isCoordinator = user?.id === room?.coordinator_id;
   const isReporter = user?.id === room?.reporter_id;
 
-  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map") => {
+  const togglePanel = (panel: "chat" | "eval" | "participants" | "whiteboard" | "peer-eval" | "ai-cotutor" | "attendance" | "tutor-ears" | "concept-map" | "patient") => {
     setRightPanel((prev) => (prev === panel ? null : panel));
   };
 
@@ -672,6 +673,16 @@ export default function PBLSession() {
               }`}
             >
               <Network className="h-4 w-4" /> Mapa Conceitual
+            </button>
+          )}
+          {activeSession && (
+            <button
+              onClick={() => togglePanel("patient")}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                rightPanel === "patient" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+              }`}
+            >
+              <Stethoscope className="h-4 w-4" /> Entrevistar Paciente
             </button>
           )}
           {isProfessor && hasMultiScenarios && (
@@ -1028,6 +1039,12 @@ export default function PBLSession() {
                   phase={activeStep >= 7 ? "closing" : "opening"}
                   isProfessor={isProfessor}
                   isReporter={isReporter}
+                />
+              )}
+              {rightPanel === "patient" && roomId && (
+                <PatientSimulatorPanel
+                  roomId={roomId}
+                  sessionId={activeSession?.id}
                 />
               )}
             </div>
