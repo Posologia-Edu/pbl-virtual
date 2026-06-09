@@ -675,16 +675,23 @@ export default function PBLSession() {
               <Network className="h-4 w-4" /> Mapa Conceitual
             </button>
           )}
-          {activeSession && (
-            <button
-              onClick={() => togglePanel("patient")}
-              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
-                rightPanel === "patient" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
-              }`}
-            >
-              <Stethoscope className="h-4 w-4" /> Entrevistar Paciente
-            </button>
-          )}
+          {activeSession && (() => {
+            const currentPhase = activeStep === 7 ? "closing" : "opening";
+            const endAt = activeSession?.patient_interview_end_at ? new Date(activeSession.patient_interview_end_at).getTime() : 0;
+            const interviewActive = activeSession?.patient_interview_phase === currentPhase && endAt > Date.now();
+            if (!isProfessor && !interviewActive) return null;
+            return (
+              <button
+                onClick={() => togglePanel("patient")}
+                className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
+                  rightPanel === "patient" ? "bg-primary/10 text-primary font-medium" : "text-foreground/70 hover:bg-secondary"
+                }`}
+              >
+                <Stethoscope className="h-4 w-4" /> Entrevistar Paciente
+                {interviewActive && <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+              </button>
+            );
+          })()}
           {isProfessor && hasMultiScenarios && (
             <>
               <div className="h-px bg-border my-1" />
@@ -1045,6 +1052,10 @@ export default function PBLSession() {
                 <PatientSimulatorPanel
                   roomId={roomId}
                   sessionId={activeSession?.id}
+                  isProfessor={isProfessor}
+                  currentStep={activeStep}
+                  interviewPhase={activeSession?.patient_interview_phase}
+                  interviewEndAt={activeSession?.patient_interview_end_at}
                 />
               )}
             </div>
