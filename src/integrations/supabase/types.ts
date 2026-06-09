@@ -1955,6 +1955,8 @@ export type Database = {
           ended_at: string | null
           id: string
           label: string
+          patient_interview_end_at: string | null
+          patient_interview_phase: string | null
           reporter_id: string | null
           room_id: string
           room_scenario_id: string
@@ -1971,6 +1973,8 @@ export type Database = {
           ended_at?: string | null
           id?: string
           label?: string
+          patient_interview_end_at?: string | null
+          patient_interview_phase?: string | null
           reporter_id?: string | null
           room_id: string
           room_scenario_id: string
@@ -1987,6 +1991,8 @@ export type Database = {
           ended_at?: string | null
           id?: string
           label?: string
+          patient_interview_end_at?: string | null
+          patient_interview_phase?: string | null
           reporter_id?: string | null
           room_id?: string
           room_scenario_id?: string
