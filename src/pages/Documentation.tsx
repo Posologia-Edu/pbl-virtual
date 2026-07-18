@@ -45,7 +45,7 @@ const studentSections: DocSection[] = [
     ],
   },
   {
-    id: "s-dashboard", icon: LayoutDashboardIcon(), title: "Meu Painel do aluno",
+    id: "s-dashboard", icon: LayoutDashboard, title: "Meu Painel do aluno",
     desc: "Visão geral do seu desempenho e atividades",
     path: "Menu lateral → Dashboard",
     steps: [
