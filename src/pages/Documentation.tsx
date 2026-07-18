@@ -572,11 +572,6 @@ const technicalSections: DocSection[] = [
   },
 ];
 
-function LayoutDashboardIcon() {
-  // small helper so student section can use LayoutDashboard without new import symbol name clash
-  const { LayoutDashboard } = require("lucide-react");
-  return LayoutDashboard;
-}
 
 function AccordionItem({ section }: { section: DocSection }) {
   const [open, setOpen] = useState(false);
