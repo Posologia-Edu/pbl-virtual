@@ -26,6 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { label: t("nav.admin"), path: "/admin", icon: Settings, roles: ["admin", "institution_admin"] },
     { label: t("nav.rooms"), path: "/rooms", icon: DoorOpen, roles: ["professor", "student", "institution_admin"] },
     { label: t("nav.contact", "Contato"), path: "/contact", icon: Mail, roles: ["admin", "professor", "student", "institution_admin"] },
+    { label: t("nav.docs", "Documentação"), path: "/docs", icon: BookOpen, roles: ["admin", "professor", "student", "institution_admin"] },
   ];
 
   const handleSignOut = async () => {
