@@ -8,7 +8,7 @@ import {
   Database, Server, Palette, Lock, Cpu, Webhook, Languages,
   Mic, Network, Stethoscope, Sparkles, Presentation, QrCode,
   UserCheck, Award, LineChart, Wrench, GitBranch, ShieldCheck,
-  Calendar, Search,
+  Calendar, Search, LayoutDashboard, Mail,
 } from "lucide-react";
 import { useState } from "react";
 import Footer from "@/components/Footer";
