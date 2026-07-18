@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   GraduationCap, LayoutDashboard, Settings, LogOut, Users,
-  DoorOpen, ChevronLeft, ChevronRight, BarChart3, Menu, X, Mail,
+  DoorOpen, ChevronLeft, ChevronRight, BarChart3, Menu, X, Mail, BookOpen,
 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
