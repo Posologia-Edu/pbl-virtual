@@ -6,288 +6,577 @@ import {
   Timer, ClipboardCheck, Shield, Settings, BarChart3, DoorOpen,
   Layers, Globe, Brain, FileText, Target, ChevronDown, Code2,
   Database, Server, Palette, Lock, Cpu, Webhook, Languages,
+  Mic, Network, Stethoscope, Sparkles, Presentation, QrCode,
+  UserCheck, Award, LineChart, Wrench, GitBranch, ShieldCheck,
+  Calendar, Search,
 } from "lucide-react";
 import { useState } from "react";
 import Footer from "@/components/Footer";
 
 const rise = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
 };
-const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
+const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } } };
 
 interface DocSection {
   id: string;
   icon: React.ElementType;
   title: string;
   desc: string;
+  path?: string;
   steps: string[];
 }
 
-const functionalitySections: DocSection[] = [
+// =============================================================
+// ALUNO
+// =============================================================
+const studentSections: DocSection[] = [
   {
-    id: "getting-started", icon: BookOpen,
-    title: "Primeiros Passos",
-    desc: "Como começar a usar o PBL Flow",
+    id: "s-login", icon: BookOpen, title: "Entrar na plataforma",
+    desc: "Como acessar sua conta pela primeira vez",
+    path: "Página inicial → botão Entrar",
     steps: [
-      "Faça login com suas credenciais fornecidas pela instituição ou via Google OAuth.",
-      "Na primeira vez, você será guiado pelo onboarding para configurar seu perfil.",
-      "Acesse o Dashboard para ver suas salas, grupos e atividades recentes.",
+      "Acesse a URL da instituição e clique em Entrar no topo direito.",
+      "Use seu e-mail institucional e a senha inicial fornecida pelo professor ou administrador.",
+      "Alternativa: clique em Entrar com Google se sua instituição habilitou o SSO.",
+      "No primeiro acesso, siga o guia de onboarding para revisar seu nome e curso.",
+      "Se esquecer a senha, peça ao administrador para reenviá-la — a plataforma usa senhas efêmeras por segurança.",
     ],
   },
   {
-    id: "rooms", icon: DoorOpen,
-    title: "Salas PBL",
-    desc: "Criação e gerenciamento de salas de tutorial",
+    id: "s-dashboard", icon: LayoutDashboardIcon(), title: "Meu Painel do aluno",
+    desc: "Visão geral do seu desempenho e atividades",
+    path: "Menu lateral → Dashboard",
     steps: [
-      "Salas são criadas automaticamente quando um grupo é cadastrado no painel admin.",
-      "Cada sala possui seu próprio cenário, chat, whiteboard e ferramentas de avaliação.",
-      "O professor pode gerenciar múltiplos cenários por sala e ativar/desativar conforme necessidade.",
-      "Os alunos acessam a sala pelo Dashboard e podem ver os cenários liberados pelo professor.",
+      "No Dashboard você vê suas salas ativas, próximos encontros e cenários liberados pelo professor.",
+      "O card Meu Painel agrega notas por critério, frequência, badges conquistados e feedback dos colegas.",
+      "Clique em uma sala para abrir os detalhes; para entrar na sessão, clique em Entrar na sala.",
+      "Notificações em tempo real avisam quando o professor libera um novo cenário ou avança a sessão.",
     ],
   },
   {
-    id: "scenarios", icon: FileText,
-    title: "Cenários e Problemas",
-    desc: "Gerenciamento de cenários PBL",
+    id: "s-session", icon: Layers, title: "Participar da sessão tutorial (P1 → P7)",
+    desc: "Passo a passo dos 7 momentos do PBL",
+    path: "Dashboard → clique na sala → Entrar na sala",
     steps: [
-      "Cenários podem ser criados manualmente ou gerados automaticamente com IA.",
-      "Cada cenário pode ter perguntas-guia e glossário para auxiliar o co-tutor de IA.",
-      "O professor controla quando o cenário é visível para os alunos com o botão de liberação.",
+      "P1 — Termos desconhecidos: apenas o Relator escreve termos no whiteboard; os demais discutem no chat.",
+      "P2 — Definição do problema: Relator registra a definição consensuada do grupo.",
+      "P3 — Brainstorming: gere hipóteses livremente no chat; o Relator organiza no whiteboard e no Mapa Conceitual automático.",
+      "P4 — Sistematização: agrupe hipóteses em categorias; a IA sugere conexões no mapa conceitual.",
+      "P5 — Objetivos de aprendizagem: aprove os objetivos que o grupo estudará no P6 (aparecem como cards Kanban no P7).",
+      "P6 — Estudo individual: fase off-line; use o painel Referências para anexar artigos ao seu objetivo.",
+      "P7 — Fechamento: o Relator sobe a apresentação (PDF/PPTX). Todos comentam por slide, movem objetivos no Kanban (a estudar → estudado → dominado) e anexam referências a cada objetivo.",
+      "A qualquer momento clique em Chat, Whiteboard ou Mapa Conceitual na barra lateral direita.",
     ],
   },
   {
-    id: "session", icon: Layers,
-    title: "Sessões Tutoriais",
-    desc: "Os 7 passos do PBL em cada sessão",
+    id: "s-roles", icon: UserCheck, title: "Papéis: Coordenador e Relator",
+    desc: "O que muda quando o professor te designa",
+    path: "Painel Participantes (dentro da sala) — apenas o professor designa",
     steps: [
-      "Passo 1 — Identificação de termos desconhecidos: alunos listam termos que não compreendem.",
-      "Passo 2 — Definição do problema: o grupo define o problema central do cenário.",
-      "Passo 3 — Brainstorming: chuva de ideias livre para explorar hipóteses.",
-      "Passo 4 — Resumo/Sistematização: organização das ideias levantadas.",
-      "Passo 5 — Objetivos de aprendizagem: definição do que precisa ser estudado.",
-      "Passo 6 — Estudo individual: fase externa à plataforma.",
-      "Passo 7 — Rediscussão e síntese: fechamento com integração dos conhecimentos.",
-      "O professor pode escolher coordenador e relator para cada sessão e controlar o timer.",
+      "Coordenador: controla o cronômetro da abertura (80min) e do fechamento (60min) e cronometra o tempo de fala clicando no nome de cada participante.",
+      "Relator: escreve no whiteboard, edita o mapa conceitual, envia a apresentação no P7 e move cards no Kanban de objetivos.",
+      "Se você não for Relator/Coordenador, ainda pode comentar em slides, anexar referências e conversar no chat.",
     ],
   },
   {
-    id: "chat", icon: MessageSquare,
-    title: "Chat em Tempo Real",
-    desc: "Comunicação durante as sessões",
+    id: "s-chat", icon: MessageSquare, title: "Chat da sala",
+    desc: "Discussão em tempo real com o grupo",
+    path: "Sala PBL → aba Chat (barra lateral direita)",
     steps: [
-      "O chat é integrado à sessão e permite troca de mensagens em tempo real entre todos os participantes.",
-      "As mensagens são salvas e podem ser consultadas no histórico da sessão.",
+      "Mensagens são visíveis a todos os membros da sala e ao professor.",
+      "Use @nome para chamar a atenção de um colega específico (visual apenas).",
+      "O histórico é persistente e alimenta a Ata automática do P7 e o Painel de Apoio ao Tutor.",
     ],
   },
   {
-    id: "whiteboard", icon: PenTool,
-    title: "Whiteboard Colaborativo",
-    desc: "Quadro branco para anotações do grupo",
+    id: "s-whiteboard", icon: PenTool, title: "Whiteboard colaborativo",
+    desc: "Quadro branco compartilhado do grupo",
+    path: "Sala PBL → aba Whiteboard",
     steps: [
-      "Cada passo da sessão tem seu próprio espaço de whiteboard.",
-      "Qualquer participante pode adicionar itens ao quadro.",
-      "Os itens ficam organizados por passo e são salvos automaticamente.",
+      "Apenas o Relator pode desenhar/escrever; os demais visualizam em tempo real.",
+      "Ferramentas: caneta, texto, formas, seleção. Textos podem ser arrastados após criados (a ferramenta muda automaticamente para Selecionar).",
+      "O conteúdo é salvo automaticamente e persiste mesmo se você sair e voltar.",
     ],
   },
   {
-    id: "timer", icon: Timer,
-    title: "Timer da Sessão",
-    desc: "Controle de tempo das atividades",
+    id: "s-references", icon: FileText, title: "Enviar referências (P6/P7)",
+    desc: "Artigos, links e arquivos para o grupo",
+    path: "Sala PBL → aba Referências ou Kanban de Objetivos → Anexar",
     steps: [
-      "O professor configura o tempo desejado e inicia/pausa o cronômetro.",
-      "Todos os participantes veem o timer em tempo real sincronizado.",
+      "Clique em Nova referência, preencha título, autor e cole o link/DOI ou faça upload do PDF.",
+      "Para vincular a um objetivo específico do P5, abra o Kanban de Objetivos e use Anexar no card do objetivo.",
+      "Todos os membros e o professor veem a referência em tempo real e podem citá-la na Ata.",
+      "Use o painel Busca Científica (PubMed/SciELO) para pesquisar sem sair da sala.",
     ],
   },
   {
-    id: "evaluation", icon: ClipboardCheck,
-    title: "Avaliação do Professor",
-    desc: "Avaliação individual por critérios",
+    id: "s-presentation", icon: Presentation, title: "Apresentação do P7 (Relator)",
+    desc: "Como subir e navegar slides",
+    path: "P7 → aba Apresentação",
     steps: [
-      "O professor avalia cada aluno em critérios específicos por fase (abertura e fechamento).",
-      "Os critérios são personalizáveis por sala — podem ser editados, adicionados ou removidos.",
-      "As notas usam escala qualitativa: Excelente, Bom, Regular, Insatisfatório.",
+      "Apenas o Relator sobe o arquivo (PDF ou PPTX, até 20MB).",
+      "Todos veem o mesmo slide simultaneamente: quando você avança, o painel de comentários também muda para o slide correspondente.",
+      "Comentários por slide são em tempo real; clique em Citar no P7 para transformar um comentário em referência da sessão.",
     ],
   },
   {
-    id: "peer-eval", icon: Users,
-    title: "Avaliação por Pares",
-    desc: "Alunos avaliam uns aos outros",
+    id: "s-patient", icon: Stethoscope, title: "Entrevistar paciente virtual",
+    desc: "Simulador clínico interativo",
+    path: "Sala PBL → aba Entrevistar Paciente (quando liberada pelo professor)",
     steps: [
-      "Disponível nos planos Professional e Enterprise.",
-      "Cada aluno avalia seus colegas e a si mesmo usando os mesmos critérios do professor.",
+      "A aba fica disponível somente na janela liberada pelo professor: 5 minutos na abertura e 5 minutos no fechamento.",
+      "Um cronômetro regressivo mostra quanto tempo resta; ao zerar, o input é bloqueado.",
+      "Digite perguntas ou clique no microfone para usar voz (pt-BR). Cada mensagem é identificada com seu nome real e visível aos demais.",
+      "Ao encontrar uma resposta relevante, clique em Citar no P7 para levar o trecho à Ata.",
     ],
   },
   {
-    id: "ai-cotutor", icon: Brain,
-    title: "AI Co-tutor",
-    desc: "Assistente de IA integrado",
+    id: "s-attendance", icon: QrCode, title: "Aferir frequência (QR Code)",
+    desc: "Confirmar presença na sessão",
+    path: "Sala PBL → botão Frequência",
     steps: [
-      "O co-tutor responde perguntas sobre o cenário e ajuda a explorar o problema.",
-      "Disponível conforme o limite de interações do plano contratado.",
+      "O professor gera um QR Code na sua tela.",
+      "Clique em Escanear QR Code com a câmera e aponte para a tela do professor (é necessário estar próximo).",
+      "Alternativamente, digite o código manualmente. A presença aparece na lista em segundos.",
     ],
   },
   {
-    id: "objectives", icon: Target,
-    title: "Objetivos de Aprendizagem",
-    desc: "Banco de objetivos por módulo",
+    id: "s-peer", icon: Users, title: "Avaliação por pares",
+    desc: "Avaliar colegas ao final da sessão",
+    path: "Sala PBL → aba Avaliação por Pares (liberada no P7)",
     steps: [
-      "Objetivos podem ser criados e vinculados a módulos e sessões.",
-      "Objetivos marcados como 'essenciais' são destacados nos relatórios.",
-    ],
-  },
-  {
-    id: "reports", icon: BarChart3,
-    title: "Relatórios",
-    desc: "Acompanhamento de desempenho",
-    steps: [
-      "Relatórios mostram notas por aluno, sessão e critério.",
-      "Exportação em PDF disponível nos planos Professional e Enterprise.",
-      "Gráficos de evolução e comparativos entre sessões.",
-    ],
-  },
-  {
-    id: "admin", icon: Settings,
-    title: "Painel Administrativo",
-    desc: "Gestão completa do sistema",
-    steps: [
-      "Gerencie instituições, cursos, módulos e grupos em um único painel.",
-      "Cadastre professores e alunos com senhas padrão seguras.",
-      "Configure cenários reutilizáveis no banco de cenários.",
-      "Personalize branding (logo, cores, nome) para white-label.",
-      "Monitore analytics de uso e assinaturas.",
-    ],
-  },
-  {
-    id: "badges", icon: Shield,
-    title: "Badges e Gamificação",
-    desc: "Conquistas automáticas",
-    steps: [
-      "Badges são concedidos automaticamente com base na participação e desempenho.",
-      "Categorias incluem: participação, liderança, colaboração e excelência.",
+      "Avalie cada colega e a si mesmo nos mesmos critérios do professor (O, I, PS, S, MS).",
+      "As avaliações são anônimas para os colegas; o professor vê os detalhes no relatório.",
       "Disponível nos planos Professional e Enterprise.",
     ],
   },
   {
-    id: "i18n", icon: Globe,
-    title: "Multi-idioma",
-    desc: "Interface em 3 idiomas",
+    id: "s-badges", icon: Award, title: "Badges e conquistas",
+    desc: "Reconhecimento automático",
+    path: "Dashboard → Meu Painel → seção Badges",
     steps: [
-      "O sistema está disponível em Português, English e Español.",
-      "Troque o idioma a qualquer momento pelo seletor na navegação.",
+      "Badges são concedidos automaticamente por participação, liderança, colaboração e excelência.",
+      "Passe o mouse sobre um badge para ver o critério que o desbloqueou.",
     ],
   },
 ];
 
-const technicalSections: DocSection[] = [
+// =============================================================
+// PROFESSOR
+// =============================================================
+const professorSections: DocSection[] = [
   {
-    id: "tech-stack", icon: Code2,
-    title: "Stack Tecnológico",
-    desc: "Tecnologias utilizadas no desenvolvimento",
+    id: "p-start", icon: BookOpen, title: "Preparar sua sala PBL",
+    desc: "Antes da primeira sessão",
+    path: "Menu lateral → Salas",
     steps: [
-      "Frontend: React 18 com TypeScript, Vite como bundler, Tailwind CSS para estilização.",
-      "Componentes UI: shadcn/ui (Radix UI) com customização completa via design tokens.",
-      "Animações: Framer Motion para transições e micro-interações.",
-      "Estado global: React Context API para autenticação, branding e internacionalização.",
-      "Gerenciamento de dados: TanStack React Query para cache e sincronização de dados.",
+      "Suas salas são criadas automaticamente pelo administrador ao cadastrar o grupo.",
+      "Abra a sala e clique em Gerenciar cenários para vincular um ou mais cenários do banco.",
+      "Ajuste os critérios de avaliação da sala (opening/closing) — pode adicionar, editar ou remover critérios padrão.",
+      "Defina Coordenador e Relator no painel Participantes; você pode trocar durante a sessão.",
     ],
   },
   {
-    id: "tech-backend", icon: Server,
-    title: "Backend e Infraestrutura",
-    desc: "Arquitetura serverless com Supabase",
+    id: "p-scenario", icon: FileText, title: "Liberar cenário para os alunos",
+    desc: "Controlar quando o problema aparece",
+    path: "Sala PBL → topo → seletor de cenário → botão Liberar",
     steps: [
-      "Backend: Supabase (PostgreSQL gerenciado + Auth + Storage + Edge Functions).",
-      "Edge Functions: Deno runtime para lógica serverless (IA, pagamentos, emails).",
-      "Autenticação: Supabase Auth com suporte a email/senha e Google OAuth.",
-      "Hospedagem: Frontend servido via CDN com deploy automático pela Lovable.",
+      "Selecione o cenário desejado na lista e clique em Liberar para os alunos.",
+      "Cada cenário mantém sua própria sessão isolada (chat, whiteboard, avaliações independentes).",
+      "Use Cenários Adaptativos para gerar sub-problemas focados nas dificuldades detectadas pela IA.",
     ],
   },
   {
-    id: "tech-database", icon: Database,
-    title: "Banco de Dados",
-    desc: "Estrutura e segurança dos dados",
+    id: "p-conduct", icon: Layers, title: "Conduzir a sessão P1 → P7",
+    desc: "Avançar passos em tempo real",
+    path: "Sala PBL → botões P1..P7 no topo",
     steps: [
-      "PostgreSQL com Row Level Security (RLS) em todas as tabelas.",
-      "Tabelas principais: profiles, institutions, courses, modules, groups, rooms, tutorial_sessions.",
-      "Funções de segurança: has_role(), is_group_member(), is_institution_admin() com SECURITY DEFINER.",
-      "Roles: admin, institution_admin, professor, student — armazenados em tabela separada (user_roles).",
-      "Triggers automáticos: criação de perfil no signup, criação de sala ao criar grupo, critérios padrão por sala.",
+      "Clique em P1..P7 para avançar; a mudança é replicada em tempo real para todos os alunos.",
+      "P1–P5 (abertura): apenas o Relator escreve no whiteboard e nos cards de contribuições.",
+      "P7 (fechamento): habilita a aba Apresentação, o Kanban de Objetivos, comentários por slide e o Bloco do Veredito.",
+      "Ao clicar em Finalizar P7, um checklist confirma que veredito e avaliações estão completos.",
     ],
   },
   {
-    id: "tech-ai", icon: Cpu,
-    title: "Inteligência Artificial",
-    desc: "Integração com modelos de IA",
+    id: "p-timer", icon: Timer, title: "Timer da sessão e tempo de fala",
+    desc: "Cronômetros regressivos e por participante",
+    path: "Sala PBL → aba Timer / painel Participantes",
     steps: [
-      "Gateway: Lovable AI Gateway (ai.gateway.lovable.dev) como proxy para modelos.",
-      "Modelos suportados: Google Gemini, OpenAI GPT, Anthropic Claude, Groq, OpenRouter.",
-      "Chaves por instituição: cada instituição pode configurar suas próprias API keys.",
-      "Funcionalidades IA: co-tutor contextual, geração de cenários, geração de atas, agentes conversacionais.",
-      "Controle de uso: contagem de interações por instituição/mês com limites por plano.",
+      "Abertura: 80min regressivos. Fechamento: 60min regressivos. Um alerta soa perto do fim.",
+      "No painel Participantes, clique no nome de um aluno para iniciar seu cronômetro de fala; clique novamente para pausar; clicar outra vez reinicia do zero.",
+      "Cada trecho de fala é gravado com o passo (P3 — Brainstorming, etc.) e aparece no relatório.",
     ],
   },
   {
-    id: "tech-payments", icon: Webhook,
-    title: "Pagamentos e Assinaturas",
-    desc: "Integração com Stripe",
+    id: "p-evaluation", icon: ClipboardCheck, title: "Avaliar alunos",
+    desc: "Notas por critério com apoio da IA",
+    path: "Sala PBL → aba Avaliação → selecione um aluno",
     steps: [
-      "Processamento: Stripe Checkout para criação de assinaturas.",
-      "Planos: Starter, Professional e Enterprise com preços em BRL.",
-      "Portal do cliente: gerenciamento de assinatura via Stripe Customer Portal.",
-      "Feature flags: funcionalidades habilitadas/desabilitadas conforme o plano (IA, badges, peer eval, etc.).",
+      "Para cada critério clique em O (0), I (25), PS (50), S (75) ou MS (100).",
+      "Clique no ícone ✨ Sparkles ao lado de qualquer critério para pedir uma sugestão de nota com justificativa e evidências (chat, referências, comentários, avaliação por pares).",
+      "Revise e aceite a sugestão — a IA nunca aplica nota sozinha; auditoria fica em evaluation_suggestions.",
     ],
   },
   {
-    id: "tech-security", icon: Lock,
-    title: "Segurança",
-    desc: "Práticas de segurança implementadas",
+    id: "p-tutor-ears", icon: Mic, title: "Tutor Ears (gravação de áudio)",
+    desc: "Transcrição e mapa de participação oral",
+    path: "Sala PBL → barra lateral → Tutor Ears",
     steps: [
-      "RLS (Row Level Security) em 100% das tabelas do banco de dados.",
-      "Autenticação JWT validada em todas as Edge Functions.",
-      "Senhas de usuários gerenciadas via Supabase Auth (bcrypt).",
-      "Buckets de storage privados (acesso apenas autenticado).",
-      "CORS configurado em todas as Edge Functions.",
-      "Roles nunca armazenados no perfil — tabela separada para prevenir escalação de privilégios.",
+      "O Coordenador clica em Iniciar gravação (autorize o microfone no navegador).",
+      "Ao parar, o áudio é enviado (limite 20MB) e transcrito com diarização (Speaker A/B/C) via Gemini.",
+      "Você vê o Mapa de Participação Oral (tempo por locutor) e termos do glossário citados oralmente.",
+      "A transcrição alimenta a Ata final e entra como evidência na Rubrica Inteligente.",
     ],
   },
   {
-    id: "tech-i18n", icon: Languages,
-    title: "Internacionalização",
-    desc: "Sistema multi-idioma",
+    id: "p-concept-map", icon: Network, title: "Mapa conceitual colaborativo",
+    desc: "Diagrama gerado por IA",
+    path: "Sala PBL → barra lateral → Mapa Conceitual",
     steps: [
-      "Biblioteca: i18next + react-i18next com detecção automática de idioma do navegador.",
-      "Arquivos de tradução: JSON separados por idioma (en.json, es.json, pt.json).",
-      "Suporte a 3 idiomas: Português (BR), English (US) e Español.",
+      "Clique em Gerar para pedir à IA um mapa de conceitos com base no chat, whiteboard e termos citados.",
+      "Existem dois mapas por sessão: abertura (P3–P5) e fechamento (P7).",
+      "Clique em Diff abertura × fechamento para ver evolução cognitiva (conceitos novos, removidos).",
+      "Você e o Relator podem arrastar nós e clicar em Salvar layout.",
     ],
   },
   {
-    id: "tech-branding", icon: Palette,
-    title: "White-label e Branding",
-    desc: "Personalização por instituição",
+    id: "p-patient", icon: Stethoscope, title: "Liberar paciente virtual",
+    desc: "Janelas de 5 minutos por fase",
+    path: "P1 ou P7 → aba Entrevistar Paciente → Liberar",
     steps: [
-      "Cores primária, secundária e de destaque configuráveis por instituição.",
-      "Logo e nome da plataforma personalizáveis (armazenados na tabela institutions).",
-      "BrandingContext aplica as cores dinamicamente via CSS variables.",
+      "Você libera duas janelas: 5min na abertura e 5min no fechamento.",
+      "Um cronômetro regressivo aparece para todos; ao zerar, a aba é bloqueada até a próxima liberação.",
+      "Alunos entrevistam o paciente virtual (chat/voz) baseado no dossiê oculto do cenário.",
+    ],
+  },
+  {
+    id: "p-minutes", icon: FileText, title: "Ata automática da sessão",
+    desc: "Documento fiel às contribuições dos alunos",
+    path: "Sala PBL → aba Ata (após P7)",
+    steps: [
+      "Clique em Gerar Ata: a IA compõe o documento usando exclusivamente contribuições registradas (chat, whiteboard, referências, comentários, entrevistas).",
+      "Se uma etapa estiver vazia, a Ata declara Nenhuma contribuição registrada — a IA não inventa dados.",
+      "Baixe em PDF; a Ata também consolida o Mapa Conceitual e o Mapa de Participação Oral.",
+    ],
+  },
+  {
+    id: "p-reports", icon: BarChart3, title: "Relatórios do professor",
+    desc: "Visão longitudinal do grupo e do aluno",
+    path: "Menu lateral → Relatórios",
+    steps: [
+      "Aba Notas: evolução P1–Pn por critério e por aluno; exportação PDF em Professional/Enterprise.",
+      "Aba Participação por trecho: cada fala com aluno, momento (mm:ss), passo e duração.",
+      "Aba Risco: alunos em risco de reprovar (regra: <75% frequência ou <50% nota) com explicação da IA.",
+      "Aba Apoio ao Tutor: diagnóstico de padrões de dificuldade e sugestões pedagógicas para as próximas sessões.",
+    ],
+  },
+  {
+    id: "p-ai-cotutor", icon: Brain, title: "AI Co-tutor",
+    desc: "Assistente contextual da sala",
+    path: "Sala PBL → barra lateral → AI Co-tutor",
+    steps: [
+      "Faça perguntas sobre o cenário; a IA responde com base no glossário, perguntas-guia e dados da sala.",
+      "Consumo é contado no limite mensal da instituição — visível em Admin → Assinatura.",
+    ],
+  },
+  {
+    id: "p-planning", icon: Calendar, title: "Planejamento semestral",
+    desc: "Calendário de sessões",
+    path: "Menu lateral → Planejamento (quando disponível)",
+    steps: [
+      "Agende sessões futuras num calendário interativo por módulo/curso.",
+      "As sessões planejadas viram templates para replicar cenário e critérios.",
+    ],
+  },
+];
+
+// =============================================================
+// ADMINISTRADOR
+// =============================================================
+const adminSections: DocSection[] = [
+  {
+    id: "a-panel", icon: Settings, title: "Painel administrativo",
+    desc: "Ponto central de gestão",
+    path: "Menu lateral → Admin",
+    steps: [
+      "Abas: Instituições, Cursos, Módulos, Grupos, Usuários, Cenários, Cenários Adaptativos, Objetivos, Branding, IA, API, Analytics, Financeiro, Assinatura, Segurança, Pipeline.",
+      "Superadmin enxerga todas as instituições; Institution Admin enxerga apenas a própria (RLS).",
+    ],
+  },
+  {
+    id: "a-institution", icon: Server, title: "Criar/gerenciar instituições",
+    desc: "Multi-tenant isolado",
+    path: "Admin → Instituições",
+    steps: [
+      "Superadmin cria instituições e delega owner_id a um Institution Admin.",
+      "Cada instituição possui suas próprias cores, logo, chaves de IA e limite mensal de uso.",
+      "Instituições possuídas pelo Superadmin liberam automaticamente todos os recursos Enterprise para seus membros.",
+    ],
+  },
+  {
+    id: "a-hierarchy", icon: GitBranch, title: "Hierarquia acadêmica",
+    desc: "Cursos → Módulos → Grupos → Salas",
+    path: "Admin → Cursos / Módulos / Grupos",
+    steps: [
+      "Crie o curso, adicione módulos e depois grupos vinculados a um módulo e a um professor.",
+      "Ao criar um grupo, uma sala PBL é gerada automaticamente com critérios padrão.",
+      "Adicione alunos ao grupo em Grupos → Membros; eles passam a ver a sala no Dashboard.",
+    ],
+  },
+  {
+    id: "a-users", icon: Users, title: "Cadastrar professores e alunos",
+    desc: "Provisionamento em massa",
+    path: "Admin → Usuários",
+    steps: [
+      "Clique em Novo usuário e escolha o papel (professor, aluno, institution_admin).",
+      "A plataforma gera uma senha inicial usando DEFAULT_PROFESSOR_PASSWORD / DEFAULT_STUDENT_PASSWORD.",
+      "Emails são únicos por instituição — o mesmo email pode ser usado em instituições diferentes.",
+      "Para remover: deletar respeita a ordem group_members → course_members → user_roles → profiles → auth.",
+    ],
+  },
+  {
+    id: "a-invite", icon: Mail, title: "Convidar Institution Admin",
+    desc: "Fluxo com pré-definição de plano",
+    path: "Admin → Convidar Admin",
+    steps: [
+      "Preencha nome, email e escolha o plano (invited_starter, invited_professional, invited_enterprise).",
+      "O convidado recebe email da Resend e ao aceitar herda a instituição sem passar por checkout Stripe.",
+    ],
+  },
+  {
+    id: "a-scenarios", icon: FileText, title: "Banco de cenários",
+    desc: "Gerar, editar e reutilizar",
+    path: "Admin → Cenários",
+    steps: [
+      "Crie manualmente ou clique em Gerar com IA — informe tema, contexto e área.",
+      "Preencha o Dossiê Oculto do Paciente (usado pelo simulador virtual) e o Glossário do cenário.",
+      "Cenários adaptativos: em Admin → Cenários Adaptativos, defina critérios/objetivos alvo e a IA gera variações.",
+    ],
+  },
+  {
+    id: "a-objectives", icon: Target, title: "Banco de objetivos",
+    desc: "Objetivos de aprendizagem reutilizáveis",
+    path: "Admin → Objetivos",
+    steps: [
+      "Cadastre objetivos por módulo, marque como essenciais para destaque nos relatórios.",
+      "Vincule objetivos aos cenários — aparecem no Kanban do P7.",
+    ],
+  },
+  {
+    id: "a-branding", icon: Palette, title: "Branding e white-label",
+    desc: "Personalização visual",
+    path: "Admin → Branding",
+    steps: [
+      "Faça upload do logo e ajuste cor primária, secundária e de destaque.",
+      "As cores são aplicadas via CSS variables (BrandingContext) em todo o sistema.",
       "Disponível no plano Enterprise.",
     ],
   },
   {
-    id: "tech-public-api", icon: Webhook,
-    title: "API Pública para Integrações",
-    desc: "REST API para sistemas externos (SIS, LMS)",
+    id: "a-ai-keys", icon: Brain, title: "Chaves de IA por instituição",
+    desc: "OpenAI, Gemini, Claude, Groq, OpenRouter",
+    path: "Admin → IA",
     steps: [
-      "Base URL: https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api",
-      "Autenticação: header 'Authorization: Bearer pbl_live_xxx'. Gere chaves no Painel Admin → API & Integrações.",
-      "Escopo: cada chave é vinculada a uma instituição; todas as queries são automaticamente restritas à instituição da chave.",
-      "Endpoints (GET): /v1/health, /v1/institution, /v1/courses, /v1/courses/:id, /v1/groups, /v1/rooms, /v1/users, /v1/sessions, /v1/evaluations, /v1/attendance.",
-      "Endpoints (POST, requer escopo 'write'): /v1/courses (criar curso), /v1/users (provisionar aluno/professor + matrícula).",
-      "Paginação: parâmetros ?page=1&page_size=20 (máx 100). Resposta: { data, meta: { page, page_size, total } }.",
-      "Exemplo: curl -H 'Authorization: Bearer pbl_live_xxx' https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api/v1/courses",
-      "Versionamento: prefixo /v1/. Mudanças incompatíveis serão lançadas como /v2/. Códigos HTTP padrão (200, 201, 401, 403, 404, 422, 500).",
+      "Adicione as chaves dos provedores desejados. Cada função tenta os provedores externos ativos em ordem.",
+      "Se todos falharem, cai automaticamente no Lovable AI Gateway (fallback).",
+      "Consumo mensal aparece em Admin → Assinatura; limites variam por plano.",
+    ],
+  },
+  {
+    id: "a-api", icon: Webhook, title: "API pública (SIS/LMS)",
+    desc: "Chaves e endpoints REST",
+    path: "Admin → API & Integrações",
+    steps: [
+      "Gere uma chave (pbl_live_xxx) e escolha o escopo (read/write).",
+      "Endpoints GET: /v1/institution, /v1/courses, /v1/groups, /v1/rooms, /v1/users, /v1/sessions, /v1/evaluations, /v1/attendance.",
+      "Endpoints POST (escopo write): /v1/courses, /v1/users. Paginação via ?page=1&page_size=20.",
+      "Autenticação via header Authorization: Bearer pbl_live_xxx.",
+    ],
+  },
+  {
+    id: "a-subscription", icon: LineChart, title: "Assinatura e cobrança",
+    desc: "Stripe integrado",
+    path: "Admin → Assinatura",
+    steps: [
+      "Planos: Starter, Professional, Enterprise (em BRL).",
+      "Autoatendimento via Stripe Customer Portal; cancelamento marca cancel_at_period_end.",
+      "Trial exibe contagem regressiva e trava recursos após expiração.",
+    ],
+  },
+  {
+    id: "a-analytics", icon: BarChart3, title: "Analytics do Superadmin",
+    desc: "Dashboard de 4 dimensões",
+    path: "Admin → Analytics",
+    steps: [
+      "Visitors: origem, funil, consentimento de cookies.",
+      "AI: consumo mensal por provedor/modelo/função.",
+      "Platform: sessões, salas ativas, uploads.",
+      "Engagement: retenção, badges, avaliações por pares.",
+    ],
+  },
+  {
+    id: "a-security", icon: ShieldCheck, title: "Segurança e auditoria",
+    desc: "Scans e memória de segurança",
+    path: "Admin → Segurança",
+    steps: [
+      "RLS habilitado em 100% das tabelas; roles em tabela separada (user_roles).",
+      "Buckets: references privado (URL assinada 1h) e presentations público.",
+      "ai_usage_log restrito ao dono/admin; admin_invites SELECT apenas ao remetente.",
+    ],
+  },
+  {
+    id: "a-pipeline", icon: Wrench, title: "Roadmap e pipeline",
+    desc: "Atualizações mensais",
+    path: "Admin → Pipeline",
+    steps: [
+      "Superadmin visualiza propostas automáticas de 7–8 features/mês geradas pela IA.",
+      "Aprove ou descarte itens; o changelog público é atualizado.",
     ],
   },
 ];
+
+// =============================================================
+// TÉCNICO
+// =============================================================
+const technicalSections: DocSection[] = [
+  {
+    id: "t-arch", icon: Server, title: "Arquitetura geral",
+    desc: "Visão macro do sistema",
+    steps: [
+      "SPA React 18 + Vite servida via CDN; sem backend próprio.",
+      "Backend serverless via Supabase (PostgreSQL + Auth + Storage + Edge Functions Deno).",
+      "IA via Lovable AI Gateway como fallback, com prioridade para chaves externas por instituição (OpenAI, Gemini, Claude, Groq, OpenRouter).",
+      "Realtime via Supabase Postgres Changes + Broadcast channels para whiteboard, chat, comentários, referências e sessões.",
+    ],
+  },
+  {
+    id: "t-frontend", icon: Code2, title: "Frontend",
+    desc: "Stack e padrões",
+    steps: [
+      "React 18 + TypeScript 5 + Vite 5, roteamento com react-router-dom v6.",
+      "Tailwind CSS v3 + shadcn/ui (Radix) com design tokens em src/index.css; nunca hardcode de cores.",
+      "TanStack Query para cache; Context API para Auth (AuthContext), Branding (BrandingContext) e i18n.",
+      "Framer Motion para animações; @xyflow/react para o mapa conceitual.",
+      "i18next com três locales (pt/en/es) em src/i18n/locales.",
+    ],
+  },
+  {
+    id: "t-db", icon: Database, title: "Modelo de dados",
+    desc: "Principais tabelas e RLS",
+    steps: [
+      "institutions → courses → modules → groups → rooms → tutorial_sessions (uma por cenário/sala).",
+      "user_roles em tabela separada (roles: admin, institution_admin, professor, student) — previne escalonamento.",
+      "Funções SECURITY DEFINER: has_role, is_group_member, is_group_professor, is_institution_member, is_institution_admin — usadas nas policies para evitar recursão (42P17).",
+      "Toda tabela pública tem GRANT explícito antes de ENABLE RLS + policies granulares por role e escopo.",
+      "REPLICA IDENTITY FULL habilitado em tabelas que precisam de UPDATE/DELETE em tempo real (presentation_comments, session_objective_references, session_references).",
+    ],
+  },
+  {
+    id: "t-storage", icon: Lock, title: "Storage",
+    desc: "Buckets e políticas",
+    steps: [
+      "references (privado): PDFs e artigos; SELECT restrito ao dono via prefixo user_id/*; leitura via signed URL de 1h.",
+      "presentations (público): apresentações do P7; URL pública é aceitável pois já é conteúdo compartilhado do grupo.",
+      "Áudios de Tutor Ears usam session_audio_recordings + policies que checam membership da sala.",
+    ],
+  },
+  {
+    id: "t-ai", icon: Cpu, title: "IA — provedores e fallback",
+    desc: "Como as edge functions chamam modelos",
+    steps: [
+      "Cada função (oracle-agent, sales-agent, ai-cotutor, generate-scenario, generate-minutes, generate-roadmap, generate-adaptive-scenario, suggest-evaluation, generate-concept-map, generate-arguition, patient-simulator, transcribe-session, tutor-insights) consulta ai_provider_keys ativos.",
+      "Tenta cada provedor externo em ordem definida; falhando todos, usa Lovable AI Gateway (google/gemini-3-flash-preview ou modelo indicado).",
+      "Uso é registrado em ai_usage_log (tokens, custo, prompt_type, institution_id) para relatórios e limites mensais em ai_interaction_counts.",
+      "Trata rate limit (429) e falta de créditos (402) com toasts amigáveis no cliente.",
+    ],
+  },
+  {
+    id: "t-realtime", icon: Network, title: "Realtime",
+    desc: "Padrões de sincronização",
+    steps: [
+      "Postgres Changes com filtro por session_id / room_id para chat, contribuições, referências, comentários, objetivos, verdicts, arguition_cards, patient_interviews.",
+      "Broadcast channels para whiteboard (baixa latência entre relator e demais).",
+      "Mudança de passo (activeStep) da tutorial_sessions replica para alunos ouvindo por room_id.",
+      "Presence usado indiretamente por painel Participantes.",
+    ],
+  },
+  {
+    id: "t-functions", icon: Server, title: "Edge Functions relevantes",
+    desc: "Deno runtime",
+    steps: [
+      "Auth/administração: login, invite-admin, manage-users, setup-institution, check-subscription, create-checkout, cancel-subscription, customer-portal.",
+      "IA principal: ai-cotutor, oracle-agent, sales-agent, generate-scenario, generate-adaptive-scenario, generate-minutes, generate-roadmap, generate-arguition, generate-concept-map, suggest-evaluation, patient-simulator, transcribe-session, tutor-insights, predict-risk, analyze-performance.",
+      "Integrações: search-articles (PubMed/SciELO), send-contact (Resend), public-api (REST externa), hub-metrics, compute-badges, manage-ai-keys.",
+      "Todas validam JWT em código quando verify_jwt=false; CORS configurado em cada função.",
+    ],
+  },
+  {
+    id: "t-security", icon: ShieldCheck, title: "Segurança",
+    desc: "Práticas aplicadas",
+    steps: [
+      "RLS em 100% das tabelas; roles em user_roles com policies via has_role.",
+      "Nunca armazenar role na profile; nunca decidir permissão a partir de localStorage.",
+      "Senhas gerenciadas pelo Supabase Auth (bcrypt) + senhas efêmeras via login edge function.",
+      "Secrets no Supabase Vault: STRIPE_SECRET_KEY, RESEND_API_KEY, LOVABLE_API_KEY, HUB_METRICS_KEY, defaults de senha.",
+      "Scans Wiz + memória de segurança em @security-memory; findings ignorados são documentados.",
+    ],
+  },
+  {
+    id: "t-payments", icon: Webhook, title: "Pagamentos",
+    desc: "Stripe",
+    steps: [
+      "Fluxo: create-checkout → redirect → check-subscription (3 tentativas para indexação Stripe).",
+      "Portal do cliente via customer-portal; cancel-subscription marca cancel_at_period_end.",
+      "Feature flags (fullReportsEnabled, peerEvalEnabled, aiEnabled) derivadas do price_id.",
+    ],
+  },
+  {
+    id: "t-public-api", icon: Webhook, title: "API pública",
+    desc: "Integração com SIS/LMS",
+    steps: [
+      "Base: https://vpoqqgnbhqgxikumjitu.supabase.co/functions/v1/public-api",
+      "Autenticação: Bearer pbl_live_xxx; escopos read/write validados em api_keys (SHA-256 via hash_api_key).",
+      "Requests logados em api_request_log (timestamp, endpoint, status, latência).",
+      "Versionamento por prefixo /v1/; erros HTTP padrão 200/201/401/403/404/422/500.",
+    ],
+  },
+  {
+    id: "t-i18n", icon: Languages, title: "Internacionalização",
+    desc: "i18next",
+    steps: [
+      "Detecção automática do idioma do navegador com fallback pt-BR.",
+      "Arquivos JSON separados: pt.json, en.json, es.json. Chave t('ns.key', 'fallback').",
+      "Troca em tempo real via LanguageSwitcher.",
+    ],
+  },
+  {
+    id: "t-branding", icon: Palette, title: "White-label técnico",
+    desc: "BrandingContext",
+    steps: [
+      "Cores hex convertidas para HSL e injetadas em CSS variables (--primary, --secondary, --accent) no root.",
+      "Logo e nome da plataforma vindos de institutions; ProtectedRoute recarrega branding após auth.",
+      "Aplicado somente para instituições no plano Enterprise.",
+    ],
+  },
+  {
+    id: "t-deploy", icon: GitBranch, title: "Deploy e ambientes",
+    desc: "Como o app roda em produção",
+    steps: [
+      "Frontend publicado via Lovable Hosting (CDN); domínios custom via Settings → Domains.",
+      "Supabase gerenciado; migrações versionadas em supabase/migrations.",
+      "Edge Functions declaradas em supabase/config.toml e deployadas automaticamente.",
+      "Secrets configurados via UI do Supabase; nunca commitar tokens.",
+    ],
+  },
+];
+
+function LayoutDashboardIcon() {
+  // small helper so student section can use LayoutDashboard without new import symbol name clash
+  const { LayoutDashboard } = require("lucide-react");
+  return LayoutDashboard;
+}
 
 function AccordionItem({ section }: { section: DocSection }) {
   const [open, setOpen] = useState(false);
@@ -316,12 +605,21 @@ function AccordionItem({ section }: { section: DocSection }) {
           className="px-5 pb-5"
         >
           <div className="border-t border-white/40 pt-4 space-y-3">
+            {section.path && (
+              <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-2">
+                <Search className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide font-semibold text-primary/80">Onde encontrar</p>
+                  <p className="text-sm text-foreground/75">{section.path}</p>
+                </div>
+              </div>
+            )}
             {section.steps.map((step, i) => (
               <div key={i} className="flex items-start gap-3">
                 <span className="mt-0.5 h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
                   {i + 1}
                 </span>
-                <p className="text-sm text-foreground/70 leading-relaxed">{step}</p>
+                <p className="text-sm text-foreground/75 leading-relaxed">{step}</p>
               </div>
             ))}
           </div>
@@ -337,30 +635,30 @@ const languages = [
   { code: "es", flag: "🇪🇸" },
 ];
 
-type TabKey = "features" | "technical";
+type TabKey = "student" | "professor" | "admin" | "technical";
 
 export default function Documentation() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabKey>("features");
+  const [activeTab, setActiveTab] = useState<TabKey>("student");
 
-  const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
-    { key: "features", label: "Funcionalidades", icon: BookOpen },
-    { key: "technical", label: "Informações Técnicas", icon: Code2 },
+  const tabs: { key: TabKey; label: string; icon: React.ElementType; sections: DocSection[]; blurb: string }[] = [
+    { key: "student", label: "Aluno", icon: GraduationCap, sections: studentSections, blurb: "Manual completo para participar de sessões PBL." },
+    { key: "professor", label: "Professor", icon: UserCheck, sections: professorSections, blurb: "Como conduzir sessões, avaliar e usar a IA." },
+    { key: "admin", label: "Administrador", icon: Settings, sections: adminSections, blurb: "Configuração da instituição, usuários e integrações." },
+    { key: "technical", label: "Técnico / TI", icon: Code2, sections: technicalSections, blurb: "Arquitetura, banco de dados, IA e segurança." },
   ];
 
-  const activeSections = activeTab === "features" ? functionalitySections : technicalSections;
+  const current = tabs.find((tab) => tab.key === activeTab)!;
 
   return (
     <div className="min-h-screen bg-[hsl(25,30%,92%)] text-foreground overflow-x-hidden selection:bg-primary/20">
-      {/* Background */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(30,40%,88%)] via-[hsl(25,25%,90%)] to-[hsl(210,30%,88%)]" />
         <div className="absolute top-0 right-0 w-[60%] h-[60%] bg-gradient-to-bl from-[hsl(210,60%,85%)]/40 to-transparent rounded-full blur-3xl" />
       </div>
 
-      {/* Navbar */}
-      <motion.nav initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="fixed top-4 inset-x-0 z-50 flex justify-center px-4">
+      <motion.nav initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="fixed top-4 inset-x-0 z-50 flex justify-center px-4">
         <div className="flex items-center gap-2 rounded-full bg-white/50 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 px-3 py-2 max-w-3xl w-full">
           <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 rounded-full bg-primary/10 backdrop-blur-md px-4 py-2 hover:bg-primary/15 transition-colors">
             <ArrowLeft className="h-4 w-4 text-primary" />
@@ -390,7 +688,6 @@ export default function Documentation() {
         </div>
       </motion.nav>
 
-      {/* Header */}
       <section className="pt-28 pb-6 px-6">
         <motion.div initial="hidden" animate="visible" variants={stagger} className="max-w-3xl mx-auto text-center">
           <motion.div variants={rise}>
@@ -400,26 +697,26 @@ export default function Documentation() {
             </span>
           </motion.div>
           <motion.h1 variants={rise} className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
-            Documentação do PBL Flow
+            Documentação do PBL Virtual
           </motion.h1>
-          <motion.p variants={rise} className="text-foreground/55 text-lg max-w-xl mx-auto">
-            Tudo o que você precisa saber para usar o sistema e entender como ele funciona.
+          <motion.p variants={rise} className="text-foreground/60 text-lg max-w-xl mx-auto">
+            Manual completo por perfil de usuário e referência técnica para times de TI.
           </motion.p>
         </motion.div>
       </section>
 
-      {/* Tabs */}
-      <section className="px-6 pb-6">
+      <section className="px-6 pb-4">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-2 p-1 bg-white/40 backdrop-blur-xl rounded-xl border border-white/60">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-1 bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const active = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === tab.key
+                  className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
+                    active
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "text-foreground/60 hover:text-foreground/80 hover:bg-white/40"
                   }`}
@@ -430,13 +727,13 @@ export default function Documentation() {
               );
             })}
           </div>
+          <p className="text-center text-sm text-foreground/55 mt-4">{current.blurb}</p>
         </div>
       </section>
 
-      {/* Sections */}
       <section className="pb-24 px-6">
         <motion.div key={activeTab} initial="hidden" animate="visible" variants={stagger} className="max-w-3xl mx-auto space-y-3">
-          {activeSections.map((section) => (
+          {current.sections.map((section) => (
             <motion.div key={section.id} variants={rise}>
               <AccordionItem section={section} />
             </motion.div>
