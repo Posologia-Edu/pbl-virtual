@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromRoom, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -160,6 +161,10 @@ serve(async (req: Request) => {
       });
     }
 
+    const institutionId = await resolveInstitutionIdFromRoom(admin, room_id);
+    const quota = await checkAiQuota(admin, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
+
     // Steps relevant per phase
     const phaseSteps = phase === "opening" ? [1, 2, 3, 5] : [1, 2, 3, 5, 7];
 
@@ -264,6 +269,7 @@ Regras:
       tokens_output: usage.completion_tokens || 0,
       estimated_cost_usd: 0,
     } as any);
+    await incrementAiQuota(admin, institutionId);
 
     // Upsert (session_id, phase)
     const { data: existing } = await admin

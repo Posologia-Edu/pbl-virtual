@@ -169,6 +169,18 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Enroll the user in the course server-side (used to happen client-side
+      // in UsersTab.tsx, outside the max_students check above). Returns an
+      // error message if the insert was rejected (e.g. by the DB-level
+      // student-limit trigger, in a rare race), or null on success/no-op.
+      const linkUserToCourse = async (userId: string): Promise<string | null> => {
+        if (!course_id) return null;
+        const { error } = await adminClient
+          .from("course_members")
+          .upsert({ course_id, user_id: userId }, { onConflict: "course_id,user_id" });
+        return error ? error.message : null;
+      };
+
       // Generate a unique random password per user if none provided
       const generateRandomPassword = (length = 32): string => {
         const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -236,12 +248,17 @@ Deno.serve(async (req) => {
             // Even without name update, mark as non-demo when linking to institution
             await adminClient.from("profiles").update({ is_demo_user: false, onboarding_completed: true }).eq("user_id", existingUser.id);
           }
+          const linkError1 = await linkUserToCourse(existingUser.id);
+          if (linkError1) {
+            return new Response(JSON.stringify({ error: linkError1 }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+
           const roleLabel = currentRole === "professor" ? "Professor" : currentRole === "student" ? "Aluno" : currentRole === "institution_admin" ? "Admin Institucional" : currentRole;
           return new Response(
-            JSON.stringify({ 
-              user_id: existingUser.id, 
-              email, 
-              role: currentRole, 
+            JSON.stringify({
+              user_id: existingUser.id,
+              email,
+              role: currentRole,
               existing: true,
               note: currentRole !== role ? `Usuário mantém o papel ${roleLabel}. Vinculado ao curso com sucesso.` : undefined
             }),
@@ -267,7 +284,12 @@ Deno.serve(async (req) => {
           { user_id: existingUser.id, full_name: full_name || email },
           { onConflict: "user_id" }
         );
-        
+
+        const linkError2 = await linkUserToCourse(existingUser.id);
+        if (linkError2) {
+          return new Response(JSON.stringify({ error: linkError2 }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         return new Response(
           JSON.stringify({ user_id: existingUser.id, email, role, existing: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -310,6 +332,11 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      const linkError3 = await linkUserToCourse(newUser.user.id);
+      if (linkError3) {
+        return new Response(JSON.stringify({ error: linkError3 }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       return new Response(

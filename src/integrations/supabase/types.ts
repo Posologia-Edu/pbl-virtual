@@ -2138,6 +2138,14 @@ export type Database = {
         Returns: boolean
       }
       hash_api_key: { Args: { _key: string }; Returns: string }
+      institution_room_count: {
+        Args: { _institution_id: string }
+        Returns: number
+      }
+      institution_whitelabel_enabled: {
+        Args: { _institution_id: string }
+        Returns: boolean
+      }
       is_course_in_admin_institution: {
         Args: { _admin_id: string; _course_id: string }
         Returns: boolean
@@ -2172,6 +2180,10 @@ export type Database = {
       }
       is_user_in_admin_institution: {
         Args: { _admin_id: string; _user_id: string }
+        Returns: boolean
+      }
+      room_peer_evaluation_enabled: {
+        Args: { _room_id: string }
         Returns: boolean
       }
     }

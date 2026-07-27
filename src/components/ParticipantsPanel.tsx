@@ -308,7 +308,7 @@ export default function ParticipantsPanel({
                 {p.full_name}
                 {isActive && <Mic className="h-3 w-3 text-primary animate-pulse" />}
               </p>
-              <BadgesPanel userId={p.student_id} compact />
+              <BadgesPanel userId={p.student_id} roomId={roomId || undefined} compact />
             </div>
             {(speakSec > 0 || isActive) && (
               <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${

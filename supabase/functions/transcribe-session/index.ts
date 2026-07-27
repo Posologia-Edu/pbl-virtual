@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromRoom, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -166,6 +167,10 @@ serve(async (req: Request) => {
       });
     }
 
+    const institutionId = await resolveInstitutionIdFromRoom(admin, rec.room_id);
+    const quota = await checkAiQuota(admin, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
+
     // Optional scenario glossary for term detection
     let glossaryTerms: string[] = [];
     if (rec.session_id) {
@@ -315,6 +320,7 @@ Transcreva e diarize o áudio anexado.`;
       tokens_output: usage.completion_tokens || 0,
       estimated_cost_usd: 0,
     } as any);
+    await incrementAiQuota(admin, institutionId);
 
     return new Response(
       JSON.stringify({ ok: true, recording_id, duration: totalDuration }),

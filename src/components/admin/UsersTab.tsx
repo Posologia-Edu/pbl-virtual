@@ -104,11 +104,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
       } else if (res.data?.error) {
         toast({ title: "Erro", description: res.data.error, variant: "destructive" });
       } else {
-        // Link user to course
-        const userId = res.data?.user_id;
-        if (userId && selectedCourseId) {
-          await supabase.from("course_members").upsert({ course_id: selectedCourseId, user_id: userId }, { onConflict: "course_id,user_id" });
-        }
+        // manage-users already links the user to the course server-side
         const note = res.data?.note;
         toast({ title: note ? "Usuário vinculado ao curso!" : "Usuário criado e vinculado ao curso!", description: note || undefined });
         setNewUserName(""); setNewUserEmail(""); setNewUserRole("");
@@ -165,10 +161,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
           errors++;
           errorMessages.push(`${u.email}: ${res.data?.error || res.error?.message || "Erro"}`);
         } else {
-          const userId = res.data?.user_id;
-          if (userId && selectedCourseId) {
-            await supabase.from("course_members").upsert({ course_id: selectedCourseId, user_id: userId }, { onConflict: "course_id,user_id" });
-          }
+          // manage-users already links the user to the course server-side
           created++;
         }
       } catch {

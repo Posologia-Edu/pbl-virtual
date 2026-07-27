@@ -301,11 +301,19 @@ export default function Reports() {
             </TabsList>
 
             <TabsContent value="risk">
-              <RiskAnalysisPanel rooms={rooms} />
+              {hasFullReports ? (
+                <RiskAnalysisPanel rooms={rooms} />
+              ) : (
+                <UpgradeOverlay feature="Análise de Risco com IA" description="Disponível no plano Professional ou superior." />
+              )}
             </TabsContent>
 
             <TabsContent value="tutor">
-              <TutorSupportPanel rooms={rooms} />
+              {hasFullReports ? (
+                <TutorSupportPanel rooms={rooms} />
+              ) : (
+                <UpgradeOverlay feature="Apoio ao Tutor com IA" description="Disponível no plano Professional ou superior." />
+              )}
             </TabsContent>
 
             <TabsContent value="performance">

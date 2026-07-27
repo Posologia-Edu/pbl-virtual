@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isRoomParticipant } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,28 @@ Deno.serve(async (req) => {
     const { user_id, room_id } = await req.json();
 
     const targetUserId = user_id || caller.id;
+
+    // Requesting another user's badges is only allowed for a session-mate
+    // (same room), which is the only legitimate cross-user case today
+    // (ParticipantsPanel showing badges of fellow participants).
+    if (targetUserId !== caller.id) {
+      if (!room_id) {
+        return new Response(JSON.stringify({ error: "room_id required to view another user's badges" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const [callerInRoom, targetInRoom] = await Promise.all([
+        isRoomParticipant(adminClient, caller.id, room_id),
+        isRoomParticipant(adminClient, targetUserId, room_id),
+      ]);
+      if (!callerInRoom || !targetInRoom) {
+        return new Response(JSON.stringify({ error: "Not authorized to view this user's badges" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Fetch badge definitions
     const { data: badgeDefs } = await adminClient
@@ -169,8 +192,34 @@ Deno.serve(async (req) => {
     checkAndAward("top_performer", isTopPerformer, room_id, { aPercentage: grades.length ? Math.round((aGrades / grades.length) * 100) : 0 });
     checkAndAward("improvement_streak", hasImprovement, room_id);
 
+    // Check whether this user's institution plan has badges enabled
+    // (fail-open if no active subscription is found, matching manage-users/ai-cotutor)
+    let badgesEnabled = true;
+    const { data: membership } = await adminClient
+      .from("course_members")
+      .select("course_id")
+      .eq("user_id", targetUserId)
+      .limit(1)
+      .maybeSingle();
+    if (membership?.course_id) {
+      const { data: course } = await adminClient
+        .from("courses")
+        .select("institution_id")
+        .eq("id", membership.course_id)
+        .maybeSingle();
+      if (course?.institution_id) {
+        const { data: sub } = await adminClient
+          .from("subscriptions")
+          .select("badges_enabled")
+          .eq("institution_id", course.institution_id)
+          .in("status", ["active", "trialing"])
+          .maybeSingle();
+        if (sub) badgesEnabled = !!sub.badges_enabled;
+      }
+    }
+
     // Insert new badges
-    if (newBadges.length > 0) {
+    if (badgesEnabled && newBadges.length > 0) {
       const rows = newBadges.map((b) => ({
         user_id: targetUserId,
         badge_id: b.badge_id,

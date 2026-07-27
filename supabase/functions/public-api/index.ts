@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkStudentLimit } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -187,19 +188,35 @@ async function handle(req: Request): Promise<Response> {
           // Verify course belongs to institution
           const { data: course } = await supabase.from("courses").select("id").eq("id", courseId).eq("institution_id", inst).maybeSingle();
           if (!course) { res = json({ error: "course_id not in your institution" }, 403); }
+          else if (role === "student" && !(await checkStudentLimit(supabase, inst)).allowed) {
+            res = json({ error: "Limite de alunos do plano atingido. Faça upgrade para cadastrar mais alunos." }, 403);
+          }
           else {
-            // Create auth user
-            const { data: created, error: cErr } = await supabase.auth.admin.createUser({
-              email,
-              email_confirm: true,
-              user_metadata: { full_name: fullName },
-            });
-            if (cErr || !created.user) { res = json({ error: cErr?.message ?? "Failed to create user" }, 400); }
-            else {
-              const uid = created.user.id;
+            // Reuse the existing auth user if this email is already registered
+            // (mirrors manage-users' behavior instead of erroring on duplicate).
+            const { data: existingUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+            const existingUser = existingUsers?.users?.find((u) => u.email?.toLowerCase() === email);
+
+            if (existingUser) {
+              const uid = existingUser.id;
               await supabase.from("user_roles").upsert({ user_id: uid, role }, { onConflict: "user_id,role" });
-              await supabase.from("course_members").insert({ user_id: uid, course_id: courseId });
-              res = json({ data: { user_id: uid, email, full_name: fullName, role, course_id: courseId } }, 201);
+              const { error: linkErr } = await supabase.from("course_members").upsert({ user_id: uid, course_id: courseId }, { onConflict: "course_id,user_id" });
+              if (linkErr) res = json({ error: linkErr.message }, 403);
+              else res = json({ data: { user_id: uid, email, full_name: fullName, role, course_id: courseId, existing: true } }, 200);
+            } else {
+              const { data: created, error: cErr } = await supabase.auth.admin.createUser({
+                email,
+                email_confirm: true,
+                user_metadata: { full_name: fullName },
+              });
+              if (cErr || !created.user) { res = json({ error: cErr?.message ?? "Failed to create user" }, 400); }
+              else {
+                const uid = created.user.id;
+                await supabase.from("user_roles").upsert({ user_id: uid, role }, { onConflict: "user_id,role" });
+                const { error: linkErr } = await supabase.from("course_members").upsert({ user_id: uid, course_id: courseId }, { onConflict: "course_id,user_id" });
+                if (linkErr) res = json({ error: linkErr.message }, 403);
+                else res = json({ data: { user_id: uid, email, full_name: fullName, role, course_id: courseId } }, 201);
+              }
             }
           }
         }

@@ -69,13 +69,15 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
       if (!institutionId) return;
 
-      const { data: inst } = await supabase
-        .from("institutions")
-        .select("*")
-        .eq("id", institutionId)
-        .single();
+      // Members other than the institution owner can't read `subscriptions`
+      // directly (RLS), so the whitelabel entitlement is checked via a
+      // SECURITY DEFINER RPC instead of querying the table.
+      const [{ data: inst }, { data: whitelabelEnabled }] = await Promise.all([
+        supabase.from("institutions").select("*").eq("id", institutionId).single(),
+        supabase.rpc("institution_whitelabel_enabled", { _institution_id: institutionId }),
+      ]);
 
-      if (inst) {
+      if (inst && whitelabelEnabled) {
         setConfig({
           primaryColor: (inst as any).brand_primary_color || null,
           secondaryColor: (inst as any).brand_secondary_color || null,

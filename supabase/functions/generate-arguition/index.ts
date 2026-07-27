@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromRoom, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,6 +81,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: corsHeaders });
     }
 
+    const institutionId = await resolveInstitutionIdFromRoom(admin, roomId);
+    const quota = await checkAiQuota(admin, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
+
     // Gather P5 objectives + presentation file URL
     const [objsRes, presRes] = await Promise.all([
       admin.from("step_items").select("content").eq("session_id", sessionId).eq("step", 5),
@@ -139,6 +144,7 @@ Responda APENAS em JSON estrito:
     if (insErr) {
       return new Response(JSON.stringify({ error: insErr.message }), { status: 500, headers: corsHeaders });
     }
+    await incrementAiQuota(admin, institutionId);
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {

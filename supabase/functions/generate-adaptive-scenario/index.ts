@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromCourse, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,6 +93,12 @@ Deno.serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    const { data: roleCheck } = await admin.from("user_roles").select("role").eq("user_id", user.id).in("role", ["admin", "professor", "institution_admin"]);
+    if (!roleCheck || roleCheck.length === 0) {
+      return new Response(JSON.stringify({ error: "Acesso não autorizado" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const body = await req.json();
     const { source_type, target_type, target_id, base_scenario_id, gaps_payload, course_id, module_id } = body || {};
 
@@ -108,7 +115,24 @@ Deno.serve(async (req) => {
     const finalCourseId = course_id || baseScenario?.course_id || null;
     const finalModuleId = module_id || baseScenario?.module_id || null;
 
-    const weak = (gaps_payload?.weakCriteria || []).map((c: any) => `- ${c.label} (média ${c.average}/100, ${c.samples} avaliações, fase ${c.phase})`).join("\n") || "Nenhum crítico.";
+    const institutionId = finalCourseId ? await resolveInstitutionIdFromCourse(admin, finalCourseId) : null;
+
+    if (institutionId) {
+      const { data: sub } = await admin
+        .from("subscriptions")
+        .select("ai_scenario_generation")
+        .eq("institution_id", institutionId)
+        .in("status", ["active", "trialing"])
+        .maybeSingle();
+      if (sub && !sub.ai_scenario_generation) {
+        return new Response(JSON.stringify({ error: "A geração de cenários com IA não está disponível no seu plano atual. Faça upgrade para o plano Professional ou superior." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    const quota = await checkAiQuota(admin, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
+
+    const weak =(gaps_payload?.weakCriteria || []).map((c: any) => `- ${c.label} (média ${c.average}/100, ${c.samples} avaliações, fase ${c.phase})`).join("\n") || "Nenhum crítico.";
     const pending = (gaps_payload?.pendingObjectives || []).map((o: any) => `- ${o.content}${o.is_essential ? " (essencial)" : ""}`).join("\n") || "Nenhum pendente.";
     const covered = (gaps_payload?.coveredScenarios || []).map((s: any) => `- ${s.label || "Cenário"}: ${s.snippet || ""}`).join("\n") || "Nenhum cenário prévio.";
 
@@ -177,6 +201,7 @@ Gere agora o cenário adaptativo seguindo as regras.`;
       tokens_input: result.usage?.prompt_tokens || result.usage?.input_tokens || 0,
       tokens_output: result.usage?.completion_tokens || result.usage?.output_tokens || 0,
     });
+    await incrementAiQuota(admin, institutionId);
 
     return new Response(JSON.stringify({ scenario, source_type, provider: result.provider }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {

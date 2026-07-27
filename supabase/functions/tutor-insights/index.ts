@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromRoom, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse, checkFeatureFlag, isRoomProfessorOrAdmin } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,10 +63,29 @@ serve(async (req) => {
 
     const { data: room } = await supabase
       .from("rooms")
-      .select("id, group_id, name, groups(name, module_id)")
+      .select("id, group_id, name, professor_id, groups(name, module_id)")
       .eq("id", room_id)
       .single();
     if (!room) throw new Error("Room not found");
+
+    const institutionId = await resolveInstitutionIdFromRoom(supabase, room_id);
+
+    const authorized = await isRoomProfessorOrAdmin(supabase, user.id, room.professor_id, institutionId);
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Acesso negado a esta sala." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const fullReportsEnabled = await checkFeatureFlag(supabase, institutionId, "full_reports_enabled");
+    if (!fullReportsEnabled) {
+      return new Response(JSON.stringify({ error: "Apoio ao Tutor com IA não está disponível no seu plano atual. Faça upgrade para o plano Professional ou superior." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const quota = await checkAiQuota(supabase, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
 
     const { data: members } = await supabase
       .from("group_members")
@@ -276,6 +296,8 @@ Retorne JSON com: summary (parágrafo curto sobre o estado do grupo), strengths 
         next_session_focus: criterionDifficulty.slice(0, 2).map(c => `Reforçar ${c.label}`),
       };
     }
+
+    if (aiPowered) await incrementAiQuota(supabase, institutionId);
 
     return new Response(JSON.stringify({ metrics, insights, ai_powered: aiPowered, room_name: room.name }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
