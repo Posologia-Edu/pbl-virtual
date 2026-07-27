@@ -101,7 +101,18 @@
     "studentNamePlaceholder": "Your full name",
     "professorNamePlaceholder": "Prof. John Smith",
     "googleLogin": "Sign in with Google",
-    "orContinueWith": "or continue with"
+    "orContinueWith": "or continue with",
+    "sendCode": "Send Code",
+    "sendingCode": "Sending code...",
+    "confirmCode": "Confirm Code",
+    "verifyingCode": "Verifying...",
+    "codeSentTitle": "Code sent",
+    "codeSentDesc": "We sent a 6-digit code to your email. It expires in 10 minutes.",
+    "verificationCode": "Verification Code",
+    "resendCode": "Resend code",
+    "backToEmail": "Back",
+    "invalidCode": "Invalid code",
+    "invalidCodeDesc": "The code you entered is incorrect or has expired. Try again or request a new one."
   },
   "dashboard": {
     "greeting": "Hello, {{name}} 👋",

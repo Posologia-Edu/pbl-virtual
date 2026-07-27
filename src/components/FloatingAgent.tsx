@@ -142,19 +142,22 @@ export default function FloatingAgent({
     }
   };
 
-  // Simple markdown-like rendering
+  // Simple markdown-like rendering (no raw HTML injection — parts are rendered as React text nodes)
   const renderContent = (text: string) => {
-    return text.split("\n").map((line, i) => {
-      // Bold
-      let processed = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      // Bullet points
-      if (processed.startsWith("- ")) {
-        processed = "• " + processed.slice(2);
-      }
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+      const content = line.startsWith("- ") ? "• " + line.slice(2) : line;
+      const parts = content.split(/(\*\*.*?\*\*)/g).filter((p) => p !== "");
       return (
         <span key={i}>
-          <span dangerouslySetInnerHTML={{ __html: processed }} />
-          {i < text.split("\n").length - 1 && <br />}
+          {parts.map((part, j) =>
+            part.startsWith("**") && part.endsWith("**") ? (
+              <strong key={j}>{part.slice(2, -2)}</strong>
+            ) : (
+              <span key={j}>{part}</span>
+            )
+          )}
+          {i < lines.length - 1 && <br />}
         </span>
       );
     });

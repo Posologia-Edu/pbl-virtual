@@ -101,7 +101,18 @@
     "studentNamePlaceholder": "Tu nombre completo",
     "professorNamePlaceholder": "Prof. Juan García",
     "googleLogin": "Iniciar sesión con Google",
-    "orContinueWith": "o continúa con"
+    "orContinueWith": "o continúa con",
+    "sendCode": "Enviar Código",
+    "sendingCode": "Enviando código...",
+    "confirmCode": "Confirmar Código",
+    "verifyingCode": "Verificando...",
+    "codeSentTitle": "Código enviado",
+    "codeSentDesc": "Enviamos un código de 6 dígitos a tu correo. Expira en 10 minutos.",
+    "verificationCode": "Código de Verificación",
+    "resendCode": "Reenviar código",
+    "backToEmail": "Volver",
+    "invalidCode": "Código inválido",
+    "invalidCodeDesc": "El código ingresado es incorrecto o ha expirado. Intenta de nuevo o solicita uno nuevo."
   },
   "dashboard": {
     "greeting": "Hola, {{name}} 👋",

@@ -101,7 +101,18 @@
     "studentNamePlaceholder": "Seu nome completo",
     "professorNamePlaceholder": "Prof. João Silva",
     "googleLogin": "Entrar com Google",
-    "orContinueWith": "ou continue com"
+    "orContinueWith": "ou continue com",
+    "sendCode": "Enviar Código",
+    "sendingCode": "Enviando código...",
+    "confirmCode": "Confirmar Código",
+    "verifyingCode": "Verificando...",
+    "codeSentTitle": "Código enviado",
+    "codeSentDesc": "Enviamos um código de 6 dígitos para o seu email. Ele expira em 10 minutos.",
+    "verificationCode": "Código de Verificação",
+    "resendCode": "Reenviar código",
+    "backToEmail": "Voltar",
+    "invalidCode": "Código inválido",
+    "invalidCodeDesc": "O código informado está incorreto ou expirou. Tente novamente ou solicite um novo."
   },
   "dashboard": {
     "greeting": "Olá, {{name}} 👋",

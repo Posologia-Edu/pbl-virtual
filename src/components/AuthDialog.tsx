@@ -57,14 +57,30 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
   const [studentName, setStudentName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
+  const [studentStep, setStudentStep] = useState<"form" | "code">("form");
+  const [studentCode, setStudentCode] = useState("");
+
   const [professorName, setProfessorName] = useState("");
   const [professorEmail, setProfessorEmail] = useState("");
+  const [professorStep, setProfessorStep] = useState<"form" | "code">("form");
+  const [professorCode, setProfessorCode] = useState("");
+
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
-  const handleRoleLogin = async (email: string, role: "student" | "professor") => {
+  const requestLoginCode = async (email: string, role: "student" | "professor") => {
     const { data, error } = await supabase.functions.invoke("login", {
-      body: { email, role },
+      body: { action: "request_code", email, role },
+    });
+    if (error || data?.error) {
+      return { error: error || new Error(data?.error) };
+    }
+    return { error: null };
+  };
+
+  const verifyLoginCode = async (email: string, role: "student" | "professor", code: string) => {
+    const { data, error } = await supabase.functions.invoke("login", {
+      body: { action: "verify_code", email, role, code },
     });
     if (error || data?.error) {
       return { error: error || new Error(data?.error) };
@@ -76,13 +92,29 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     return { error: sessionError };
   };
 
-  const handleStudentLogin = async (e: React.FormEvent) => {
+  const handleStudentRequestCode = async () => {
+    setLoading(true);
+    try {
+      const { error } = await requestLoginCode(studentEmail, "student");
+      if (error) {
+        toast({ title: t("auth.accessDenied"), description: t("auth.accessDeniedDesc"), variant: "destructive" });
+      } else {
+        setStudentStep("code");
+        toast({ title: t("auth.codeSentTitle"), description: t("auth.codeSentDesc") });
+      }
+    } catch {
+      toast({ title: t("auth.error"), description: t("auth.unexpectedError"), variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  const handleStudentVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await handleRoleLogin(studentEmail, "student");
+      const { error } = await verifyLoginCode(studentEmail, "student", studentCode);
       if (error) {
-        toast({ title: t("auth.accessDenied"), description: t("auth.accessDeniedDesc"), variant: "destructive" });
+        toast({ title: t("auth.invalidCode"), description: t("auth.invalidCodeDesc"), variant: "destructive" });
       } else {
         onOpenChange(false);
         const { data: membership } = await supabase
@@ -116,13 +148,29 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     setLoading(false);
   };
 
-  const handleProfessorLogin = async (e: React.FormEvent) => {
+  const handleProfessorRequestCode = async () => {
+    setLoading(true);
+    try {
+      const { error } = await requestLoginCode(professorEmail, "professor");
+      if (error) {
+        toast({ title: t("auth.accessDenied"), description: t("auth.accessDeniedDesc"), variant: "destructive" });
+      } else {
+        setProfessorStep("code");
+        toast({ title: t("auth.codeSentTitle"), description: t("auth.codeSentDesc") });
+      }
+    } catch {
+      toast({ title: t("auth.error"), description: t("auth.unexpectedError"), variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  const handleProfessorVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await handleRoleLogin(professorEmail, "professor");
+      const { error } = await verifyLoginCode(professorEmail, "professor", professorCode);
       if (error) {
-        toast({ title: t("auth.accessDenied"), description: t("auth.accessDeniedDesc"), variant: "destructive" });
+        toast({ title: t("auth.invalidCode"), description: t("auth.invalidCodeDesc"), variant: "destructive" });
       } else {
         onOpenChange(false);
         navigate("/rooms");
@@ -218,53 +266,103 @@ export default function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             </TabsList>
 
             <TabsContent value="student">
-              <form onSubmit={handleStudentLogin} className="space-y-3">
-                <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.studentHint")}</p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="d-student-name">{t("auth.fullName")}</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="d-student-name" placeholder={t("auth.studentNamePlaceholder")} className="pl-10"
-                      value={studentName} onChange={(e) => setStudentName(e.target.value)} required />
+              {studentStep === "form" ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleStudentRequestCode(); }} className="space-y-3">
+                  <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.studentHint")}</p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-student-name">{t("auth.fullName")}</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="d-student-name" placeholder={t("auth.studentNamePlaceholder")} className="pl-10"
+                        value={studentName} onChange={(e) => setStudentName(e.target.value)} required />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="d-student-email">{t("auth.email")}</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="d-student-email" type="email" placeholder="seu@email.com" className="pl-10"
-                      value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-student-email">{t("auth.email")}</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="d-student-email" type="email" placeholder="seu@email.com" className="pl-10"
+                        value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} required />
+                    </div>
                   </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? t("auth.loading") : t("auth.enterRoom")}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? t("auth.sendingCode") : t("auth.sendCode")}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleStudentVerifyCode} className="space-y-3">
+                  <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.codeSentDesc")}</p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-student-code">{t("auth.verificationCode")}</Label>
+                    <Input id="d-student-code" inputMode="numeric" maxLength={6} placeholder="000000"
+                      className="text-center text-lg tracking-[0.5em]"
+                      value={studentCode} onChange={(e) => setStudentCode(e.target.value.replace(/\D/g, "").slice(0, 6))} required />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading || studentCode.length !== 6}>
+                    {loading ? t("auth.verifyingCode") : t("auth.confirmCode")}
+                  </Button>
+                  <div className="flex items-center justify-between pt-1">
+                    <button type="button" className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => { setStudentStep("form"); setStudentCode(""); }}>
+                      {t("auth.backToEmail")}
+                    </button>
+                    <button type="button" className="text-xs text-primary hover:underline" disabled={loading}
+                      onClick={handleStudentRequestCode}>
+                      {t("auth.resendCode")}
+                    </button>
+                  </div>
+                </form>
+              )}
             </TabsContent>
 
             <TabsContent value="professor">
-              <form onSubmit={handleProfessorLogin} className="space-y-3">
-                <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.professorHint")}</p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="d-prof-name">{t("auth.fullName")}</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="d-prof-name" placeholder={t("auth.professorNamePlaceholder")} className="pl-10"
-                      value={professorName} onChange={(e) => setProfessorName(e.target.value)} required />
+              {professorStep === "form" ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleProfessorRequestCode(); }} className="space-y-3">
+                  <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.professorHint")}</p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-prof-name">{t("auth.fullName")}</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="d-prof-name" placeholder={t("auth.professorNamePlaceholder")} className="pl-10"
+                        value={professorName} onChange={(e) => setProfessorName(e.target.value)} required />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="d-prof-email">{t("auth.email")}</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="d-prof-email" type="email" placeholder="professor@email.com" className="pl-10"
-                      value={professorEmail} onChange={(e) => setProfessorEmail(e.target.value)} required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-prof-email">{t("auth.email")}</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="d-prof-email" type="email" placeholder="professor@email.com" className="pl-10"
+                        value={professorEmail} onChange={(e) => setProfessorEmail(e.target.value)} required />
+                    </div>
                   </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? t("auth.loading") : t("auth.accessSession")}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? t("auth.sendingCode") : t("auth.sendCode")}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleProfessorVerifyCode} className="space-y-3">
+                  <p className="text-xs text-muted-foreground text-center mb-2">{t("auth.codeSentDesc")}</p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="d-prof-code">{t("auth.verificationCode")}</Label>
+                    <Input id="d-prof-code" inputMode="numeric" maxLength={6} placeholder="000000"
+                      className="text-center text-lg tracking-[0.5em]"
+                      value={professorCode} onChange={(e) => setProfessorCode(e.target.value.replace(/\D/g, "").slice(0, 6))} required />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading || professorCode.length !== 6}>
+                    {loading ? t("auth.verifyingCode") : t("auth.confirmCode")}
+                  </Button>
+                  <div className="flex items-center justify-between pt-1">
+                    <button type="button" className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => { setProfessorStep("form"); setProfessorCode(""); }}>
+                      {t("auth.backToEmail")}
+                    </button>
+                    <button type="button" className="text-xs text-primary hover:underline" disabled={loading}
+                      onClick={handleProfessorRequestCode}>
+                      {t("auth.resendCode")}
+                    </button>
+                  </div>
+                </form>
+              )}
             </TabsContent>
 
             <TabsContent value="admin">
