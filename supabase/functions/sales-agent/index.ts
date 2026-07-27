@@ -84,8 +84,6 @@ const SYSTEM_PROMPT = `Você é o Consultor Comercial do PBL Flow — uma plataf
 - Alunos e salas ilimitados
 - AI Co-tutor ilimitado
 - White-label completo (sua marca, suas cores)
-- Analytics avançados
-- Integração SSO
 - Gerente de conta dedicado
 - SLA 99.9%
 

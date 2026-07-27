@@ -55,8 +55,6 @@ const TIERS = {
       "AI Co-tutor ilimitado",
       "White-label completo",
       "Branding personalizado",
-      "Analytics avançados",
-      "Integração SSO",
       "Gerente de conta dedicado",
       "SLA 99.9%",
     ],
