@@ -6,6 +6,41 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PROVIDER_ENDPOINTS: Record<string, { url: string; defaultModel: string }> = {
+  openai: { url: "https://api.openai.com/v1/chat/completions", defaultModel: "gpt-4o-mini" },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", defaultModel: "llama-3.3-70b-versatile" },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", defaultModel: "google/gemini-2.5-flash" },
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", defaultModel: "gemini-2.5-flash" },
+};
+
+async function callExternalAIWithTool(
+  adminClient: any,
+  messages: any[],
+  tool: any,
+): Promise<{ args: any; provider: string; model: string; usage: any } | null> {
+  const tools = [tool];
+  const tool_choice = { type: "function", function: { name: tool.function.name } };
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of keys || []) {
+    const cfg = PROVIDER_ENDPOINTS[pk.provider];
+    if (!cfg || !pk.api_key) continue;
+    try {
+      const res = await fetch(cfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${pk.api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: cfg.defaultModel, messages, tools, tool_choice }),
+      });
+      if (!res.ok) { console.error(`[AI] ${pk.provider} ${res.status}`); continue; }
+      const d = await res.json();
+      const call = d.choices?.[0]?.message?.tool_calls?.[0];
+      if (call?.function?.arguments) {
+        return { args: JSON.parse(call.function.arguments), provider: pk.provider, model: cfg.defaultModel, usage: d.usage || {} };
+      }
+    } catch (e) { console.error(`[AI] ${pk.provider} error:`, e); }
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -94,36 +129,30 @@ serve(async (req) => {
     ).join("\n");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      // Fallback: rule-based risk without AI
-      const results = studentMetrics.map(s => {
-        let riskScore = 0;
-        if (s.evalAvg !== null && s.evalAvg < 50) riskScore += 30;
-        else if (s.evalAvg !== null && s.evalAvg < 75) riskScore += 15;
-        if (s.attendanceRate < 50) riskScore += 30;
-        else if (s.attendanceRate < 75) riskScore += 15;
-        if (s.chatCount === 0) riskScore += 20;
-        else if (s.chatCount < 3) riskScore += 10;
-        if (s.stepCount === 0) riskScore += 20;
-        else if (s.stepCount < 2) riskScore += 10;
 
-        const riskLevel = riskScore >= 60 ? "alto" : riskScore >= 30 ? "moderado" : "baixo";
-        return {
-          ...s,
-          riskScore: Math.min(riskScore, 100),
-          riskLevel,
-          recommendation: riskLevel === "alto"
-            ? "Aluno precisa de atenção urgente. Considere uma conversa individual."
-            : riskLevel === "moderado"
-            ? "Monitorar de perto nas próximas sessões."
-            : "Aluno com participação adequada.",
-        };
-      });
+    const ruleBasedFallback = () => studentMetrics.map(s => {
+      let riskScore = 0;
+      if (s.evalAvg !== null && s.evalAvg < 50) riskScore += 30;
+      else if (s.evalAvg !== null && s.evalAvg < 75) riskScore += 15;
+      if (s.attendanceRate < 50) riskScore += 30;
+      else if (s.attendanceRate < 75) riskScore += 15;
+      if (s.chatCount === 0) riskScore += 20;
+      else if (s.chatCount < 3) riskScore += 10;
+      if (s.stepCount === 0) riskScore += 20;
+      else if (s.stepCount < 2) riskScore += 10;
 
-      return new Response(JSON.stringify({ students: results, ai_powered: false }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      const riskLevel = riskScore >= 60 ? "alto" : riskScore >= 30 ? "moderado" : "baixo";
+      return {
+        ...s,
+        riskScore: Math.min(riskScore, 100),
+        riskLevel,
+        recommendation: riskLevel === "alto"
+          ? "Aluno precisa de atenção urgente. Considere uma conversa individual."
+          : riskLevel === "moderado"
+          ? "Monitorar de perto nas próximas sessões."
+          : "Aluno com participação adequada.",
+      };
+    });
 
     // AI-powered analysis
     const systemPrompt = `Você é um analista educacional especializado em Aprendizagem Baseada em Problemas (PBL/ABP).
@@ -150,73 +179,102 @@ ${metricsText}
 
 Retorne APENAS o JSON array com a análise de cada aluno, sem markdown.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "analyze_risk",
-            description: "Return risk analysis for each student",
-            parameters: {
-              type: "object",
-              properties: {
-                analyses: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      student_name: { type: "string" },
-                      riskScore: { type: "number" },
-                      riskLevel: { type: "string", enum: ["alto", "moderado", "baixo"] },
-                      recommendation: { type: "string" },
-                      patterns: { type: "array", items: { type: "string" } },
-                    },
-                    required: ["student_name", "riskScore", "riskLevel", "recommendation", "patterns"],
-                    additionalProperties: false,
-                  },
+    const ANALYZE_RISK_TOOL = {
+      type: "function",
+      function: {
+        name: "analyze_risk",
+        description: "Return risk analysis for each student",
+        parameters: {
+          type: "object",
+          properties: {
+            analyses: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  student_name: { type: "string" },
+                  riskScore: { type: "number" },
+                  riskLevel: { type: "string", enum: ["alto", "moderado", "baixo"] },
+                  recommendation: { type: "string" },
+                  patterns: { type: "array", items: { type: "string" } },
                 },
+                required: ["student_name", "riskScore", "riskLevel", "recommendation", "patterns"],
+                additionalProperties: false,
               },
-              required: ["analyses"],
-              additionalProperties: false,
             },
           },
-        }],
-        tool_choice: { type: "function", function: { name: "analyze_risk" } },
-      }),
-    });
+          required: ["analyses"],
+          additionalProperties: false,
+        },
+      },
+    };
+    const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }];
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let analyses: any[] = [];
+    let aiPowered = false;
+
+    const externalResult = await callExternalAIWithTool(supabase, messages, ANALYZE_RISK_TOOL);
+    if (externalResult) {
+      analyses = externalResult.args.analyses || [];
+      aiPowered = true;
+      await supabase.from("ai_usage_log").insert({
+        user_id: user.id,
+        provider: externalResult.provider,
+        model: externalResult.model,
+        prompt_type: "predict-risk",
+        tokens_input: externalResult.usage?.prompt_tokens ?? 0,
+        tokens_output: externalResult.usage?.completion_tokens ?? 0,
+        estimated_cost_usd: 0,
+      });
+    } else if (LOVABLE_API_KEY) {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages,
+          tools: [ANALYZE_RISK_TOOL],
+          tool_choice: { type: "function", function: { name: "analyze_risk" } },
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        if (status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error("AI gateway error");
+      }
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        analyses = parsed.analyses || [];
+        aiPowered = true;
+        await supabase.from("ai_usage_log").insert({
+          user_id: user.id,
+          provider: "lovable-gateway",
+          model: "google/gemini-3-flash-preview",
+          prompt_type: "predict-risk",
+          tokens_input: aiData.usage?.prompt_tokens ?? 0,
+          tokens_output: aiData.usage?.completion_tokens ?? 0,
+          estimated_cost_usd: ((aiData.usage?.prompt_tokens ?? 0) * 0.00001 + (aiData.usage?.completion_tokens ?? 0) * 0.00004),
         });
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error("AI gateway error");
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let analyses: any[] = [];
-
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      analyses = parsed.analyses || [];
+    if (!aiPowered) {
+      return new Response(JSON.stringify({ students: ruleBasedFallback(), ai_powered: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Merge AI analysis with metrics
@@ -233,17 +291,6 @@ Retorne APENAS o JSON array com a análise de cada aluno, sem markdown.`;
         recommendation: aiAnalysis?.recommendation ?? "Sem dados suficientes para análise.",
         patterns: aiAnalysis?.patterns ?? [],
       };
-    });
-
-    // Log AI usage
-    await supabase.from("ai_usage_log").insert({
-      user_id: user.id,
-      provider: "lovable-gateway",
-      model: "google/gemini-3-flash-preview",
-      prompt_type: "predict-risk",
-      tokens_input: aiData.usage?.prompt_tokens ?? 0,
-      tokens_output: aiData.usage?.completion_tokens ?? 0,
-      estimated_cost_usd: ((aiData.usage?.prompt_tokens ?? 0) * 0.00001 + (aiData.usage?.completion_tokens ?? 0) * 0.00004),
     });
 
     return new Response(JSON.stringify({ students: results, ai_powered: true }), {

@@ -8,6 +8,90 @@ const corsHeaders = {
 
 const MODEL = "google/gemini-3-flash-preview";
 
+const PROVIDER_ENDPOINTS: Record<string, { url: string; format: string; defaultModel: string }> = {
+  openai: { url: "https://api.openai.com/v1/chat/completions", format: "openai", defaultModel: "gpt-4o-mini" },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", format: "openai", defaultModel: "llama-3.3-70b-versatile" },
+  anthropic: { url: "https://api.anthropic.com/v1/messages", format: "anthropic", defaultModel: "claude-sonnet-4-20250514" },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", format: "openai", defaultModel: "google/gemini-2.5-flash" },
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", format: "openai", defaultModel: "gemini-2.5-flash" },
+};
+
+interface AIResult {
+  content: string;
+  provider: string;
+  model: string;
+  tokens_input: number;
+  tokens_output: number;
+}
+
+async function callExternalProvider(provider: string, apiKey: string, messages: any[]): Promise<AIResult | null> {
+  const config = PROVIDER_ENDPOINTS[provider];
+  if (!config) return null;
+  try {
+    if (config.format === "anthropic") {
+      const systemMsg = messages.find((m) => m.role === "system");
+      const nonSystemMsgs = messages.filter((m) => m.role !== "system");
+      const res = await fetch(config.url, {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model: config.defaultModel, max_tokens: 1024, system: systemMsg?.content || "", messages: nonSystemMsgs }),
+      });
+      if (!res.ok) { console.error(`[AI] ${provider} error ${res.status}:`, await res.text()); return null; }
+      const data = await res.json();
+      const content = data.content?.[0]?.text || null;
+      if (!content) return null;
+      return { content, provider, model: config.defaultModel, tokens_input: data.usage?.input_tokens ?? 0, tokens_output: data.usage?.output_tokens ?? 0 };
+    }
+    const res = await fetch(config.url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: config.defaultModel, messages }),
+    });
+    if (!res.ok) { console.error(`[AI] ${provider} error ${res.status}:`, await res.text()); return null; }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || null;
+    if (!content) return null;
+    return { content, provider, model: config.defaultModel, tokens_input: data.usage?.prompt_tokens ?? 0, tokens_output: data.usage?.completion_tokens ?? 0 };
+  } catch (err) {
+    console.error(`[AI] ${provider} exception:`, err);
+    return null;
+  }
+}
+
+async function callLovableAI(apiKey: string, messages: any[]): Promise<AIResult> {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: MODEL, messages }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[AI] Lovable AI error:", res.status, errText);
+    if (res.status === 429) throw { status: 429, message: "Limite de requisições. Tente em instantes." };
+    if (res.status === 402) throw { status: 402, message: "Créditos de IA esgotados. Adicione créditos." };
+    throw { status: 500, message: "Falha na IA" };
+  }
+  const data = await res.json();
+  return {
+    content: data.choices?.[0]?.message?.content || "...",
+    provider: "lovable",
+    model: MODEL,
+    tokens_input: data.usage?.prompt_tokens ?? 0,
+    tokens_output: data.usage?.completion_tokens ?? 0,
+  };
+}
+
+async function callAIWithFallback(adminClient: any, lovableApiKey: string | undefined, messages: any[]): Promise<AIResult> {
+  const { data: providerKeys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of providerKeys || []) {
+    if (!pk.api_key) continue;
+    const result = await callExternalProvider(pk.provider, pk.api_key, messages);
+    if (result) return result;
+  }
+  if (!lovableApiKey) throw { status: 500, message: "Nenhum provedor de IA disponível." };
+  return callLovableAI(lovableApiKey, messages);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -21,9 +105,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? serviceKey;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user: caller } } = await callerClient.auth.getUser();
@@ -111,24 +192,13 @@ ${dossier || "(O professor ainda não preencheu o dossiê. Use o cenário acima 
       { role: "user", content: message },
     ];
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages }),
-    });
-
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      console.error("AI error", aiRes.status, t);
-      if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições. Tente em instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ error: "Falha na IA" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let aiResult;
+    try {
+      aiResult = await callAIWithFallback(admin, LOVABLE_API_KEY, messages);
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: e?.message || "Falha na IA" }), { status: e?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const data = await aiRes.json();
-    const reply: string = data.choices?.[0]?.message?.content || "...";
-    const tIn = data.usage?.prompt_tokens ?? 0;
-    const tOut = data.usage?.completion_tokens ?? 0;
+    const reply: string = aiResult.content || "...";
 
     // Persist both messages
     await admin.from("patient_interviews").insert([
@@ -139,12 +209,12 @@ ${dossier || "(O professor ainda não preencheu o dossiê. Use o cenário acima 
     // Log AI usage
     await admin.from("ai_usage_log").insert({
       user_id: caller.id,
-      provider: "lovable",
-      model: MODEL,
+      provider: aiResult.provider,
+      model: aiResult.model,
       prompt_type: "patient_simulator",
-      tokens_input: tIn,
-      tokens_output: tOut,
-      estimated_cost_usd: (tIn * 0.15 + tOut * 0.6) / 1_000_000,
+      tokens_input: aiResult.tokens_input,
+      tokens_output: aiResult.tokens_output,
+      estimated_cost_usd: 0,
     });
 
     // Increment institution AI count

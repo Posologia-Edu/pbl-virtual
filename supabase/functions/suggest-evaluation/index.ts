@@ -7,6 +7,59 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PROVIDER_ENDPOINTS: Record<string, { url: string; defaultModel: string }> = {
+  openai: { url: "https://api.openai.com/v1/chat/completions", defaultModel: "gpt-4o-mini" },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", defaultModel: "llama-3.3-70b-versatile" },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", defaultModel: "google/gemini-2.5-flash" },
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", defaultModel: "gemini-2.5-flash" },
+};
+
+async function callAIWithTool(
+  adminClient: any,
+  lovableKey: string | undefined,
+  messages: any[],
+  tool: any,
+): Promise<{ args: any; provider: string; model: string; usage: any }> {
+  const tools = [tool];
+  const tool_choice = { type: "function", function: { name: tool.function.name } };
+
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of keys || []) {
+    const cfg = PROVIDER_ENDPOINTS[pk.provider];
+    if (!cfg || !pk.api_key) continue;
+    try {
+      const res = await fetch(cfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${pk.api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: cfg.defaultModel, messages, tools, tool_choice }),
+      });
+      if (!res.ok) { console.error(`[AI] ${pk.provider} ${res.status}`); continue; }
+      const d = await res.json();
+      const call = d.choices?.[0]?.message?.tool_calls?.[0];
+      if (call?.function?.arguments) {
+        return { args: JSON.parse(call.function.arguments), provider: pk.provider, model: cfg.defaultModel, usage: d.usage || {} };
+      }
+    } catch (e) { console.error(`[AI] ${pk.provider} error:`, e); }
+  }
+
+  if (!lovableKey) throw { status: 500, message: "Nenhum provedor de IA disponível." };
+  const model = "google/gemini-3-flash-preview";
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages, tools, tool_choice }),
+  });
+  if (!res.ok) {
+    if (res.status === 429) throw { status: 429, message: "Muitas requisições. Aguarde alguns instantes e tente de novo." };
+    if (res.status === 402) throw { status: 402, message: "Créditos de IA insuficientes. Adicione créditos no workspace." };
+    throw { status: 500, message: "Falha ao contatar a IA." };
+  }
+  const d = await res.json();
+  const call = d.choices?.[0]?.message?.tool_calls?.[0];
+  if (!call?.function?.arguments) throw { status: 502, message: "IA não retornou resposta estruturada." };
+  return { args: JSON.parse(call.function.arguments), provider: "lovable", model, usage: d.usage || {} };
+}
+
 const TOOL = {
   type: "function",
   function: {
@@ -179,60 +232,34 @@ ${JSON.stringify(evidencePayload, null, 2)}
 
 Responda APENAS via tool call \`suggest_evaluation\`.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
+    let result;
+    try {
+      result = await callAIWithTool(
+        admin,
+        LOVABLE_API_KEY,
+        [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [TOOL],
-        tool_choice: { type: "function", function: { name: "suggest_evaluation" } },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      console.error("AI gateway error:", aiRes.status, txt);
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde alguns instantes e tente de novo." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA insuficientes. Adicione créditos no workspace." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "Falha ao contatar a IA." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        TOOL,
+      );
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: e?.message || "Falha ao contatar a IA." }), {
+        status: e?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiRes.json();
-    const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "IA não retornou sugestão estruturada." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const parsed = JSON.parse(toolCall.function.arguments);
+    const parsed = result.args;
     const suggested_grade = parsed.grade;
     const rationale = parsed.rationale || "";
     const evidences = Array.isArray(parsed.evidences) ? parsed.evidences : [];
 
     // Log usage
-    const usage = aiData?.usage || {};
+    const usage = result.usage || {};
     await admin.from("ai_usage_log").insert({
       user_id: userId,
-      provider: "lovable",
-      model: "google/gemini-3-flash-preview",
+      provider: result.provider,
+      model: result.model,
       prompt_type: "suggest_evaluation",
       tokens_input: usage.prompt_tokens || 0,
       tokens_output: usage.completion_tokens || 0,

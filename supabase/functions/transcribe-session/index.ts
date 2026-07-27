@@ -7,6 +7,57 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Only providers confirmed to accept OpenAI-compatible `input_audio` content are attempted here.
+const AUDIO_PROVIDER_ENDPOINTS: Record<string, { url: string; defaultModel: string }> = {
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", defaultModel: "gemini-2.5-flash" },
+};
+
+async function callAudioAIWithTool(
+  adminClient: any,
+  lovableKey: string | undefined,
+  messages: any[],
+  tool: any,
+): Promise<{ args: any; provider: string; model: string; usage: any }> {
+  const tools = [tool];
+  const tool_choice = { type: "function", function: { name: tool.function.name } };
+
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of keys || []) {
+    const cfg = AUDIO_PROVIDER_ENDPOINTS[pk.provider];
+    if (!cfg || !pk.api_key) continue;
+    try {
+      const res = await fetch(cfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${pk.api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: cfg.defaultModel, messages, tools, tool_choice }),
+      });
+      if (!res.ok) { console.error(`[AI] ${pk.provider} ${res.status}`); continue; }
+      const d = await res.json();
+      const call = d.choices?.[0]?.message?.tool_calls?.[0];
+      if (call?.function?.arguments) {
+        return { args: JSON.parse(call.function.arguments), provider: pk.provider, model: cfg.defaultModel, usage: d.usage || {} };
+      }
+    } catch (e) { console.error(`[AI] ${pk.provider} error:`, e); }
+  }
+
+  if (!lovableKey) throw { status: 500, message: "Nenhum provedor de IA disponível." };
+  const model = "google/gemini-2.5-flash";
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages, tools, tool_choice }),
+  });
+  if (!res.ok) {
+    if (res.status === 429) throw { status: 429, message: "Muitas requisições à IA. Tente em instantes." };
+    if (res.status === 402) throw { status: 402, message: "Créditos de IA insuficientes." };
+    throw { status: res.status, message: "Falha ao transcrever áudio." };
+  }
+  const d = await res.json();
+  const call = d.choices?.[0]?.message?.tool_calls?.[0];
+  if (!call?.function?.arguments) throw { status: 502, message: "IA não retornou transcrição." };
+  return { args: JSON.parse(call.function.arguments), provider: "lovable", model, usage: d.usage || {} };
+}
+
 const TRANSCRIBE_TOOL = {
   type: "function",
   function: {
@@ -190,15 +241,12 @@ serve(async (req: Request) => {
     const userText = `TERMOS DO GLOSSÁRIO a procurar (case-insensitive, aceite variações): ${glossaryTerms.length ? glossaryTerms.join(", ") : "(nenhum)"}.
 Transcreva e diarize o áudio anexado.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
+    let result;
+    try {
+      result = await callAudioAIWithTool(
+        admin,
+        LOVABLE_API_KEY,
+        [
           { role: "system", content: systemPrompt },
           {
             role: "user",
@@ -208,42 +256,20 @@ Transcreva e diarize o áudio anexado.`;
             ],
           },
         ],
-        tools: [TRANSCRIBE_TOOL],
-        tool_choice: { type: "function", function: { name: "return_transcript" } },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      console.error("transcribe AI error:", aiRes.status, txt);
-      const msg =
-        aiRes.status === 429
-          ? "Muitas requisições à IA. Tente em instantes."
-          : aiRes.status === 402
-            ? "Créditos de IA insuficientes."
-            : "Falha ao transcrever áudio.";
+        TRANSCRIBE_TOOL,
+      );
+    } catch (e: any) {
+      const msg = e?.message || "Falha ao transcrever áudio.";
       await admin
         .from("session_audio_recordings")
         .update({ status: "failed", error_message: msg } as any)
         .eq("id", recording_id);
       return new Response(JSON.stringify({ error: msg }), {
-        status: aiRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: e?.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiRes.json();
-    const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      await admin
-        .from("session_audio_recordings")
-        .update({ status: "failed", error_message: "IA não retornou transcrição estruturada." } as any)
-        .eq("id", recording_id);
-      return new Response(JSON.stringify({ error: "IA não retornou transcrição." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const parsed = JSON.parse(toolCall.function.arguments);
+    const parsed = result.args;
     const segments: Array<{ speaker: string; start: number; end: number; text: string }> = parsed.segments || [];
     const full_text: string = parsed.full_text || "";
     const glossary_hits = parsed.glossary_hits || [];
@@ -279,11 +305,11 @@ Transcreva e diarize o áudio anexado.`;
       .eq("id", recording_id);
 
     // Log usage
-    const usage = aiData?.usage || {};
+    const usage = result.usage || {};
     await admin.from("ai_usage_log").insert({
       user_id: userId,
-      provider: "lovable",
-      model: "google/gemini-2.5-flash",
+      provider: result.provider,
+      model: result.model,
       prompt_type: "transcribe_session",
       tokens_input: usage.prompt_tokens || 0,
       tokens_output: usage.completion_tokens || 0,

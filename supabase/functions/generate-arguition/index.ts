@@ -5,6 +5,50 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PROVIDER_ENDPOINTS: Record<string, { url: string; defaultModel: string }> = {
+  openai: { url: "https://api.openai.com/v1/chat/completions", defaultModel: "gpt-4o-mini" },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", defaultModel: "llama-3.3-70b-versatile" },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", defaultModel: "google/gemini-2.5-flash" },
+  google: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", defaultModel: "gemini-2.5-flash" },
+};
+
+async function callAIWithFallback(
+  adminClient: any,
+  lovableKey: string | undefined,
+  messages: any[],
+): Promise<{ content: string; provider: string; model: string; usage: any }> {
+  const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
+  for (const pk of keys || []) {
+    const cfg = PROVIDER_ENDPOINTS[pk.provider];
+    if (!cfg || !pk.api_key) continue;
+    try {
+      const res = await fetch(cfg.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${pk.api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: cfg.defaultModel, messages }),
+      });
+      if (!res.ok) { console.error(`[AI] ${pk.provider} ${res.status}`); continue; }
+      const d = await res.json();
+      const content = d.choices?.[0]?.message?.content;
+      if (content) return { content, provider: pk.provider, model: cfg.defaultModel, usage: d.usage || {} };
+    } catch (e) { console.error(`[AI] ${pk.provider} error:`, e); }
+  }
+
+  if (!lovableKey) throw { status: 500, message: "AI key missing" };
+  const model = "google/gemini-3-flash-preview";
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages }),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw { status: res.status, message: "AI failed", detail: t };
+  }
+  const d = await res.json();
+  return { content: d.choices?.[0]?.message?.content || "{}", provider: "lovable", model, usage: d.usage || {} };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -70,30 +114,17 @@ Responda APENAS em JSON estrito:
 {"coverage_summary":"…","questions":["…","…","…"]}`;
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) {
-      return new Response(JSON.stringify({ error: "AI key missing" }), { status: 500, headers: corsHeaders });
+    let aiResult;
+    try {
+      aiResult = await callAIWithFallback(admin, lovableKey, [
+        { role: "system", content: "Você é um tutor PBL. Responda apenas JSON válido." },
+        { role: "user", content: prompt },
+      ]);
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: e?.message || "AI failed", detail: e?.detail }), { status: e?.status || 500, headers: corsHeaders });
     }
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Você é um tutor PBL. Responda apenas JSON válido." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      return new Response(JSON.stringify({ error: "AI failed", detail: t }), { status: aiRes.status, headers: corsHeaders });
-    }
-
-    const aiData = await aiRes.json();
-    const raw = aiData.choices?.[0]?.message?.content || "{}";
-    const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
+    const cleaned = aiResult.content.replace(/```json\s*|\s*```/g, "").trim();
     let parsed: { coverage_summary?: string; questions?: string[] } = {};
     try { parsed = JSON.parse(cleaned); } catch { parsed = { coverage_summary: cleaned, questions: [] }; }
 
