@@ -38,10 +38,11 @@ const studentSections: DocSection[] = [
     path: "Página inicial → botão Entrar",
     steps: [
       "Acesse a URL da instituição e clique em Entrar no topo direito.",
-      "Use seu e-mail institucional e a senha inicial fornecida pelo professor ou administrador.",
+      "Informe seu nome e e-mail institucional e clique em Enviar Código — não é preciso senha.",
+      "Digite o código de 6 dígitos recebido por e-mail (válido por 10 minutos) para confirmar o acesso.",
       "Alternativa: clique em Entrar com Google se sua instituição habilitou o SSO.",
       "No primeiro acesso, siga o guia de onboarding para revisar seu nome e curso.",
-      "Se esquecer a senha, peça ao administrador para reenviá-la — a plataforma usa senhas efêmeras por segurança.",
+      "Se o código não chegar, use Reenviar código na tela de confirmação.",
     ],
   },
   {
@@ -331,7 +332,7 @@ const adminSections: DocSection[] = [
     path: "Admin → Usuários",
     steps: [
       "Clique em Novo usuário e escolha o papel (professor, aluno, institution_admin).",
-      "A plataforma gera uma senha inicial usando DEFAULT_PROFESSOR_PASSWORD / DEFAULT_STUDENT_PASSWORD.",
+      "Não é preciso definir senha: professores e alunos entram informando o e-mail e confirmando um código de 6 dígitos enviado por e-mail.",
       "Emails são únicos por instituição — o mesmo email pode ser usado em instituições diferentes.",
       "Para remover: deletar respeita a ordem group_members → course_members → user_roles → profiles → auth.",
     ],
@@ -518,8 +519,8 @@ const technicalSections: DocSection[] = [
     steps: [
       "RLS em 100% das tabelas; roles em user_roles com policies via has_role.",
       "Nunca armazenar role na profile; nunca decidir permissão a partir de localStorage.",
-      "Senhas gerenciadas pelo Supabase Auth (bcrypt) + senhas efêmeras via login edge function.",
-      "Secrets no Supabase Vault: STRIPE_SECRET_KEY, RESEND_API_KEY, LOVABLE_API_KEY, HUB_METRICS_KEY, defaults de senha.",
+      "Login de aluno/professor sem senha: código OTP de 6 dígitos (hash SHA-256, expira em 10min, máx. 5 tentativas) enviado por e-mail via login edge function antes de emitir a sessão.",
+      "Secrets no Supabase Vault: STRIPE_SECRET_KEY, RESEND_API_KEY, LOVABLE_API_KEY, HUB_METRICS_KEY.",
       "Scans Wiz + memória de segurança em @security-memory; findings ignorados são documentados.",
     ],
   },
