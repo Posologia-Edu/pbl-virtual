@@ -67,7 +67,7 @@ const studentSections: DocSection[] = [
       "P4 — Sistematização: agrupe hipóteses em categorias; a IA sugere conexões no mapa conceitual.",
       "P5 — Objetivos de aprendizagem: aprove os objetivos que o grupo estudará no P6 (aparecem como cards Kanban no P7).",
       "P6 — Estudo individual: fase off-line; use o painel Referências para anexar artigos ao seu objetivo.",
-      "P7 — Fechamento: o Relator sobe a apresentação (PDF/PPTX). Todos comentam por slide, movem objetivos no Kanban (a estudar → estudado → dominado) e anexam referências a cada objetivo.",
+      "P7 — Fechamento: o Relator sobe a apresentação (PDF/PPTX). Todos comentam por slide e anexam referências a cada objetivo no Kanban de Objetivos.",
       "A qualquer momento clique em Chat, Whiteboard ou Mapa Conceitual na barra lateral direita.",
     ],
   },
@@ -76,7 +76,7 @@ const studentSections: DocSection[] = [
     desc: "O que muda quando o professor te designa",
     path: "Painel Participantes (dentro da sala) — apenas o professor designa",
     steps: [
-      "Coordenador: controla o cronômetro da abertura (80min) e do fechamento (60min) e cronometra o tempo de fala clicando no nome de cada participante.",
+      "Coordenador: controla o cronômetro da abertura (80min) e do fechamento (110min) e cronometra o tempo de fala clicando no nome de cada participante.",
       "Relator: escreve no whiteboard, edita o mapa conceitual, envia a apresentação no P7 e move cards no Kanban de objetivos.",
       "Se você não for Relator/Coordenador, ainda pode comentar em slides, anexar referências e conversar no chat.",
     ],
@@ -201,11 +201,21 @@ const professorSections: DocSection[] = [
     ],
   },
   {
+    id: "p-objectives", icon: Target, title: "Banco de objetivos (P5)",
+    desc: "Objetivos de aprendizagem do módulo",
+    path: "Sala PBL → passo P5 → Banco de Objetivos",
+    steps: [
+      "Durante o P5, cadastre objetivos de aprendizagem vinculados ao módulo e marque os essenciais.",
+      "O painel mostra a cobertura dos objetivos entre as sessões do módulo (objective_sessions).",
+      "Os objetivos aprovados no P5 aparecem como cards no Kanban de Objetivos do P7 para anexar referências.",
+    ],
+  },
+  {
     id: "p-timer", icon: Timer, title: "Timer da sessão e tempo de fala",
     desc: "Cronômetros regressivos e por participante",
     path: "Sala PBL → aba Timer / painel Participantes",
     steps: [
-      "Abertura: 80min regressivos. Fechamento: 60min regressivos. Um alerta soa perto do fim.",
+      "Abertura: 80min regressivos. Fechamento: 110min regressivos. Um alerta soa perto do fim.",
       "No painel Participantes, clique no nome de um aluno para iniciar seu cronômetro de fala; clique novamente para pausar; clicar outra vez reinicia do zero.",
       "Cada trecho de fala é gravado com o passo (P3 — Brainstorming, etc.) e aparece no relatório.",
     ],
@@ -267,9 +277,8 @@ const professorSections: DocSection[] = [
     desc: "Visão longitudinal do grupo e do aluno",
     path: "Menu lateral → Relatórios",
     steps: [
-      "Aba Notas: evolução P1–Pn por critério e por aluno; exportação PDF em Professional/Enterprise.",
-      "Aba Participação por trecho: cada fala com aluno, momento (mm:ss), passo e duração.",
-      "Aba Risco: alunos em risco de reprovar (regra: <75% frequência ou <50% nota) com explicação da IA.",
+      "Aba Desempenho: evolução P1–Pn por critério e por aluno, com a seção Participação por trecho (cada fala com aluno, momento mm:ss, passo e duração); exportação PDF em Professional/Enterprise.",
+      "Aba Análise de Risco: alunos em risco de reprovar (regra: <75% frequência ou <50% nota) com explicação da IA.",
       "Aba Apoio ao Tutor: diagnóstico de padrões de dificuldade e sugestões pedagógicas para as próximas sessões.",
     ],
   },
@@ -302,8 +311,9 @@ const adminSections: DocSection[] = [
     desc: "Ponto central de gestão",
     path: "Menu lateral → Admin",
     steps: [
-      "Abas: Instituições, Cursos, Módulos, Grupos, Usuários, Cenários, Cenários Adaptativos, Objetivos, Branding, IA, API, Analytics, Financeiro, Assinatura, Segurança, Pipeline.",
+      "Abas: Instituições, Cursos, Usuários, Grupos, Módulos, Cenários, Cenários Adaptativos, Branding, Segurança — e, apenas para Superadmin: Financeiro, Convites, API Keys IA, Analytics, Pipeline. Assinatura aparece só para Institution Admin.",
       "Superadmin enxerga todas as instituições; Institution Admin enxerga apenas a própria (RLS).",
+      "O Banco de Objetivos não fica no Admin: é gerenciado pelo professor dentro da sala PBL, no passo P5.",
     ],
   },
   {
@@ -342,7 +352,7 @@ const adminSections: DocSection[] = [
     desc: "Fluxo com pré-definição de plano",
     path: "Admin → Convidar Admin",
     steps: [
-      "Preencha nome, email e escolha o plano (invited_starter, invited_professional, invited_enterprise).",
+      "Preencha nome, email e escolha o plano (starter, professional, enterprise).",
       "O convidado recebe email da Resend e ao aceitar herda a instituição sem passar por checkout Stripe.",
     ],
   },
@@ -354,15 +364,6 @@ const adminSections: DocSection[] = [
       "Crie manualmente ou clique em Gerar com IA — informe tema, contexto e área.",
       "Preencha o Dossiê Oculto do Paciente (usado pelo simulador virtual) e o Glossário do cenário.",
       "Cenários adaptativos: em Admin → Cenários Adaptativos, defina critérios/objetivos alvo e a IA gera variações.",
-    ],
-  },
-  {
-    id: "a-objectives", icon: Target, title: "Banco de objetivos",
-    desc: "Objetivos de aprendizagem reutilizáveis",
-    path: "Admin → Objetivos",
-    steps: [
-      "Cadastre objetivos por módulo, marque como essenciais para destaque nos relatórios.",
-      "Vincule objetivos aos cenários — aparecem no Kanban do P7.",
     ],
   },
   {
@@ -378,7 +379,7 @@ const adminSections: DocSection[] = [
   {
     id: "a-ai-keys", icon: Brain, title: "Chaves de IA por instituição",
     desc: "OpenAI, Gemini, Claude, Groq, OpenRouter",
-    path: "Admin → IA",
+    path: "Admin → Operação → API Keys IA (visível apenas para Superadmin)",
     steps: [
       "Adicione as chaves dos provedores desejados. Cada função tenta os provedores externos ativos em ordem.",
       "Se todos falharem, cai automaticamente no Lovable AI Gateway (fallback).",
@@ -432,7 +433,7 @@ const adminSections: DocSection[] = [
     desc: "Atualizações mensais",
     path: "Admin → Pipeline",
     steps: [
-      "Superadmin visualiza propostas automáticas de 7–8 features/mês geradas pela IA.",
+      "Superadmin visualiza propostas automáticas de 5 features/mês geradas pela IA.",
       "Aprove ou descarte itens; o changelog público é atualizado.",
     ],
   },
@@ -487,7 +488,7 @@ const technicalSections: DocSection[] = [
     id: "t-ai", icon: Cpu, title: "IA — provedores e fallback",
     desc: "Como as edge functions chamam modelos",
     steps: [
-      "Cada função (oracle-agent, sales-agent, ai-cotutor, generate-scenario, generate-minutes, generate-roadmap, generate-adaptive-scenario, suggest-evaluation, generate-concept-map, generate-arguition, patient-simulator, transcribe-session, tutor-insights) consulta ai_provider_keys ativos.",
+      "Cada função (oracle-agent, sales-agent, ai-cotutor, generate-scenario, generate-minutes, generate-roadmap, generate-adaptive-scenario, suggest-evaluation, generate-concept-map, generate-arguition, patient-simulator, transcribe-session, tutor-insights, predict-risk) consulta ai_provider_keys ativos.",
       "Tenta cada provedor externo em ordem definida; falhando todos, usa Lovable AI Gateway (google/gemini-3-flash-preview ou modelo indicado).",
       "Uso é registrado em ai_usage_log (tokens, custo, prompt_type, institution_id) para relatórios e limites mensais em ai_interaction_counts.",
       "Trata rate limit (429) e falta de créditos (402) com toasts amigáveis no cliente.",
@@ -530,7 +531,7 @@ const technicalSections: DocSection[] = [
     steps: [
       "Fluxo: create-checkout → redirect → check-subscription (3 tentativas para indexação Stripe).",
       "Portal do cliente via customer-portal; cancel-subscription marca cancel_at_period_end.",
-      "Feature flags (fullReportsEnabled, peerEvalEnabled, aiEnabled) derivadas do price_id.",
+      "Feature flags (peerEvaluationEnabled, badgesEnabled, fullReportsEnabled, whitelabelEnabled) derivadas do price_id.",
     ],
   },
   {
@@ -565,7 +566,7 @@ const technicalSections: DocSection[] = [
     id: "t-deploy", icon: GitBranch, title: "Deploy e ambientes",
     desc: "Como o app roda em produção",
     steps: [
-      "Frontend publicado via Lovable Hosting (CDN); domínios custom via Settings → Domains.",
+      "Frontend publicado via Lovable Hosting (CDN) e Cloudflare Pages (SPA routing via public/_redirects); domínios custom via Settings → Domains.",
       "Supabase gerenciado; migrações versionadas em supabase/migrations.",
       "Edge Functions declaradas em supabase/config.toml e deployadas automaticamente.",
       "Secrets configurados via UI do Supabase; nunca commitar tokens.",
