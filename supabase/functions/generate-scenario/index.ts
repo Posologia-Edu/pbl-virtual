@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,13 +40,14 @@ async function callExternalProvider(provider: string, apiKey: string, messages: 
   } catch (e) { console.error(`[AI] ${provider} error:`, e); return null; }
 }
 
-async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<AIResult> {
+async function callAIWithFallback(adminClient: any, lovableKey: string | undefined, messages: AIMsg[]): Promise<AIResult> {
   const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
   for (const pk of (keys || [])) {
     if (!pk.api_key) continue;
     const r = await callExternalProvider(pk.provider, pk.api_key, messages);
     if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
   }
+  if (!lovableKey) throw { status: 500, message: "Nenhum provedor de IA configurado. Peça ao administrador para cadastrar uma chave em Admin > API Keys IA." };
   console.log("[AI] Using Lovable AI fallback");
   const model = "google/gemini-3-flash-preview";
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages }) });
@@ -84,6 +86,29 @@ async function logAIUsage(adminClient: any, userId: string, aiResult: AIResult, 
   }
 }
 
+// Resolve the caller's institution regardless of whether they're the
+// institution owner, a professor teaching a group, or just a course member —
+// this function has no room_id/course_id param, so it can't chain through a
+// session like the other AI functions do.
+async function resolveCallerInstitutionId(admin: any, callerId: string): Promise<string | null> {
+  const { data: owned } = await admin.from("institutions").select("id").eq("owner_id", callerId).maybeSingle();
+  if (owned) return owned.id;
+
+  const { data: taught } = await admin.from("groups").select("course_id").eq("professor_id", callerId).not("course_id", "is", null).limit(1).maybeSingle();
+  if (taught?.course_id) {
+    const { data: course } = await admin.from("courses").select("institution_id").eq("id", taught.course_id).maybeSingle();
+    if (course?.institution_id) return course.institution_id;
+  }
+
+  const { data: member } = await admin.from("course_members").select("course_id").eq("user_id", callerId).limit(1).maybeSingle();
+  if (member?.course_id) {
+    const { data: course } = await admin.from("courses").select("institution_id").eq("id", member.course_id).maybeSingle();
+    if (course?.institution_id) return course.institution_id;
+  }
+
+  return null;
+}
+
 // Rate limiting
 const rateLimitMap = new Map<string, number[]>();
 function checkRateLimit(userId: string): boolean {
@@ -114,18 +139,14 @@ Deno.serve(async (req) => {
     if (!checkRateLimit(caller.id)) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Aguarde 1 minuto." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Check if user's institution has AI scenario generation enabled
-    const { data: instData } = await adminClient
-      .from("institutions")
-      .select("id")
-      .eq("owner_id", caller.id)
-      .maybeSingle();
+    const institutionId = await resolveCallerInstitutionId(adminClient, caller.id);
 
-    if (instData) {
+    if (institutionId) {
       const { data: sub } = await adminClient
         .from("subscriptions")
         .select("ai_scenario_generation")
-        .eq("institution_id", instData.id)
-        .limit(1)
+        .eq("institution_id", institutionId)
+        .in("status", ["active", "trialing"])
         .maybeSingle();
 
       if (sub && !sub.ai_scenario_generation) {
@@ -133,13 +154,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    const quota = await checkAiQuota(adminClient, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
+
     const { objectives } = await req.json();
     if (!objectives || typeof objectives !== "string" || objectives.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Objetivos de aprendizagem são obrigatórios (mínimo 5 caracteres)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const systemPrompt = `Você é um especialista em educação médica e metodologia PBL (Problem-Based Learning).
 Sua tarefa é criar um cenário clínico (caso problema) para uma sessão tutorial de PBL.
@@ -184,6 +207,8 @@ Responda EXATAMENTE no formato JSON abaixo, sem markdown:
         console.error("Failed to parse AI response:", aiResult.content);
         return new Response(JSON.stringify({ error: "Erro ao processar resposta da IA. Tente novamente." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+
+      await incrementAiQuota(adminClient, institutionId);
 
       return new Response(JSON.stringify({ scenario: parsed.scenario || "", glossary: parsed.glossary || [], questions: parsed.questions || [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (err: any) {

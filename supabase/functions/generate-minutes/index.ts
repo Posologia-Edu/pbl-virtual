@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveInstitutionIdFromRoom, checkAiQuota, incrementAiQuota, aiQuotaExceededResponse } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,13 +40,14 @@ async function callExternalProvider(provider: string, apiKey: string, messages: 
   } catch { return null; }
 }
 
-async function callAIWithFallback(adminClient: any, lovableKey: string, messages: AIMsg[]): Promise<AIResult> {
+async function callAIWithFallback(adminClient: any, lovableKey: string | undefined, messages: AIMsg[]): Promise<AIResult> {
   const { data: keys } = await adminClient.from("ai_provider_keys").select("provider, api_key, is_active").eq("is_active", true).order("updated_at", { ascending: false });
   for (const pk of (keys || [])) {
     if (!pk.api_key) continue;
     const r = await callExternalProvider(pk.provider, pk.api_key, messages);
     if (r) { console.log(`[AI] Success: ${pk.provider}`); return r; }
   }
+  if (!lovableKey) throw { status: 500, message: "Nenhum provedor de IA configurado. Peça ao administrador para cadastrar uma chave em Admin > API Keys IA." };
   console.log("[AI] Using Lovable AI fallback");
   const model = "google/gemini-3-flash-preview";
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages }) });
@@ -96,8 +98,6 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!lovableApiKey) return new Response(JSON.stringify({ error: "AI service not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
     const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
@@ -111,6 +111,10 @@ Deno.serve(async (req) => {
 
     const { data: room } = await adminClient.from("rooms").select("professor_id, name, group_id").eq("id", room_id).single();
     if (!room || room.professor_id !== userId) return new Response(JSON.stringify({ error: "Only the professor can generate minutes" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    const institutionId = await resolveInstitutionIdFromRoom(adminClient, room_id);
+    const quota = await checkAiQuota(adminClient, institutionId);
+    if (!quota.allowed) return aiQuotaExceededResponse(quota, corsHeaders);
 
     // Fetch session info
     const { data: session } = await adminClient
@@ -236,6 +240,7 @@ LEMBRE-SE: ata ZERADA é melhor que ata com conteúdo inventado. Se um aluno nã
 
       // Log AI usage
       await logAIUsage(adminClient, userId, aiResult, "generate_minutes");
+      await incrementAiQuota(adminClient, institutionId);
 
       const minutesContent = {
         text: aiResult.content,

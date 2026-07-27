@@ -165,7 +165,7 @@ async function callLovableAI(apiKey: string, messages: AIMessage[]): Promise<AIR
 
 async function callAIWithFallback(
   adminClient: any,
-  lovableApiKey: string,
+  lovableApiKey: string | undefined,
   messages: AIMessage[]
 ): Promise<AIResult> {
   const { data: providerKeys } = await adminClient
@@ -186,6 +186,9 @@ async function callAIWithFallback(
     }
   }
 
+  if (!lovableApiKey) {
+    throw { status: 500, message: "Nenhum provedor de IA configurado. Peça ao administrador para cadastrar uma chave em Admin > API Keys IA." };
+  }
   return callLovableAI(lovableApiKey, messages);
 }
 
@@ -267,12 +270,6 @@ Deno.serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const { room_id, session_id, mode, module_id } = await req.json();
 
