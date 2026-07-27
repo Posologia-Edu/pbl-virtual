@@ -21,6 +21,7 @@ import Documentation from "./pages/Documentation";
 import SemesterPlanning from "./pages/SemesterPlanning";
 import StudentDashboard from "./pages/StudentDashboard";
 import Contact from "./pages/Contact";
+import Support from "./pages/Support";
 import PublicContact from "./pages/PublicContact";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="/semester" element={<ProtectedRoute requiredRole={["admin", "professor", "institution_admin"]}><SemesterPlanning /></ProtectedRoute>} />
               <Route path="/student-dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
               <Route path="/contact" element={<ProtectedRoute><Contact /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
               <Route path="/public-contact" element={<PublicContact />} />
               <Route path="/features" element={<Features />} />
               <Route path="/terms" element={<Terms />} />

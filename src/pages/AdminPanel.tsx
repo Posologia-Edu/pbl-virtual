@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook, Sparkles, Search, Settings2, ShieldCheck, LayoutGrid, GraduationCap } from "lucide-react";
+import { UserPlus, Users, KeyRound, FileText, FolderOpen, Building2, BookOpen, Palette, CreditCard, MailPlus, Bot, BarChart3, Rocket, Webhook, Sparkles, Search, Settings2, ShieldCheck, LayoutGrid, GraduationCap, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CourseContextSelector from "@/components/admin/CourseContextSelector";
 import InstitutionExplorer from "@/components/admin/InstitutionExplorer";
@@ -25,6 +26,7 @@ import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import PipelineTab from "@/components/admin/PipelineTab";
 import ApiKeysTab from "@/components/admin/ApiKeysTab";
 import AdaptiveScenariosTab from "@/components/admin/AdaptiveScenariosTab";
+import SupportTicketsTab from "@/components/admin/SupportTicketsTab";
 
 export default function AdminPanel() {
   const { t } = useTranslation();
@@ -142,8 +144,10 @@ export default function AdminPanel() {
     ? courses.filter((c) => c.institution_id === effectiveInstitutionId)
     : courses;
 
-  const defaultTab = isSuperAdmin ? "institutions" : "courses";
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || (isSuperAdmin ? "institutions" : "courses");
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
+  const initialTicketId = searchParams.get("ticket");
   const [navQuery, setNavQuery] = useState("");
 
   type NavItem = { value: string; label: string; icon: any; visible: boolean; badge?: string };
@@ -184,6 +188,7 @@ export default function AdminPanel() {
         { value: "analytics", label: "Analytics", icon: BarChart3, visible: isSuperAdmin },
         { value: "pipeline", label: "Pipeline", icon: Rocket, visible: isSuperAdmin },
         { value: "api", label: "API & Integrações", icon: Webhook, visible: isSuperAdmin || isInstitutionAdmin },
+        { value: "support", label: "Suporte", icon: LifeBuoy, visible: isSuperAdmin },
       ],
     },
     {
@@ -429,6 +434,12 @@ export default function AdminPanel() {
           {(isSuperAdmin || isInstitutionAdmin) && (
             <TabsContent value="api">
               <ApiKeysTab institutionId={selectedInstitutionId} />
+            </TabsContent>
+          )}
+
+          {isSuperAdmin && (
+            <TabsContent value="support">
+              <SupportTicketsTab initialTicketId={initialTicketId} />
             </TabsContent>
           )}
 

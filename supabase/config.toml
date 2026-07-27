@@ -60,6 +60,9 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.support-ticket-notify]
+verify_jwt = false
+
 [functions.send-contact]
 verify_jwt = false
 
