@@ -1,28 +1,10 @@
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { PLAN_MAP } from "../_shared/planMap.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-// Map Stripe price IDs to plan names and limits
-const PLAN_MAP: Record<string, { plan_name: string; max_students: number; max_rooms: number; max_ai_interactions: number; ai_enabled: boolean; ai_scenario_generation: boolean; peer_evaluation_enabled: boolean; badges_enabled: boolean; full_reports_enabled: boolean; whitelabel_enabled: boolean }> = {
-  "price_1T3yHIHRnDD6dn6iLSvmwfFh": {
-    plan_name: "starter", max_students: 30, max_rooms: 3, max_ai_interactions: 50,
-    ai_enabled: true, ai_scenario_generation: false, peer_evaluation_enabled: false,
-    badges_enabled: false, full_reports_enabled: false, whitelabel_enabled: false,
-  },
-  "price_1T3yHbHRnDD6dn6iklmghD9E": {
-    plan_name: "professional", max_students: 150, max_rooms: 99999, max_ai_interactions: 500,
-    ai_enabled: true, ai_scenario_generation: true, peer_evaluation_enabled: true,
-    badges_enabled: true, full_reports_enabled: true, whitelabel_enabled: false,
-  },
-  "price_1T3yHuHRnDD6dn6iqPedb6Cp": {
-    plan_name: "enterprise", max_students: 99999, max_rooms: 99999, max_ai_interactions: 99999,
-    ai_enabled: true, ai_scenario_generation: true, peer_evaluation_enabled: true,
-    badges_enabled: true, full_reports_enabled: true, whitelabel_enabled: true,
-  },
 };
 
 Deno.serve(async (req) => {
@@ -162,6 +144,30 @@ Deno.serve(async (req) => {
     console.log("[CHECK-SUB] Has active/trialing sub:", hasActiveSub, "customerId:", customerId);
 
     if (!hasActiveSub) {
+      // No active/trialing subscription in Stripe. If this user owns a local
+      // subscription record that was previously synced from a real Stripe
+      // subscription (not an admin-assigned "invited_" plan) and isn't
+      // already marked canceled, sync it now — otherwise the institution
+      // would keep paid-plan access forever (see planLimits.ts status checks).
+      const { data: ownerSub } = await serviceClient
+        .from("subscriptions")
+        .select("id, status, stripe_customer_id, stripe_subscription_id")
+        .eq("owner_id", userId)
+        .maybeSingle();
+
+      if (
+        ownerSub &&
+        ownerSub.status !== "canceled" &&
+        ownerSub.stripe_subscription_id &&
+        !ownerSub.stripe_customer_id?.startsWith("invited_")
+      ) {
+        console.log("[CHECK-SUB] No active Stripe sub found; marking local record canceled:", ownerSub.id);
+        await serviceClient
+          .from("subscriptions")
+          .update({ status: "canceled" })
+          .eq("id", ownerSub.id);
+      }
+
       // No active subscription anywhere — check local
       const localSub = await getLocalSubscription(userId, serviceClient);
       return new Response(JSON.stringify({
@@ -311,14 +317,6 @@ Deno.serve(async (req) => {
           .from("user_roles")
           .upsert({ user_id: userId, role: "institution_admin" }, { onConflict: "user_id,role" });
       }
-    }
-
-    // If not subscribed but local exists, sync cancel state
-    if (!hasActiveSub && localSub) {
-      await serviceClient
-        .from("subscriptions")
-        .update({ status: "canceled" })
-        .eq("id", localSub.id);
     }
 
     // Fetch AI interaction count for current month

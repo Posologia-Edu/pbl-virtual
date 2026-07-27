@@ -14,6 +14,7 @@ serve(async (req) => {
     const secretsToCheck = [
       { key: "LOVABLE_API_KEY", label: "Lovable AI (OpenAI/Gemini)", category: "ai" },
       { key: "STRIPE_SECRET_KEY", label: "Stripe (Pagamentos)", category: "payments" },
+      { key: "STRIPE_WEBHOOK_SECRET", label: "Stripe Webhook (Signing Secret)", category: "payments" },
       { key: "RESEND_API_KEY", label: "Resend (E-mails)", category: "email" },
       { key: "HUB_SERVICE_KEY", label: "Hub de Métricas", category: "metrics" },
     ];
