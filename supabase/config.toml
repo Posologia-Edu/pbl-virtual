@@ -3,6 +3,9 @@ project_id = "vpoqqgnbhqgxikumjitu"
 [functions.manage-users]
 verify_jwt = false
 
+[functions.student-performance]
+verify_jwt = false
+
 [functions.bootstrap-admin]
 verify_jwt = false
 
