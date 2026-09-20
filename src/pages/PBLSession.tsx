@@ -553,14 +553,14 @@ export default function PBLSession() {
                   key={step.id}
                   onClick={() => (isProfessor || isViewingHistory) && updateStep(step.id)}
                   disabled={!isProfessor && !isViewingHistory}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
+                  className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-sm text-left transition-colors ${
                     (isViewingHistory ? historyStep : activeStep) === step.id
                       ? "bg-primary/10 text-primary font-medium"
                       : (isProfessor || isViewingHistory) ? "text-foreground/70 hover:bg-secondary" : "text-foreground/70 cursor-default"
                   }`}
                 >
-                  <step.icon className="h-4 w-4 shrink-0" />
-                  <span>P{step.id} — {step.label}</span>
+                  <step.icon className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="leading-snug">P{step.id} — {step.label}</span>
                 </button>
               ))}
             </div>
@@ -573,14 +573,14 @@ export default function PBLSession() {
                   key={step.id}
                   onClick={() => (isProfessor || isViewingHistory) && updateStep(step.id)}
                   disabled={!isProfessor && !isViewingHistory}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
+                  className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-sm text-left transition-colors ${
                     (isViewingHistory ? historyStep : activeStep) === step.id
                       ? "bg-primary/10 text-primary font-medium"
                       : (isProfessor || isViewingHistory) ? "text-foreground/70 hover:bg-secondary" : "text-foreground/70 cursor-default"
                   }`}
                 >
-                  <step.icon className="h-4 w-4 shrink-0" />
-                  <span>P{step.id} — {step.label}</span>
+                  <step.icon className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="leading-snug">P{step.id} — {step.label}</span>
                 </button>
               ))}
             </div>
