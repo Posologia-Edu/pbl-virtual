@@ -109,15 +109,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Helper: check if a user is already enrolled in any course of a given institution
-      const isUserInInstitution = async (userId: string, institutionId: string): Promise<boolean> => {
-        const { data: memberships } = await adminClient
-          .from("course_members")
-          .select("course_id, courses!inner(institution_id)")
-          .eq("user_id", userId);
-        return (memberships || []).some((m: any) => m.courses?.institution_id === institutionId);
-      };
-
       // Determine the institution_id from the course_id (if provided) or from callerInstitutionId
       let targetInstitutionId = callerInstitutionId;
       if (course_id && !targetInstitutionId) {
@@ -213,17 +204,6 @@ Deno.serve(async (req) => {
           });
           if (updateErr) {
             console.error("Unban error:", updateErr);
-          }
-        }
-
-        // Check if user is already in this institution
-        if (targetInstitutionId) {
-          const alreadyInInstitution = await isUserInInstitution(existingUser.id, targetInstitutionId);
-          if (alreadyInInstitution) {
-            return new Response(
-              JSON.stringify({ error: "Este e-mail já está cadastrado nesta instituição." }),
-              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
           }
         }
 
