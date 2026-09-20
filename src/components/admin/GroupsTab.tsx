@@ -58,7 +58,7 @@ export default function GroupsTab({ groups, groupMembers, profiles, modules, cou
     .map((cm) => cm.user_id);
 
   const allProfessors = profiles.filter(
-    (p) => p.user_roles?.some((r: any) => r.role === "professor") &&
+    (p) => p.user_roles?.some((r: any) => r.role === "professor" || r.role === "institution_admin") &&
       (!selectedCourseId || courseMemberIds.includes(p.user_id))
   );
 

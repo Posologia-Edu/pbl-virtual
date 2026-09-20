@@ -237,11 +237,12 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
   };
 
   const roleLabel = (role: string) => {
-    switch (role) { case "admin": return "Administrador"; case "professor": return "Professor"; case "student": return "Aluno"; default: return role; }
+    switch (role) { case "admin": return "Administrador"; case "institution_admin": return "Admin Institucional"; case "professor": return "Professor"; case "student": return "Aluno"; default: return role; }
   };
   const roleColor = (role: string) => {
     switch (role) {
       case "admin": return "bg-destructive/10 text-destructive border-destructive/20";
+      case "institution_admin": return "bg-destructive/10 text-destructive border-destructive/20";
       case "professor": return "bg-primary/10 text-primary border-primary/20";
       case "student": return "bg-[hsl(var(--clinical-success))]/10 text-[hsl(var(--clinical-success))] border-[hsl(var(--clinical-success))]/20";
       default: return "bg-muted text-muted-foreground";
@@ -393,6 +394,7 @@ export default function UsersTab({ profiles, courseMembers, selectedCourseId, se
               { key: "professor", label: "Professores", icon: <GraduationCap className="h-4 w-4" /> },
               { key: "student", label: "Alunos", icon: <BookOpen className="h-4 w-4" /> },
               { key: "admin", label: "Administradores", icon: <User className="h-4 w-4" /> },
+              { key: "institution_admin", label: "Admins Institucionais", icon: <User className="h-4 w-4" /> },
             ]
               .map((section) => {
                 const users = filteredProfiles.filter(
