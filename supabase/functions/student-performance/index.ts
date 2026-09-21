@@ -37,6 +37,16 @@ const corsHeaders = {
 
 const GRADE_MAP: Record<string, number> = { O: 0, I: 25, PS: 50, S: 75, MS: 100 };
 const MAX_RECENT_EVALUATIONS = 20;
+// Mirrors the sibling TBL/simulador/prova.facil repos' fix for the same
+// underlying problem (a heavy account's full history in one payload can
+// time out the caller's own LLM tool-result call): default to only the
+// most recent room's evaluations, not every recent evaluation across every
+// room this student was ever in. Trade-off accepted on purpose: PBL's
+// "criterios_fracos" pattern (a criterion averaging low across >=2 samples)
+// is now scoped to one room instead of the student's whole history, so it
+// needs >=2 samples *within that room* to fire — a real student who wants
+// their cross-room pattern back can still name a specific room via `sala`.
+const DEFAULT_ROOM_LIMIT = 1;
 
 const CODE_TTL_MINUTES = 10;
 const MAX_CODE_REQUESTS_PER_HOUR = 5;
@@ -92,20 +102,45 @@ function averageByCriterion(rows: { criterion_id: string; grade: string | null; 
   }));
 }
 
-async function findStudentPerformance(supabase: any, email: string) {
+async function findStudentPerformance(supabase: any, email: string, salaFilter?: string | null) {
   const { data: usersData, error: usersErr } = await supabase.auth.admin.listUsers();
   if (usersErr) throw usersErr;
   const user = (usersData?.users || []).find((u: any) => u.email?.toLowerCase() === email);
   if (!user) return { aluno_email: email, encontrado: false, avaliacoes_professor: [], criterios_fracos: [], avaliacao_dos_colegas: [] };
 
-  const { data: evals, error: evalErr } = await supabase
+  const { data: allEvals, error: evalErr } = await supabase
     .from("evaluations")
-    .select("grade, created_at, problem_number, criterion_id, evaluation_criteria(label, phase), rooms(name, groups(name))")
+    .select("room_id, grade, created_at, problem_number, criterion_id, evaluation_criteria(label, phase), rooms(name, groups(name))")
     .eq("student_id", user.id)
     .eq("archived", false)
     .order("created_at", { ascending: false })
     .limit(MAX_RECENT_EVALUATIONS);
   if (evalErr) throw evalErr;
+
+  let evals = allEvals || [];
+  let maisSalasDisponiveis: string[] = [];
+  if (salaFilter) {
+    const matched = evals.filter((e: any) => (e.rooms?.name || "").toLowerCase().includes(salaFilter.toLowerCase()));
+    if (matched.length === 0) {
+      return {
+        aluno_email: email,
+        encontrado: true,
+        sala_nao_encontrada: salaFilter,
+        salas_disponiveis: Array.from(new Set(evals.map((e: any) => e.rooms?.name).filter(Boolean))),
+        avaliacoes_professor: [],
+        criterios_fracos: [],
+        avaliacao_dos_colegas: [],
+      };
+    }
+    evals = matched;
+  } else if (evals.length > 0) {
+    const mostRecentRoom = evals[0].rooms?.name || null;
+    maisSalasDisponiveis = Array.from(
+      new Set(evals.slice(1).map((e: any) => e.rooms?.name).filter((name: any) => name && name !== mostRecentRoom))
+    );
+    evals = evals.filter((e: any) => (e.rooms?.name || null) === mostRecentRoom);
+  }
+  const targetRoomId = evals[0]?.room_id || null;
 
   const avaliacoes_professor = (evals || []).map((e: any) => ({
     turma: e.rooms?.groups?.name || null,
@@ -127,12 +162,15 @@ async function findStudentPerformance(supabase: any, email: string) {
     }));
   const criterios_fracos = averageByCriterion(criterionRowsForAvg).filter((c) => c.amostras >= 2 && c.media < 75);
 
-  const { data: peerEvals, error: peerErr } = await supabase
-    .from("peer_evaluations")
-    .select("grade, criterion_id, evaluation_criteria(label, phase)")
-    .eq("target_id", user.id)
-    .eq("is_self", false)
-    .eq("archived", false);
+  const { data: peerEvals, error: peerErr } = targetRoomId
+    ? await supabase
+        .from("peer_evaluations")
+        .select("grade, criterion_id, evaluation_criteria(label, phase)")
+        .eq("target_id", user.id)
+        .eq("room_id", targetRoomId)
+        .eq("is_self", false)
+        .eq("archived", false)
+    : { data: [], error: null };
   if (peerErr) throw peerErr;
 
   const peerRowsForAvg = (peerEvals || [])
@@ -146,7 +184,14 @@ async function findStudentPerformance(supabase: any, email: string) {
   const avaliacao_dos_colegas = averageByCriterion(peerRowsForAvg);
 
   const encontrado = avaliacoes_professor.length > 0 || avaliacao_dos_colegas.length > 0;
-  return { aluno_email: email, encontrado, avaliacoes_professor, criterios_fracos, avaliacao_dos_colegas };
+  return {
+    aluno_email: email,
+    encontrado,
+    avaliacoes_professor,
+    criterios_fracos,
+    avaliacao_dos_colegas,
+    ...(maisSalasDisponiveis.length ? { mais_salas_disponiveis: maisSalasDisponiveis } : {}),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -164,17 +209,20 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     let email = url.searchParams.get("email");
     let code = url.searchParams.get("code");
+    let sala = url.searchParams.get("sala");
     if (!email && req.method === "POST") {
       try {
         const body = await req.json();
         email = body?.email ?? null;
         code = body?.code ?? code;
+        sala = body?.sala ?? sala;
       } catch {
         // no/invalid JSON body — email stays null, handled below
       }
     }
     email = (email || "").trim().toLowerCase();
     code = (code || "").trim();
+    sala = (sala || "").trim() || null;
 
     if (!email || !email.includes("@")) {
       return json({ error: "Parâmetro 'email' ausente ou inválido." }, 400);
@@ -226,7 +274,7 @@ Deno.serve(async (req) => {
         .update({ consumed_at: new Date().toISOString() })
         .eq("id", pending.id);
 
-      const result = await findStudentPerformance(supabase, email);
+      const result = await findStudentPerformance(supabase, email, sala);
       return json({ status: "verified", ...result });
     }
 
