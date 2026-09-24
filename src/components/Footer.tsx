@@ -19,6 +19,7 @@ export default function Footer() {
     {
       title: "Recursos",
       links: [
+        { label: "Como funciona", href: "/como-funciona" },
         { label: "Documentação", href: "/docs" },
         { label: "Contato", href: "/public-contact" },
       ],

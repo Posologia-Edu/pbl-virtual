@@ -80,7 +80,11 @@ export default function LandingPage() {
               <button
                 key={key}
                 onClick={() => {
-                  const id = key === "navResources" ? "features" : key === "navHowItWorks" ? "how-it-works" : "pillars";
+                  if (key === "navHowItWorks") {
+                    navigate("/como-funciona");
+                    return;
+                  }
+                  const id = key === "navResources" ? "features" : "pillars";
                   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
                 }}
                 className="px-4 py-1.5 rounded-full text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-white/60 transition-all"
