@@ -31,7 +31,7 @@ import AuthDialog from "@/components/AuthDialog";
 import Footer from "@/components/Footer";
 
 type Role = "student" | "professor";
-type ScreenKey =
+export type ScreenKey =
   | "student-dashboard"
   | "room-flow"
   | "collaboration"
@@ -256,7 +256,7 @@ function FinalizeMockup() {
   return <MockupShell section="fechamento" active="Relatórios"><div className="flex items-center justify-between"><div><p className="text-[9px] text-slate-400">P7 · Checklist final</p><h3 className="text-sm font-bold text-slate-800">Finalizar sessão</h3></div><CheckCircle2 className="h-5 w-5 text-emerald-500" /></div><div className="mt-4 grid gap-2 sm:grid-cols-[1fr_0.85fr]"><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-[10px] font-bold text-slate-700">Antes de finalizar</p><div className="mt-3 space-y-2">{["Apresentação enviada", "Objetivos revisados", "Referências anexadas", "Avaliações preenchidas"].map((item) => <div key={item} className="flex items-center gap-2 text-[9px] text-slate-600"><span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check className="h-2.5 w-2.5" /></span>{item}</div>)}</div></div><div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3"><p className="text-[10px] font-bold text-slate-700">Veredito do tutor</p><div className="mt-3 rounded-lg border border-white bg-white p-2.5 text-[9px] leading-relaxed text-slate-500">Grupo conectou evidências aos objetivos e apresentou boa colaboração.</div><span className="mt-3 block rounded-lg bg-primary px-2 py-2 text-center text-[9px] font-semibold text-white">Finalizar P7</span></div></div></MockupShell>;
 }
 
-function Mockup({ screen }: { screen: ScreenKey }) {
+export function Mockup({ screen }: { screen: ScreenKey }) {
   const screens: Record<ScreenKey, React.ReactNode> = {
     "student-dashboard": <StudentDashboardMockup />, "room-flow": <RoomFlowMockup />, collaboration: <CollaborationMockup />, objectives: <ObjectivesMockup />, research: <ResearchMockup />, presentation: <PresentationMockup />, evaluation: <EvaluationMockup />, "professor-dashboard": <ProfessorDashboardMockup />, release: <ReleaseMockup />, control: <ControlMockup />, monitor: <MonitorMockup />, finalize: <FinalizeMockup />,
   };

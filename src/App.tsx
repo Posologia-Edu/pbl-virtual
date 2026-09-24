@@ -18,7 +18,7 @@ import DemoSession from "./pages/DemoSession";
 import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
 import Documentation from "./pages/Documentation";
-import PBLGuide from "./pages/PBLGuide";
+import PBLGuide from "./pages/PBLGuideDetailed";
 import SemesterPlanning from "./pages/SemesterPlanning";
 import StudentDashboard from "./pages/StudentDashboard";
 import Contact from "./pages/Contact";
