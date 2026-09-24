@@ -19,6 +19,7 @@ import Rooms from "./pages/Rooms";
 import Reports from "./pages/Reports";
 import Documentation from "./pages/Documentation";
 import PBLGuide from "./pages/PBLGuideDetailed";
+import PBLToolDetail from "./pages/PBLToolDetail";
 import SemesterPlanning from "./pages/SemesterPlanning";
 import StudentDashboard from "./pages/StudentDashboard";
 import Contact from "./pages/Contact";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/docs" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
               <Route path="/como-funciona" element={<PBLGuide />} />
+              <Route path="/como-funciona/ferramentas/:toolSlug" element={<PBLToolDetail />} />
               <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
               <Route path="/auth/reset-password" element={<ResetPassword />} />
               <Route path="/demo" element={<ProtectedRoute><DemoSession /></ProtectedRoute>} />

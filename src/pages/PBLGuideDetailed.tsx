@@ -43,8 +43,22 @@ function ScreenFigure({ screen, title, children, wide = false }: { screen: Scree
 
 export default function PBLGuideDetailed() {
   const navigate = useNavigate();
+  const handleToolCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const card = (event.target as HTMLElement).closest<HTMLElement>(".pbl-tool-card");
+    const title = card?.querySelector("h3")?.textContent?.trim();
+    const toolRoutes: Record<string, string> = {
+      "Chat em tempo real": "chat",
+      "Whiteboard colaborativo": "whiteboard",
+      "Mapa conceitual": "mapa-conceitual",
+      "Referências e busca científica": "referencias",
+      "Timer da sessão": "timer",
+      "AI Co-tutor e apoio": "ai-co-tutor",
+    };
+    const slug = title ? toolRoutes[title] : undefined;
+    if (slug) navigate(`/como-funciona/ferramentas/${slug}`);
+  };
 
-  return <div className="pbl-doc">
+  return <div className="pbl-doc" onClick={handleToolCardClick}>
     <a className="pbl-skip-link" href="#pbl-conteudo">Pular para o conteúdo</a>
 
     <header className="pbl-topbar">
